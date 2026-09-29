@@ -1,0 +1,28 @@
+{
+  "name": "premise-bun-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "workspaces": [
+    "templates/premise-*",
+    "apps/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test",
+    "lint": "eslint templates/premise-* apps/* libs/* --no-error-on-unmatched-pattern --no-warn-ignored && bun run --filter '*' lint",
+    "lint:fix": "eslint templates/premise-* apps/* libs/* --no-error-on-unmatched-pattern --fix --no-warn-ignored && bun run --filter '*' lint:fix",
+    "format": "prettier --plugin=prettier-plugin-svelte --ignore-path .prettierignore --write .",
+    "format:check": "prettier --plugin=prettier-plugin-svelte --ignore-path .prettierignore --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "globals": "17.12.0",
+    "prettier": "3.9.8",
+    "prettier-plugin-svelte": "4.1.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0"
+  }
+}

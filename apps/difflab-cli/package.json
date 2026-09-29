@@ -1,0 +1,48 @@
+{
+  "name": "@difflab/difflab-cli",
+  "version": "0.1.0",
+  "private": false,
+  "description": "A minimal Bun CLI starter built with Commander",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/difflab-io/difflab.git",
+    "directory": "apps/difflab-cli"
+  },
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "bin": {
+    "difflab-cli": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun --define process.env.PREMISE_PACKAGE_VERSION=\\\"${PREMISE_PUBLISH_VERSION:-0.1.0}\\\"",
+    "clean": "rm -rf dist coverage",
+    "test": "bun test",
+    "lint": "tsc --noEmit",
+    "lint:fix": "bun run format && bun run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "commander": "15.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "prettier": "3.9.8",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,162 @@
+[tools]
+bun = "1.4.2"
+node = "24"
+
+[tasks.install]
+description = "Install Bun dependencies"
+run = "bun install"
+
+[tasks.build]
+description = "Build the application"
+depends = ["install"]
+run = "bun run build"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "bun run clean"
+
+[tasks.test]
+description = "Run the Bun test suite"
+depends = ["install"]
+run = "bun run test"
+
+[tasks.lint]
+description = "Type-check the application"
+depends = ["install"]
+run = "bun run lint"
+
+[tasks."lint:fix"]
+description = "Format and type-check the application"
+depends = ["install"]
+run = "bun run lint:fix"
+
+[tasks.format]
+description = "Format project files"
+depends = ["install"]
+run = "bun run format"
+
+[tasks."format:check"]
+description = "Check project formatting"
+depends = ["install"]
+run = "bun run format:check"
+
+[tasks.env-pull]
+description = "Pull external environment configuration"
+run = 'echo "env-pull: nothing to pull"'
+
+[tasks."publish:rc"]
+description = "Publish a release candidate to npm"
+depends = ["build"]
+run = '''
+set -eu
+if [ "${PREMISE_TEMPLATE_TEST:-}" = "1" ]; then
+  echo "publish:rc (test mode): npm pack --dry-run"
+  npm pack --dry-run
+  exit 0
+fi
+version="${PREMISE_PUBLISH_VERSION:?PREMISE_PUBLISH_VERSION is required}"
+if ! printf '%s\n' "$version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*$'; then
+  echo "error: publish:rc requires a SemVer prerelease version (got $version)" >&2
+  exit 1
+fi
+backup="$(mktemp)"
+cp package.json "$backup"
+trap 'cp "$backup" package.json; rm -f "$backup"' EXIT
+npm pkg set "version=$version"
+name="$(npm pkg get name | tr -d '\"')"
+if npm view "$name@$version" version >/dev/null 2>&1; then
+  echo "skip: $name@$version already published"
+else
+  publish_log="$(mktemp)"
+  if npm publish --tag rc --provenance >"$publish_log" 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  cat "$publish_log"
+  if [ "$status" -ne 0 ]; then
+    if grep -Eqi 'previously published versions|cannot publish over' "$publish_log"; then
+      echo "skip: $name@$version was already published"
+    else
+      rm -f "$publish_log"
+      exit "$status"
+    fi
+  fi
+  rm -f "$publish_log"
+fi
+'''
+
+[tasks.publish]
+description = "Publish a stable version to npm"
+depends = ["build"]
+run = '''
+set -eu
+if [ "${PREMISE_TEMPLATE_TEST:-}" = "1" ]; then
+  echo "publish (test mode): npm pack --dry-run"
+  npm pack --dry-run
+  exit 0
+fi
+version="${PREMISE_PUBLISH_VERSION:?PREMISE_PUBLISH_VERSION is required}"
+if ! printf '%s\n' "$version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+  echo "error: publish requires a stable SemVer version (got $version)" >&2
+  exit 1
+fi
+backup="$(mktemp)"
+cp package.json "$backup"
+trap 'cp "$backup" package.json; rm -f "$backup"' EXIT
+npm pkg set "version=$version"
+name="$(npm pkg get name | tr -d '\"')"
+if npm view "$name@$version" version >/dev/null 2>&1; then
+  echo "skip: $name@$version already published"
+else
+  publish_log="$(mktemp)"
+  if npm publish --tag latest --provenance >"$publish_log" 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  cat "$publish_log"
+  if [ "$status" -ne 0 ]; then
+    if grep -Eqi 'previously published versions|cannot publish over' "$publish_log"; then
+      echo "skip: $name@$version was already published"
+    else
+      rm -f "$publish_log"
+      exit "$status"
+    fi
+  fi
+  rm -f "$publish_log"
+fi
+'''
+
+[tasks.run]
+description = "Run the application"
+depends = ["install"]
+run = '''
+set -eu
+if [ "${PREMISE_TEMPLATE_TEST:-}" = "1" ]; then
+  bun run build
+else
+  bun run start
+fi
+'''
+
+[tasks.dev]
+description = "Run the application in development mode"
+depends = ["install"]
+run = '''
+set -eu
+if [ "${PREMISE_TEMPLATE_TEST:-}" = "1" ]; then
+  bun run build
+else
+  bun run dev
+fi
+'''
+
+[tasks.deploy]
+description = "Report deferred deployment"
+run = 'echo "deploy: no deployment target configured"'
+
+[tasks.e2e]
+description = "Run the finite application smoke test"
+depends = ["install"]
+run = "sh -c 'bun run test'"
