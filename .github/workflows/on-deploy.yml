@@ -1,8 +1,6 @@
 ---
 name: On Deploy
 
-# Manual only for now. The deploy flow is a no-op until this repo defines a
-# `deploy` mise task.
 'on':
   workflow_dispatch:
     inputs:

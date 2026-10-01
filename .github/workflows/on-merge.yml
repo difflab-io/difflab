@@ -1,8 +1,6 @@
 ---
 name: On Merge
 
-# Premise owns stable release planning, tagging, and publication. Reruns reuse a
-# stable tag already at HEAD and replace conflicting GitHub release assets.
 'on':
   push:
     branches:
@@ -32,6 +30,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
         with:
           flow: on-merge
+          release: auto
           install-premise: build
