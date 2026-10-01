@@ -46,6 +46,17 @@ Clients are selected explicitly. Supported names: `pi`, `cursor`, `codex`, `clau
 
 MCP clients launch `npx -y @difflab/difflab-cli mcp serve` over stdio, so no daemon or port is needed. Bun must be on the client's PATH.
 
+## MCP todo tools
+
+`mcp setup` does **not** create a todo file. Use `todo_init` to create a list. Each todo call requires an absolute `cwd` pointing to an existing directory and a relative `path` to a JSON todo file inside it. For example:
+
+```text
+todo_init({"cwd":"/home/alex","path":"todos.json"})
+todo_add({"cwd":"/home/alex","path":"todos.json","text":"Review PR"})
+```
+
+`todo_list`, `todo_complete`, and `todo_remove` also require both fields; the latter two require a task `id` returned by `todo_list` or `todo_add`. Call `todo_init` before other operations on a new file. Parent traversal outside `cwd`, absolute `path` values, and symlinked paths are rejected. Keep personal todo files outside the repository or add their paths to `.gitignore`. Concurrent writes to the same file are not yet coordinated. Agents can load `skills/difflab-todo/SKILL.md` for usage instructions.
+
 ## Document templates
 
 List the available templates or scaffold a new document from one:
