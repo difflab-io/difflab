@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
 
       - name: Run on-commit flow
-        uses: cloudvoyant/premise@v0
+        uses: cloudvoyant/premise@v0.4.2
         env:
           NODE_AUTH_TOKEN: >-
             ${{ github.event_name == 'push' &&
