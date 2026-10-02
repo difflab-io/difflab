@@ -7,25 +7,6 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-function responseText(response: unknown) {
-  if (
-    !response ||
-    typeof response !== 'object' ||
-    !('content' in response) ||
-    !Array.isArray(response.content)
-  ) {
-    throw new Error('MCP response had no content')
-  }
-  const item: unknown = response.content.find(
-    (entry: unknown) =>
-      entry !== null && typeof entry === 'object' && 'type' in entry && entry.type === 'text',
-  )
-  if (!item || typeof item !== 'object' || !('text' in item) || typeof item.text !== 'string') {
-    throw new Error('MCP response had no text')
-  }
-  return JSON.parse(item.text)
-}
-
 describe('Difflab MCP over stdio', () => {
   test('exposes todo tools and persists their changes', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'difflab-mcp-'))
@@ -132,3 +113,24 @@ describe('Difflab MCP over stdio', () => {
     }
   }, 15_000)
 })
+
+// Helpers ---------------------------------------------------------------------
+
+function responseText(response: unknown) {
+  if (
+    !response ||
+    typeof response !== 'object' ||
+    !('content' in response) ||
+    !Array.isArray(response.content)
+  ) {
+    throw new Error('MCP response had no content')
+  }
+  const item: unknown = response.content.find(
+    (entry: unknown) =>
+      entry !== null && typeof entry === 'object' && 'type' in entry && entry.type === 'text',
+  )
+  if (!item || typeof item !== 'object' || !('text' in item) || typeof item.text !== 'string') {
+    throw new Error('MCP response had no text')
+  }
+  return JSON.parse(item.text)
+}
