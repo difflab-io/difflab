@@ -1,13 +1,13 @@
-import { execFileSync } from 'node:child_process'
-import { homedir } from 'node:os'
+import { resolveHomeDirectory } from '../extensions/osx.js'
+import type { CommandRunner } from '../extensions/processx.js'
+import { runCommand } from '../extensions/processx.js'
 
 export const mcpServer = {
   command: 'npx',
   args: ['-y', '@difflab/difflab-cli', 'mcp', 'serve'],
 } as const
 
-export type SetupResult = { file: string; status: 'added' | 'existing' }
-export type CommandRunner = (command: string, args: string[], cwd: string) => void
+export type McpConfigSetupResult = { file: string; status: 'added' | 'existing' }
 export type SetupContext = {
   home?: string
   platform?: NodeJS.Platform
@@ -16,24 +16,11 @@ export type SetupContext = {
 
 export interface AgentAdapter {
   readonly id: string
-  setupMcpConfig(context?: SetupContext): Promise<SetupResult>
+  setupMcpConfig(context?: SetupContext): Promise<McpConfigSetupResult>
 }
 
 export function setupHome(context: SetupContext): string {
-  return context.home ?? homedir()
+  return resolveHomeDirectory(context.home)
 }
 
-export function runCommand(command: string, args: string[], cwd: string): void {
-  try {
-    execFileSync(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
-  } catch (error) {
-    throw new Error(
-      `Could not configure ${command}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error },
-    )
-  }
-}
-
-export function isFileError(error: unknown, code: string): boolean {
-  return error instanceof Error && 'code' in error && error.code === code
-}
+export { runCommand }

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { JsonFileStoreReadError } from '../stores/json-file-store.js'
 import { TodoStore } from './store'
 
 const directories: string[] = []
@@ -53,13 +54,38 @@ describe('todo file', () => {
     await expectFailure(store.remove(second.id), 'Unknown task ID')
   })
 
-  test('does not silently replace corrupt or missing files', async () => {
+  test('maps missing files consistently for list, add, remove, and complete', async () => {
     const store = await storeInTempDir()
     await expectFailure(store.list(), 'Call todo_init first')
+    await expectFailure(store.add('task'), 'Call todo_init first')
+    await expectFailure(store.remove('missing'), 'Call todo_init first')
+    await expectFailure(store.complete('missing'), 'Call todo_init first')
+  })
+
+  test('propagates non-not-found read failures', async () => {
+    const store = await storeInTempDir()
+    await mkdir(store.file, { recursive: true })
+    let failure: unknown
+    try {
+      await store.list()
+    } catch (error) {
+      failure = error
+    }
+    expect(failure).toBeInstanceOf(JsonFileStoreReadError)
+    if (failure instanceof JsonFileStoreReadError) {
+      expect(failure.message).not.toContain('Call todo_init first')
+      expect((failure.cause as NodeJS.ErrnoException).code).toBe('EISDIR')
+    }
+  })
+
+  test('maps corrupt files consistently for add, remove, and complete', async () => {
+    const store = await storeInTempDir()
     await store.initialize()
     await writeFile(store.file, '{invalid')
     await expectFailure(store.initialize(), 'Invalid todo list')
     await expectFailure(store.add('task'), 'Invalid todo list')
+    await expectFailure(store.remove('missing'), 'Invalid todo list')
+    await expectFailure(store.complete('missing'), 'Invalid todo list')
     expect(await readFile(store.file, 'utf8')).toBe('{invalid')
   })
 

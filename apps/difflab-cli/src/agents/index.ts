@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { setupHome, type AgentAdapter } from './adapter.js'
 import { claudeCodeAdapter } from './claude-code.js'
 import { codexAdapter } from './codex.js'
-import { jsonAgentAdapter } from './json-config.js'
+import { jsonAgentAdapter } from '../mcp/json-config.js'
 
 export const agentAdapters = {
   pi: jsonAgentAdapter('pi', (context) => join(setupHome(context), '.config', 'mcp', 'mcp.json')),

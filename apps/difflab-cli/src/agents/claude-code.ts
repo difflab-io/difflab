@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { mcpServer, runCommand, setupHome, type AgentAdapter } from './adapter.js'
-import { readJsonConfig, serverStatus } from './json-config.js'
+import { ConfigurationError } from '../errors.js'
+import { readJsonConfig, serverStatus } from '../mcp/json-config.js'
 
 export const claudeCodeAdapter: AgentAdapter = {
   id: 'claude-code',
@@ -10,7 +11,7 @@ export const claudeCodeAdapter: AgentAdapter = {
     const status = serverStatus(await readJsonConfig(file), file)
     if (status === 'matching') return { file, status: 'existing' }
     if (status === 'conflicting') {
-      throw new Error(
+      throw new ConfigurationError(
         `MCP server "difflab" already exists in ${file} with a different configuration; not modified`,
       )
     }

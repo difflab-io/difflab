@@ -19,17 +19,17 @@ export type ToolDefinition = {
     inputSchema: z.ZodType
     annotations?: ToolAnnotations
   }
-  callback: (input: unknown) => Promise<ToolResult>
+  callback: (untrustedInput: unknown) => Promise<ToolResult>
 }
 
-function result(value: unknown): ToolResult {
+function serializeToolResult(value: unknown): ToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] }
 }
 
-export function defineTool<Schema extends z.ZodType>(
+export function defineTool<Schema extends z.ZodType, Output>(
   name: string,
   config: { description: string; inputSchema: Schema; annotations?: ToolAnnotations },
-  handler: (input: z.output<Schema>) => Promise<unknown>,
+  handler: (input: z.output<Schema>) => Promise<Output>,
 ): ToolDefinition {
   return {
     name,
@@ -38,12 +38,12 @@ export function defineTool<Schema extends z.ZodType>(
       inputSchema: config.inputSchema,
       ...(config.annotations ? { annotations: config.annotations } : {}),
     },
-    callback: async (input: unknown) => {
+    callback: async (untrustedInput: unknown) => {
       try {
-        return result(await handler(config.inputSchema.parse(input)))
+        return serializeToolResult(await handler(config.inputSchema.parse(untrustedInput)))
       } catch (error) {
         return {
-          ...result({ error: error instanceof Error ? error.message : String(error) }),
+          ...serializeToolResult({ error: error instanceof Error ? error.message : String(error) }),
           isError: true,
         }
       }

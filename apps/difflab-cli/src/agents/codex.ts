@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { isFileError, mcpServer, runCommand, setupHome, type AgentAdapter } from './adapter.js'
+import { mcpServer, runCommand, setupHome, type AgentAdapter } from './adapter.js'
+import { ConfigurationError } from '../errors.js'
+import { isFileError } from '../extensions/osx.js'
 
 function codexServerStatus(content: string): 'missing' | 'matching' | 'conflicting' {
   const lines = content.split(/\r?\n/)
@@ -37,7 +39,9 @@ export const codexAdapter: AgentAdapter = {
     const status = codexServerStatus(content)
     if (status === 'matching') return { file, status: 'existing' }
     if (status === 'conflicting') {
-      throw new Error(`Codex already has a different difflab entry in ${file}; not modified`)
+      throw new ConfigurationError(
+        `Codex already has a different difflab entry in ${file}; not modified`,
+      )
     }
     const run = context.run ?? runCommand
     run('codex', ['mcp', 'add', 'difflab', '--', mcpServer.command, ...mcpServer.args], home)

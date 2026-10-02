@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { todoTools } from './todos/tools.js'
+import { todoTools } from '../todos/tools.js'
 
 export function createDifflabServer(version = '0.1.0'): McpServer {
   const server = new McpServer({ name: 'difflab', version })

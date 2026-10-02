@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { z } from 'zod'
 import { defineTool } from '../tools.js'
-import { resolveTodoPath } from './path.js'
+import { resolvePath } from '../extensions/pathx.js'
 import { TodoStore } from './store.js'
 
 const cwd = z
@@ -23,7 +23,7 @@ const id = z
 const fileInput = { cwd, path }
 
 async function store(cwd: string, path: string): Promise<TodoStore> {
-  return new TodoStore(await resolveTodoPath(cwd, path))
+  return new TodoStore(await resolvePath(cwd, path))
 }
 
 export const todoTools = [

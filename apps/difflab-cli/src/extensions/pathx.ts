@@ -1,12 +1,9 @@
 import { lstat, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { isFileError } from './osx.js'
 
-function isFileError(error: unknown, code: string): boolean {
-  return error instanceof Error && 'code' in error && error.code === code
-}
-
-/** Resolve a todo file inside an existing cwd, without following symlinks within it. */
-export async function resolveTodoPath(cwd: string, path: string): Promise<string> {
+/** Resolve a file inside an existing cwd, without following symlinks within it. */
+export async function resolvePath(cwd: string, path: string): Promise<string> {
   if (!isAbsolute(cwd)) throw new Error('cwd must be an absolute path to an existing directory')
   if (!path.trim() || isAbsolute(path))
     throw new Error('path must be a non-empty relative file path')
@@ -24,7 +21,7 @@ export async function resolveTodoPath(cwd: string, path: string): Promise<string
     current = join(current, segment)
     try {
       if ((await lstat(current)).isSymbolicLink()) {
-        throw new Error(`Symlink paths are not allowed for todo files: ${current}`)
+        throw new Error(`Symlink paths are not allowed for files: ${current}`)
       }
     } catch (error) {
       if (isFileError(error, 'ENOENT')) break

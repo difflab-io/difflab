@@ -21,7 +21,7 @@ export function createProgram(
     .command('serve')
     .description('Serve Difflab tools over MCP stdio')
     .action(async () => {
-      const { serveMcp } = await import('./mcp.js')
+      const { serveMcp } = await import('./mcp/index.js')
       await serveMcp(version)
     })
 
