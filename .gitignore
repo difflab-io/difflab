@@ -28,8 +28,7 @@ coverage/
 # Agent and editor state
 .claude/
 .codevoyant
-.pi/*
-!.pi/settings.json
+.pi/
 .idea/
 .vscode/
 *.swp
