@@ -1,35 +1,14 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createTempDirectory, expectFailureWith } from '../extensions/testx'
 import { JsonFileStoreReadError } from '../stores/json-file-store.js'
 import { TodoStore } from './store'
 
-const directories: string[] = []
+// Setup -----------------------------------------------------------------------
+const cleanups: (() => Promise<void>)[] = []
 
-async function storeInTempDir(): Promise<TodoStore> {
-  const directory = await mkdtemp(join(tmpdir(), 'difflab-todo-'))
-  directories.push(directory)
-  return new TodoStore(join(directory, 'nested', 'todos.json'))
-}
-
-async function expectFailure(operation: Promise<unknown>, message: string): Promise<void> {
-  let failure: unknown
-  try {
-    await operation
-  } catch (error) {
-    failure = error
-  }
-  expect(failure).toBeInstanceOf(Error)
-  if (failure instanceof Error) expect(failure.message).toContain(message)
-}
-
-afterEach(async () => {
-  await Promise.all(
-    directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
-  )
-})
-
+// Tests -----------------------------------------------------------------------
 describe('todo file', () => {
   test('initialization creates the file once without replacing existing tasks', async () => {
     const store = await storeInTempDir()
@@ -51,15 +30,15 @@ describe('todo file', () => {
     expect((await store.complete(first.id)).done).toBe(true)
     expect(await store.remove(second.id)).toEqual(second)
     expect((await store.list()).tasks).toEqual([{ ...first, done: true }])
-    await expectFailure(store.remove(second.id), 'Unknown task ID')
+    await expectFailureWith(store.remove(second.id), 'Unknown task ID')
   })
 
   test('maps missing files consistently for list, add, remove, and complete', async () => {
     const store = await storeInTempDir()
-    await expectFailure(store.list(), 'Call todo_init first')
-    await expectFailure(store.add('task'), 'Call todo_init first')
-    await expectFailure(store.remove('missing'), 'Call todo_init first')
-    await expectFailure(store.complete('missing'), 'Call todo_init first')
+    await expectFailureWith(store.list(), 'Call todo_init first')
+    await expectFailureWith(store.add('task'), 'Call todo_init first')
+    await expectFailureWith(store.remove('missing'), 'Call todo_init first')
+    await expectFailureWith(store.complete('missing'), 'Call todo_init first')
   })
 
   test('propagates non-not-found read failures', async () => {
@@ -82,10 +61,10 @@ describe('todo file', () => {
     const store = await storeInTempDir()
     await store.initialize()
     await writeFile(store.file, '{invalid')
-    await expectFailure(store.initialize(), 'Invalid todo list')
-    await expectFailure(store.add('task'), 'Invalid todo list')
-    await expectFailure(store.remove('missing'), 'Invalid todo list')
-    await expectFailure(store.complete('missing'), 'Invalid todo list')
+    await expectFailureWith(store.initialize(), 'Invalid todo list')
+    await expectFailureWith(store.add('task'), 'Invalid todo list')
+    await expectFailureWith(store.remove('missing'), 'Invalid todo list')
+    await expectFailureWith(store.complete('missing'), 'Invalid todo list')
     expect(await readFile(store.file, 'utf8')).toBe('{invalid')
   })
 
@@ -99,3 +78,15 @@ describe('todo file', () => {
     expect((await second.list()).tasks).toHaveLength(0)
   })
 })
+
+// Cleanup ---------------------------------------------------------------------
+afterEach(async () => {
+  await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()))
+})
+
+// Helpers ---------------------------------------------------------------------
+async function storeInTempDir(): Promise<TodoStore> {
+  const directory = await createTempDirectory('difflab-todo-')
+  cleanups.push(directory.cleanup)
+  return new TodoStore(join(directory.path, 'nested', 'todos.json'))
+}

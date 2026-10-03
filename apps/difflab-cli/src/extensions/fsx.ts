@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { isFileError } from './osx.js'
+import { hasErrorCode } from './osx.js'
 
+// Types -----------------------------------------------------------------------
 export type JsonObject = Record<string, unknown>
 
+// API -------------------------------------------------------------------------
 export function isObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -16,7 +18,7 @@ export async function readJsonFile(file: string): Promise<JsonObject> {
     if (!isObject(parsed)) throw new Error('root must be a JSON object')
     return parsed
   } catch (error) {
-    if (isFileError(error, 'ENOENT')) return {}
+    if (hasErrorCode(error, 'ENOENT')) return {}
     throw error
   }
 }

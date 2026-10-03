@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { z } from 'zod'
+
+// Types -----------------------------------------------------------------------
 export class JsonFileStoreError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
@@ -20,6 +22,7 @@ type Options = { itemsKey?: string; metadata?: Record<string, unknown> }
 
 type Envelope = Record<string, unknown>
 
+// API -------------------------------------------------------------------------
 export class JsonFileStore<T extends JsonItem> {
   readonly file: string
   private readonly itemsKey?: string

@@ -4,6 +4,7 @@ import { defineTool } from '../tools.js'
 import { resolvePath } from '../extensions/pathx.js'
 import { TodoStore } from './store.js'
 
+// Constants -------------------------------------------------------------------
 const cwd = z
   .string()
   .refine(isAbsolute, 'cwd must be an absolute path')
@@ -22,10 +23,7 @@ const id = z
   .describe('Stable task ID returned by todo_add or todo_list (not its list position)')
 const fileInput = { cwd, path }
 
-async function store(cwd: string, path: string): Promise<TodoStore> {
-  return new TodoStore(await resolvePath(cwd, path))
-}
-
+// API -------------------------------------------------------------------------
 export const todoTools = [
   defineTool(
     'todo_init',
@@ -81,3 +79,8 @@ export const todoTools = [
     async ({ cwd, path, id }) => (await store(cwd, path)).remove(id),
   ),
 ]
+
+// Helpers ---------------------------------------------------------------------
+async function store(cwd: string, path: string): Promise<TodoStore> {
+  return new TodoStore(await resolvePath(cwd, path))
+}

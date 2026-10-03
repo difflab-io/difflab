@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+// Types -----------------------------------------------------------------------
 type ToolAnnotations = {
   readOnlyHint?: boolean
   destructiveHint?: boolean
@@ -22,10 +23,7 @@ export type ToolDefinition = {
   callback: (untrustedInput: unknown) => Promise<ToolResult>
 }
 
-function serializeToolResult(value: unknown): ToolResult {
-  return { content: [{ type: 'text', text: JSON.stringify(value) }] }
-}
-
+// API -------------------------------------------------------------------------
 export function defineTool<Schema extends z.ZodType, Output>(
   name: string,
   config: { description: string; inputSchema: Schema; annotations?: ToolAnnotations },
@@ -49,4 +47,9 @@ export function defineTool<Schema extends z.ZodType, Output>(
       }
     },
   }
+}
+
+// Helpers ---------------------------------------------------------------------
+function serializeToolResult(value: unknown): ToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify(value) }] }
 }

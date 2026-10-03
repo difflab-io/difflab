@@ -1,7 +1,8 @@
 import { lstat, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { isFileError } from './osx.js'
+import { hasErrorCode } from './osx.js'
 
+// API -------------------------------------------------------------------------
 /** Resolve a file inside an existing cwd, without following symlinks within it. */
 export async function resolvePath(cwd: string, path: string): Promise<string> {
   if (!isAbsolute(cwd)) throw new Error('cwd must be an absolute path to an existing directory')
@@ -24,7 +25,7 @@ export async function resolvePath(cwd: string, path: string): Promise<string> {
         throw new Error(`Symlink paths are not allowed for files: ${current}`)
       }
     } catch (error) {
-      if (isFileError(error, 'ENOENT')) break
+      if (hasErrorCode(error, 'ENOENT')) break
       throw error
     }
   }

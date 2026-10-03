@@ -3,6 +3,7 @@ import { mcpServer, runCommand, setupHome, type AgentAdapter } from './adapter.j
 import { ConfigurationError } from '../errors.js'
 import { readJsonConfig, serverStatus } from '../mcp/json-config.js'
 
+// API -------------------------------------------------------------------------
 export const claudeCodeAdapter: AgentAdapter = {
   id: 'claude-code',
   async setupMcpConfig(context = {}) {

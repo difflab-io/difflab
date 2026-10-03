@@ -7,6 +7,7 @@ import {
 import { ConfigurationError } from '../errors.js'
 import { isObject, patchJsonToFile, readJsonFile, type JsonObject } from '../extensions/fsx.js'
 
+// API -------------------------------------------------------------------------
 export async function readJsonConfig(file: string): Promise<JsonObject> {
   try {
     return await readJsonFile(file)
@@ -36,6 +37,19 @@ export function serverStatus(
     : 'conflicting'
 }
 
+export function jsonAgentAdapter(
+  id: string,
+  configPath: (context: SetupContext) => string,
+): AgentAdapter {
+  return {
+    id,
+    setupMcpConfig(context = {}) {
+      return addJsonServer(configPath(context))
+    },
+  }
+}
+
+// Helpers ---------------------------------------------------------------------
 async function addJsonServer(file: string): Promise<McpConfigSetupResult> {
   const config = await readJsonConfig(file)
   const status = serverStatus(config, file)
@@ -49,16 +63,4 @@ async function addJsonServer(file: string): Promise<McpConfigSetupResult> {
     mcpServers: { ...(isObject(current.mcpServers) ? current.mcpServers : {}), difflab: mcpServer },
   }))
   return { file, status: 'added' }
-}
-
-export function jsonAgentAdapter(
-  id: string,
-  configPath: (context: SetupContext) => string,
-): AgentAdapter {
-  return {
-    id,
-    setupMcpConfig(context = {}) {
-      return addJsonServer(configPath(context))
-    },
-  }
 }

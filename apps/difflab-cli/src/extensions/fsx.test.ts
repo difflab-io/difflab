@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { patchJsonToFile, readJsonFile } from './fsx'
 
+// Tests -----------------------------------------------------------------------
 describe('JSON file utilities', () => {
   test('creates a nested JSON file', async () => {
     const home = await mkdtemp(join(tmpdir(), 'difflab-fsx-'))

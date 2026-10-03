@@ -4,14 +4,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolvePath } from './pathx'
 
+// Setup -----------------------------------------------------------------------
 const directories: string[] = []
 
-afterEach(async () => {
-  await Promise.all(
-    directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
-  )
-})
-
+// Tests -----------------------------------------------------------------------
 describe('path resolution', () => {
   test('resolves nested relative files inside an existing absolute cwd', async () => {
     // Arrange
@@ -54,6 +50,13 @@ describe('path resolution', () => {
     await expectFailure(resolvePath(cwd, 'link/data.json'), 'Symlink paths are not allowed')
     await expectFailure(resolvePath(cwd, 'data.json'), 'Symlink paths are not allowed')
   })
+})
+
+// Cleanup ---------------------------------------------------------------------
+afterEach(async () => {
+  await Promise.all(
+    directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  )
 })
 
 // Helpers ---------------------------------------------------------------------

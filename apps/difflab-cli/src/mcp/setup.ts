@@ -1,5 +1,6 @@
 import { agentNames, agentAdapter } from '../agents/index.js'
 
+// API -------------------------------------------------------------------------
 export async function setupMcpClients(
   clients: string[],
   write: (message: string) => void,

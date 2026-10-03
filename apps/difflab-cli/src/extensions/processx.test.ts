@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { CommandExecutionError } from '../errors'
 import { runCommand } from './processx'
 
+// Tests -----------------------------------------------------------------------
 describe('command execution utilities', () => {
   test('runs a successful command', () => {
     // Arrange

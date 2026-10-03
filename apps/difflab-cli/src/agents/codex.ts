@@ -2,8 +2,34 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { mcpServer, runCommand, setupHome, type AgentAdapter } from './adapter.js'
 import { ConfigurationError } from '../errors.js'
-import { isFileError } from '../extensions/osx.js'
+import { hasErrorCode } from '../extensions/osx.js'
 
+// API -------------------------------------------------------------------------
+export const codexAdapter: AgentAdapter = {
+  id: 'codex',
+  async setupMcpConfig(context = {}) {
+    const home = setupHome(context)
+    const file = join(home, '.codex', 'config.toml')
+    let content = ''
+    try {
+      content = await readFile(file, 'utf8')
+    } catch (error) {
+      if (!hasErrorCode(error, 'ENOENT')) throw error
+    }
+    const status = codexServerStatus(content)
+    if (status === 'matching') return { file, status: 'existing' }
+    if (status === 'conflicting') {
+      throw new ConfigurationError(
+        `Codex already has a different difflab entry in ${file}; not modified`,
+      )
+    }
+    const run = context.run ?? runCommand
+    run('codex', ['mcp', 'add', 'difflab', '--', mcpServer.command, ...mcpServer.args], home)
+    return { file, status: 'added' }
+  },
+}
+
+// Helpers ---------------------------------------------------------------------
 function codexServerStatus(content: string): 'missing' | 'matching' | 'conflicting' {
   const lines = content.split(/\r?\n/)
   const start = lines.findIndex((line) =>
@@ -23,28 +49,4 @@ function codexServerStatus(content: string): 'missing' | 'matching' | 'conflicti
       block,
     )
   return command && args ? 'matching' : 'conflicting'
-}
-
-export const codexAdapter: AgentAdapter = {
-  id: 'codex',
-  async setupMcpConfig(context = {}) {
-    const home = setupHome(context)
-    const file = join(home, '.codex', 'config.toml')
-    let content = ''
-    try {
-      content = await readFile(file, 'utf8')
-    } catch (error) {
-      if (!isFileError(error, 'ENOENT')) throw error
-    }
-    const status = codexServerStatus(content)
-    if (status === 'matching') return { file, status: 'existing' }
-    if (status === 'conflicting') {
-      throw new ConfigurationError(
-        `Codex already has a different difflab entry in ${file}; not modified`,
-      )
-    }
-    const run = context.run ?? runCommand
-    run('codex', ['mcp', 'add', 'difflab', '--', mcpServer.command, ...mcpServer.args], home)
-    return { file, status: 'added' }
-  },
 }

@@ -1,3 +1,4 @@
+// API -------------------------------------------------------------------------
 export class DifflabError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)

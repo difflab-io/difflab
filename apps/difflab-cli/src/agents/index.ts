@@ -4,6 +4,7 @@ import { claudeCodeAdapter } from './claude-code.js'
 import { codexAdapter } from './codex.js'
 import { jsonAgentAdapter } from '../mcp/json-config.js'
 
+// Constants -------------------------------------------------------------------
 export const agentAdapters = {
   pi: jsonAgentAdapter('pi', (context) => join(setupHome(context), '.config', 'mcp', 'mcp.json')),
   cursor: jsonAgentAdapter('cursor', (context) => join(setupHome(context), '.cursor', 'mcp.json')),
@@ -28,6 +29,7 @@ export const agentAdapters = {
 
 export const agentNames = Object.keys(agentAdapters)
 
+// API -------------------------------------------------------------------------
 export function agentAdapter(name: string): AgentAdapter | undefined {
   return Object.hasOwn(agentAdapters, name)
     ? agentAdapters[name as keyof typeof agentAdapters]

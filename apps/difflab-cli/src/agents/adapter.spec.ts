@@ -6,6 +6,10 @@ import { mcpServer, type SetupContext } from './adapter'
 import { agentAdapter, agentNames } from './index'
 import { patchJsonToFile } from '../extensions/fsx'
 
+// Setup -----------------------------------------------------------------------
+const homes: string[] = []
+
+// Tests -----------------------------------------------------------------------
 describe('agent MCP adapters', () => {
   test('registry resolves supported agents', () => {
     // Arrange
@@ -123,8 +127,12 @@ describe('agent MCP adapters', () => {
   })
 })
 
+// Cleanup ---------------------------------------------------------------------
+afterEach(async () => {
+  await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })))
+})
+
 // Helpers ---------------------------------------------------------------------
-const homes: string[] = []
 async function tempHome(): Promise<string> {
   const home = await mkdtemp(join(tmpdir(), 'difflab-setup-'))
   homes.push(home)
@@ -135,6 +143,3 @@ function setup(id: string, context: SetupContext) {
   if (!adapter) throw new Error(`Missing test adapter: ${id}`)
   return adapter.setupMcpConfig(context)
 }
-afterEach(async () => {
-  await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })))
-})

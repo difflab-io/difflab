@@ -9,10 +9,14 @@ import {
   JsonFileStoreValidationError,
 } from '../stores/json-file-store.js'
 
+// Constants -------------------------------------------------------------------
 const taskSchema = z.strictObject({ id: z.uuid(), text: z.string().min(1), done: z.boolean() })
+
+// Types -----------------------------------------------------------------------
 export type TodoTask = z.infer<typeof taskSchema>
 export type TodoList = { version: 1; tasks: TodoTask[] }
 
+// API -------------------------------------------------------------------------
 export class TodoStore {
   readonly file: string
   private readonly tasks: JsonFileStore<TodoTask>

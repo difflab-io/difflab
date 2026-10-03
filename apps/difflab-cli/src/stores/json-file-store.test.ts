@@ -13,16 +13,14 @@ import {
   type JsonItem,
 } from './json-file-store'
 
+// Setup -----------------------------------------------------------------------
 const itemSchema = z.strictObject({ id: z.string(), value: z.number() })
 const directories: string[] = []
 
 type Item = z.infer<typeof itemSchema> & JsonItem
 
+// Tests -----------------------------------------------------------------------
 describe('JsonFileStore', () => {
-  afterEach(async () => {
-    await Promise.all(directories.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
-  })
-
   test('initializes without clobbering and preserves envelope metadata', async () => {
     // Arrange
     const store = await storeInTempDir()
@@ -98,6 +96,11 @@ describe('JsonFileStore', () => {
     await expect(directoryStore.list()).rejects.toBeInstanceOf(JsonFileStoreReadError)
     await expect(directoryStore.list()).rejects.not.toBeInstanceOf(JsonFileStoreNotFoundError)
   })
+})
+
+// Cleanup ---------------------------------------------------------------------
+afterEach(async () => {
+  await Promise.all(directories.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
 })
 
 // Helpers ---------------------------------------------------------------------
