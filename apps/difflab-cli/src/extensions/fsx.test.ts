@@ -48,6 +48,7 @@ describe('file parent utility', () => {
   })
 })
 
+// Tests -----------------------------------------------------------------------
 describe('JSON file utilities', () => {
   test('creates a nested JSON file', async () => {
     const home = await mkdtemp(join(tmpdir(), 'difflab-fsx-'))
