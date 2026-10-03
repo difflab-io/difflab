@@ -3,8 +3,9 @@ bun = "1.4.2"
 node = "24"
 
 [tasks.install]
-description = "Install Bun dependencies"
-run = "bun install"
+description = "Install Bun workspace dependencies through the root task"
+depends = ["//:install"]
+run = 'echo "Workspace dependencies installed by //:install"'
 
 [tasks.build]
 description = "Build the application"

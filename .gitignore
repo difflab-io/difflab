@@ -13,6 +13,7 @@ build/
 **/build/
 coverage/
 **/coverage/
+.tmp/
 
 # Mise local state
 .mise/
