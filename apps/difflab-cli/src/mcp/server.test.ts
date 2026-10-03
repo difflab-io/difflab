@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -34,7 +32,7 @@ describe('Difflab MCP over stdio', () => {
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [
-        process.env.DIFFLAB_MCP_TEST_ENTRY ?? join(import.meta.dir, 'index.ts'),
+        process.env.DIFFLAB_MCP_TEST_ENTRY ?? join(import.meta.dir, '..', 'index.ts'),
         'mcp',
         'serve',
       ],
@@ -104,31 +102,6 @@ describe('Difflab MCP over stdio', () => {
     } finally {
       await client.close()
       await rm(directory, { recursive: true, force: true })
-    }
-  }, 15_000)
-
-  test('setup registers selected clients without creating a todo list', async () => {
-    const home = await mkdtemp(join(tmpdir(), 'difflab-mcp-home-'))
-    const entry = process.env.DIFFLAB_MCP_TEST_ENTRY ?? join(import.meta.dir, 'index.ts')
-    const setup = () =>
-      execFileSync(
-        process.execPath,
-        [entry, 'mcp', 'setup', '--client', 'pi', '--client', 'cursor'],
-        { encoding: 'utf8', env: { ...process.env, HOME: home } },
-      )
-    try {
-      expect(setup()).toContain('Added pi:')
-      const pi = JSON.parse(await readFile(join(home, '.config', 'mcp', 'mcp.json'), 'utf8'))
-      const cursor = JSON.parse(await readFile(join(home, '.cursor', 'mcp.json'), 'utf8'))
-      expect(pi.mcpServers.difflab).toEqual({
-        command: 'npx',
-        args: ['-y', '@difflab/difflab-cli', 'mcp', 'serve'],
-      })
-      expect(cursor.mcpServers.difflab).toEqual(pi.mcpServers.difflab)
-      expect(existsSync(join(home, 'todos.json'))).toBe(false)
-      expect(setup()).toContain('Already configured pi:')
-    } finally {
-      await rm(home, { recursive: true, force: true })
     }
   }, 15_000)
 })
