@@ -131,21 +131,32 @@ Tasks show the current user's work for the selected project in a full-width Kanb
 
 ### CLI
 
-All functionality shown above should be accessible via CLI and MCP. A user working in Claude/Codex/Cursor/Pi should be able to have their agents understand the Difflab project's context, presently relevant plans/reviews/flows.
+All functionality shown above should be accessible via CLI and MCP. A user working in Claude/Codex/Cursor/Pi should be able to have their agents understand the Difflab project's context, presently relevant plans/reviews/flows. Some functionality like review would be impractical via CLI alone, and may require tui support in addition to the desktop app.
 
 ### AG UI / Chat (Reach)
 
 Ideally the inverse relationship can be powered through AG UI.
 
+### Agent Skills
+
+Agent skills will be needed to enable working with Difflab MCP from various harnesses.
+
+### Opt-Out Capable Product Metrics
+
+This would allow knowing adoption, bugs, etc.
+
 ## Success Measures
 
 ### [User outcome or signal]
 
-NA
+- Users can use all the flows above without issue
+- Users can run multiple flows concurrently
 
-### [Another outcome or signal]
+### Metrics
 
-NA
+- GitHub stars
+- Github bugs/issues
+- Product analytics
 
 ## Risks and Dependencies
 
