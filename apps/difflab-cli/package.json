@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": false,
   "description": "A minimal Bun CLI starter built with Commander",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/difflab-io/difflab.git",
@@ -20,7 +20,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "access": "public",

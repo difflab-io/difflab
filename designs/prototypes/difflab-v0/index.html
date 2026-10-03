@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Difflab v0 — project workspace</title>
+    <!-- Pinned browser-only imports: prototype, not a production Tailwind build. -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/preline@5.0.0/dist/preline.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.min.js"></script>
+    <style type="text/tailwindcss">
+      @theme {
+        --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body class="m-0 bg-slate-100 font-sans text-slate-800">
+    <div id="app"></div>
+    <script>
+      const line = 'border border-slate-200 bg-white rounded'
+      const btn =
+        'px-2.5 py-1.5 text-[11px] font-medium border border-slate-300 rounded bg-white hover:bg-slate-100'
+      const badge = (text) =>
+        `<span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-600">${text}</span>`
+      const row = (title, detail = '', end = '›') =>
+        `<div class="flex items-center justify-between gap-3 border-t border-slate-100 py-2.5 first:border-0"><div><b class="text-[11px]">${title}</b><div class="text-[10px] text-slate-500">${detail}</div></div><span class="shrink-0 text-[10px] text-slate-500">${end}</span></div>`
+      const panel = (title, content, extra = '') =>
+        `<section class="${line} p-3 ${extra}"><h2 class="mb-2 text-[12px] font-semibold">${title}</h2>${content}</section>`
+      const link = (id, title, detail) =>
+        `<a href="#${id}" class="${line} block p-3 hover:bg-slate-50"><b class="text-[12px]">${title} ↗</b><p class="mt-1 text-[10px] text-slate-500">${detail}</p></a>`
+      const icon = (path) =>
+        `<svg aria-hidden="true" class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>`
+      const apps = [
+        ['home', 'Home', 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z'],
+        ['wikis', 'Wikis', 'M4 4h7a3 3 0 0 1 3 3v14H7a3 3 0 0 0-3 0zm10 3a3 3 0 0 1 3-3h3v17h-6'],
+        ['tasks', 'Tasks', 'M4 5h3v3H4zM10 6h10M4 11h3v3H4zM10 12h10M4 17h3v3H4zM10 18h10'],
+        ['plans', 'Plans', 'M8 4h8M9 2h6v4H9zM5 4H4v18h16V4h-1M8 11h8M8 15h8M8 19h5'],
+        ['reviews', 'Reviews', 'm8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16'],
+        ['flows', 'Flows', 'M4 4h5v5H4zM15 4h5v5h-5zM9 6.5h6M11 17h5M4 15h7v5H4zM16 15h5v5h-5z'],
+      ]
+      const screens = {
+        home: {
+          title: 'Atlas',
+          note: 'Project home · find what you need and pick up where you left off',
+          crumbs: ['Home'],
+          actions: ['Project settings'],
+          body: `${panel('Explore this project', `<div class="grid grid-cols-2 gap-2.5">${link('wikis', 'Wikis', 'Architecture, decisions, onboarding, and runbooks')}${link('tasks', 'My tasks', 'Work assigned to you in Linear')}</div>`)}
+          ${panel(
+            'Components & repositories',
+            `<div class="mb-1 grid grid-cols-[1fr_28px_1fr] gap-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500"><span>Repositories</span><span></span><span>Apps & libraries</span></div>${[
+              ['atlas/web', 'Web app', 'App'],
+              ['atlas/cli', 'CLI', 'App'],
+              ['atlas/ui', 'UI kit', 'Library'],
+            ]
+              .map(
+                ([repo, name, kind]) =>
+                  `<div class="my-1 grid grid-cols-[1fr_28px_1fr] items-center gap-2 text-[11px]"><div class="${line} px-3 py-2">${repo}</div><span class="text-center text-slate-400">→</span><div class="${line} flex items-center justify-between px-3 py-2"><span><b>${name}</b> ${badge(kind)}</span><a href="#wikis" class="text-[10px] text-slate-500 underline">Docs ↗</a></div></div>`,
+              )
+              .join('')}`,
+            'mt-2.5',
+          )}
+          ${panel('Continue work', `<div class="grid grid-cols-3 gap-2.5">${link('plans', 'Release plan', 'Scope and revision 3 · in review')}${link('reviews', 'Auth changes', '3 files · 2 open threads')}${link('flows', 'Release pipeline', 'Build running · step 2 of 4')}</div>`, 'mt-2.5')}`,
+        },
+        wikis: {
+          title: 'Architecture',
+          note: 'Atlas wiki · edited today',
+          crumbs: ['Wikis', 'Architecture'],
+          actions: ['+ New page', 'Edit page'],
+          search: 'Search pages…',
+          side: [
+            ['Atlas wiki', 'Overview', 'Architecture', 'Decisions', 'Runbooks'],
+            ['Team wiki', 'Development guide', 'Onboarding'],
+          ],
+          panel: true,
+          body: `<article class="${line} h-[455px] px-6 py-5 text-[11px] leading-5"><h2 class="mb-3 text-base font-semibold">How Atlas fits together</h2><p class="mb-4">Atlas brings project knowledge and day-to-day work into one place. The web app presents the workspace, while the CLI supports local workflows and automation.</p><h3 class="mb-1 text-[12px] font-semibold">Components</h3><p class="mb-2"><b>Web app.</b> Hosts project views and connects the team to current work. Its source lives in <a href="#home" class="underline">atlas/web</a>. <sup class="text-slate-500">[1]</sup></p><p class="mb-4"><b>CLI.</b> Runs project commands locally. The shared UI kit supplies common visual patterns to the web app.</p><h3 class="mb-1 text-[12px] font-semibold">Knowledge and decisions</h3><p class="mb-3">Architecture decisions live alongside the code. Runbooks capture operational steps so the team can review and improve them together. <sup class="text-slate-500">[2]</sup></p><blockquote class="border-l-2 border-slate-300 pl-3 text-slate-600">Keep the project model clear enough for people and agents to navigate without duplicating knowledge.</blockquote><p class="mt-4 text-slate-500">Related: Decision log ↗ · Deployment runbook ↗ · UI kit docs ↗</p></article>`,
+        },
+        plans: {
+          title: 'Release plan',
+          status: 'In review',
+          note: 'Owner: Maya · updated today · revision 3',
+          crumbs: ['Plans', 'Release plan'],
+          actions: ['History', '+ New plan'],
+          search: 'Find plan…',
+          side: [
+            ['Active', 'Release plan', 'API migration'],
+            ['Completed', 'Launch plan'],
+          ],
+          panel: true,
+          chat: true,
+          body: `${panel('Plan document', '<h3 class="mb-1 text-sm font-semibold">Ship the next release</h3><p class="mb-3 text-[11px] text-slate-500">Prepare the CLI and web app for a coordinated release.</p><h3 class="text-[11px] font-semibold">Scope</h3>' + row('1. Freeze API changes', 'Confirm the public surface', 'Open') + row('2. Run integration tests', 'Verify critical paths', 'Open') + row('3. Publish docs', 'Update wiki and component guides', 'Open') + '<h3 class="mt-4 text-[11px] font-semibold">Risks</h3><p class="text-[10px] text-slate-500">API migration could delay the release.</p>', 'h-[455px]')}`,
+        },
+        reviews: {
+          title: 'Auth changes',
+          status: 'Awaiting review',
+          note: '3 files changed · 2 open threads',
+          crumbs: ['Reviews', 'Auth changes'],
+          actions: ['Open repo ↗', 'Comment', 'Approve'],
+          search: 'Find review…',
+          side: [
+            ['Active', 'Auth changes', 'CLI cleanup'],
+            ['Completed', 'Search update'],
+          ],
+          panel: true,
+          chat: true,
+          body: `<div class="mb-2.5 flex gap-2 border-b border-slate-200 text-[10px]"><b class="border-b-2 border-slate-500 px-2 pb-2">auth.ts ${badge('2')}</b><span class="px-2">auth.test.ts</span><span class="px-2">routes.ts</span></div>${panel('src/auth.ts', `<pre class="bg-slate-50 p-2 font-mono text-[10px] leading-5"> 38  function authenticate(input: Input) {\n 39    const token = input.token;\n<span class="bg-rose-50">−40    if (!token) return null;</span>\n<span class="bg-emerald-50">+40    if (!token) throw new AuthError();</span>\n 41\n<span class="bg-emerald-50">+42    verifyExpiry(token);      ◀ 2</span>\n 43    return sessionFor(token);\n 44  }</pre><p class="mt-3 text-[10px] text-slate-500">Select a line to annotate.</p>`, 'h-[415px]')}`,
+        },
+        flows: {
+          title: 'Release pipeline',
+          status: '● Running',
+          note: 'Started 8 minutes ago · step 2 of 4',
+          crumbs: ['Flows', 'Release pipeline'],
+          actions: ['View logs ↗'],
+          search: 'Find flow…',
+          side: [
+            ['Active', 'Release pipeline'],
+            ['Completed', 'Docs refresh'],
+          ],
+          body: `${panel('Task graph · live status', `<div class="my-4 flex items-center justify-between gap-1">${['Plan|✓ Done', 'Build|● Running', 'Test|○ Queued', 'Review|○ Queued'].map((x, i) => `<div class="${line} ${i === 1 ? 'ring-1 ring-slate-400' : ''} w-[120px] p-2 text-[10px]"><b>${i + 1} ${x.split('|')[0]}</b><div class="mt-2">${badge(x.split('|')[1])}</div></div>${i < 3 ? '<span class="text-slate-400">→</span>' : ''}`).join('')}</div><p class="text-[10px] text-slate-500">Select a step for logs and artifacts.</p>`)}${panel('Build logs ' + badge('Running'), '<pre class="bg-slate-50 p-2 font-mono text-[10px] leading-5">13:42:01  Installing dependencies... done\n13:42:12  Building web app... done\n13:42:18  Building CLI... running\n13:42:20  Bundling 14 modules\n13:42:22  Waiting for build result... ▍</pre>', 'mt-2.5')}`,
+        },
+        tasks: {
+          title: 'My tasks',
+          note: 'Atlas · assigned to me · cards open in Linear',
+          crumbs: ['Tasks'],
+          actions: ['Open in Linear ↗'],
+          search: 'Find my tasks…',
+          body: `<div class="grid grid-cols-3 gap-2.5">${[
+            ['To do', ['DIF-48|Fix login retry', 'DIF-51|Update API docs']],
+            ['In progress', ['DIF-42|Review auth API']],
+            ['Done', ['DIF-39|Ship CLI changes']],
+          ]
+            .map(
+              ([name, tickets]) =>
+                `<section class="h-[430px] rounded border border-slate-200 bg-slate-100 p-2.5"><h2 class="mb-2 text-[11px] font-semibold">${name} ${badge(tickets.length)}</h2>${tickets.map((t) => `<article class="${line} mb-2 p-2 text-[10px]">${badge(t.split('|')[0])}<b class="my-1 block">${t.split('|')[1]}</b><span class="text-slate-500">Linear ↗</span></article>`).join('')}</section>`,
+            )
+            .join('')}</div>`,
+        },
+      }
+      const selected = {
+        wikis: 'Architecture',
+        plans: 'Release plan',
+        reviews: 'Auth changes',
+        flows: 'Release pipeline',
+      }
+      let panelMode = 'threads'
+      const threads = {
+        wikis:
+          row('Maya · Components [1]', 'Link the web app docs here?', '') +
+          row('Sam · Decisions [2]', 'Add the API decision.', ''),
+        plans:
+          row('Maya · Scope §1', 'Include CLI flags?', '') +
+          row('Sam · Risks', 'Add a rollback checkpoint.', ''),
+        reviews:
+          row('Maya · auth.ts:42', 'What if the token is expired?', '') +
+          row('Sam · auth.ts:42', 'Test added in auth.test.ts.', ''),
+      }
+      const rightPanel = (key) =>
+        panelMode === 'chat'
+          ? `<h2 class="mb-3 text-[12px] font-semibold">Chat · Atlas agent</h2><p class="text-[10px] text-slate-500">Ask about this ${key === 'plans' ? 'plan' : 'review'}.</p><div class="my-4 rounded border border-slate-200 bg-slate-50 p-2 text-[10px]">How can I help you understand this ${key === 'plans' ? 'plan' : 'change'}?</div><input aria-label="Message the agent" placeholder="Ask the agent…" class="w-full rounded border border-slate-200 px-2 py-1.5 text-[10px]"><button class="${btn} mt-2 w-full">Send</button>`
+          : `<h2 class="mb-3 text-[12px] font-semibold">Threads ${badge('2')}</h2>${threads[key]}<button class="${btn} mt-3 w-full">+ New annotation</button>`
+      function render() {
+        const key = Object.hasOwn(screens, location.hash.slice(1)) ? location.hash.slice(1) : 'home'
+        const s = screens[key]
+        const side = s.side
+          ?.map(
+            ([heading, ...items]) =>
+              `<div class="mb-3"><div class="mb-1 px-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">${heading}</div>${items.map((item) => `<a href="#${key}" class="block rounded px-2 py-1.5 text-[11px] ${item === selected[key] ? 'bg-slate-200 font-semibold' : ''}">${item}</a>`).join('')}</div>`,
+          )
+          .join('')
+        const markup = `<div class="grid h-[640px] w-[1120px] ${s.side ? 'grid-cols-[56px_188px_1fr]' : 'grid-cols-[56px_1fr]'} grid-rows-[48px_1fr] border border-slate-200 bg-slate-50">
+        <header class="${s.side ? 'col-span-3' : 'col-span-2'} flex items-center justify-between border-b border-slate-200 bg-white px-3">
+          <div class="flex items-center gap-3"><div class="hs-dropdown relative inline-flex"><button type="button" class="hs-dropdown-toggle ${btn} min-w-[92px] text-left" aria-haspopup="menu" aria-expanded="false">Atlas <span class="float-right">⌄</span></button><div class="hs-dropdown-menu absolute left-0 top-full z-20 mt-1 hidden min-w-36 rounded border border-slate-200 bg-white p-1 shadow-sm" role="menu"><a class="block rounded px-2 py-1 text-xs hover:bg-slate-100" href="#home">Atlas</a><a class="block rounded px-2 py-1 text-xs hover:bg-slate-100" href="#home">Other project</a></div></div><span class="text-[11px] text-slate-500">${s.crumbs.map((c, i) => `${i ? '<span class="mx-1.5 text-slate-300">›</span>' : ''}${i === s.crumbs.length - 1 ? `<b class="text-slate-800">${c}</b>` : c}`).join('')}</span></div>
+          <div class="flex items-center gap-2"><input aria-label="Search ${key === 'home' ? 'project' : s.crumbs[0]}" placeholder="${s.search || 'Search project…'}" class="w-[165px] rounded border border-slate-200 px-2 py-1.5 text-[11px]"><div class="flex gap-1.5">${s.actions.map((a, i) => `<button class="${btn} ${i === s.actions.length - 1 && s.actions.length > 1 ? '!border-slate-700 !bg-slate-700 !text-white' : ''}">${a}</button>`).join('')}</div></div>
+        </header>
+        <nav aria-label="Project apps" class="flex flex-col items-center gap-2 border-r border-slate-200 bg-white py-3">${apps.map(([id, label, path]) => `<a href="#${id}" title="${label}" aria-label="${label}" class="flex h-9 w-9 items-center justify-center rounded border ${key === id ? 'border-slate-400 bg-slate-200 text-slate-900' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-100'}">${icon(path)}</a>`).join('')}</nav>
+        ${s.side ? `<aside aria-label="${s.crumbs[0]} navigation" class="overflow-hidden border-r border-slate-200 bg-white p-2.5"><div class="mb-3 px-2 text-sm font-semibold">${s.crumbs[0]}</div>${side}</aside>` : ''}
+        <main class="overflow-hidden p-4"><div class="mb-3 flex items-start justify-between gap-3"><div><div class="flex items-center gap-2"><h1 class="text-lg font-semibold leading-6">${s.title}</h1>${s.status ? badge(s.status) : ''}</div><p class="text-[11px] text-slate-500">${s.note}</p></div>${s.panel ? `<div role="group" aria-label="Right sidebar" class="flex gap-1">${s.chat ? `<button type="button" data-panel="chat" aria-controls="app-sidebar" aria-expanded="${panelMode === 'chat'}" class="${btn} ${panelMode === 'chat' ? '!bg-slate-200' : ''}">Chat</button>` : ''}<button type="button" data-panel="threads" aria-controls="app-sidebar" aria-expanded="${panelMode === 'threads'}" class="${btn} ${panelMode === 'threads' ? '!bg-slate-200' : ''}">Threads ${badge('2')}</button></div>` : ''}</div>
+          <div class="${s.panel && panelMode ? 'grid grid-cols-[minmax(0,1fr)_210px] gap-2.5' : ''}"><div class="min-w-0">${s.body}</div>${s.panel && panelMode ? `<aside id="app-sidebar" aria-label="${panelMode} sidebar" class="${line} h-[455px] p-3">${rightPanel(key)}</aside>` : ''}</div>
+        </main>
+      </div>`
+        document
+          .querySelector('#app')
+          .replaceChildren(DOMPurify.sanitize(markup, { RETURN_DOM_FRAGMENT: true }))
+        window.HSStaticMethods?.autoInit?.()
+      }
+      document.querySelector('#app').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-panel]')
+        if (button) {
+          panelMode = panelMode === button.dataset.panel ? null : button.dataset.panel
+          render()
+        }
+      })
+      addEventListener('hashchange', () => {
+        panelMode = 'threads'
+        render()
+      })
+      render()
+    </script>
+  </body>
+</html>

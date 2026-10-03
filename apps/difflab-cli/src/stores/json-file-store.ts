@@ -116,7 +116,8 @@ export class JsonFileStore<T extends JsonItem> {
       for (const [key, value] of Object.entries(this.metadata)) {
         if (envelope[key] !== value) throw new Error(`Invalid metadata: ${key}`)
       }
-      const { [this.itemsKey]: _, ...metadata } = envelope
+      const metadata = { ...envelope }
+      delete metadata[this.itemsKey]
       this.envelopeMetadata = metadata
       return envelope
     } catch (error) {
