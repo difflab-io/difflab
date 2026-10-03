@@ -35,21 +35,8 @@ export function createProgram(
       [],
     )
     .action(async ({ client }: { client: string[] }) => {
-      const { agentNames, agentAdapter } = await import('./agents/index.js')
-      if (client.length === 0) {
-        throw new Error(`Select at least one client with --client (${agentNames.join(', ')})`)
-      }
-      const adapters = [...new Set(client)].map((name) => {
-        const adapter = agentAdapter(name)
-        if (!adapter)
-          throw new Error(`Unknown MCP client: ${name}. Choose ${agentNames.join(', ')}`)
-        return adapter
-      })
-      for (const adapter of adapters) {
-        const { file, status } = await adapter.setupMcpConfig()
-        write(`${status === 'added' ? 'Added' : 'Already configured'} ${adapter.id}: ${file}`)
-      }
-      write('Restart or reload the selected client to use the Difflab MCP tools.')
+      const { setupMcpClients } = await import('./mcp/index.js')
+      await setupMcpClients(client, write)
     })
 
   return program
