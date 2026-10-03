@@ -67,7 +67,8 @@ export class TodoStore {
         task.done = true
       })
     } catch (error) {
-      if (error instanceof JsonFileStoreMissingItemError) throw new Error(`Unknown task ID: ${id}`)
+      if (error instanceof JsonFileStoreMissingItemError)
+        throw new Error(`Unknown task ID: ${id}`, { cause: error })
       this.rethrowDomainError(error)
     }
   }
