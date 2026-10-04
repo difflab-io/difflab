@@ -1,10 +1,43 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { patchJsonToFile, readJsonFile } from './fsx'
+import { ensureFileParent, patchJsonToFile, readJsonFile } from './fsx'
 
 // Tests -----------------------------------------------------------------------
+describe('file parent utility', () => {
+  test('creates missing directories inside the base directory', async () => {
+    // Arrange
+    const home = await mkdtemp(join(tmpdir(), 'difflab-fsx-'))
+    try {
+      // Act
+      const file = await ensureFileParent(home, 'one/two/custom.md')
+      await writeFile(file, '# Document\n')
+      // Assert
+      expect(await readFile(join(home, 'one/two/custom.md'), 'utf8')).toBe('# Document\n')
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  test('rejects traversal and symlinked parents without writing outside cwd', async () => {
+    // Arrange
+    const home = await mkdtemp(join(tmpdir(), 'difflab-fsx-'))
+    try {
+      await mkdir(join(home, 'target'))
+      await symlink(join(home, 'target'), join(home, 'link'))
+      // Act
+      const traversal = ensureFileParent(home, '../escape.md')
+      const symlinkPath = ensureFileParent(home, 'link/custom.md')
+      // Assert
+      await expect(traversal).rejects.toThrow('parent traversal')
+      await expect(symlinkPath).rejects.toThrow('Symlink paths are not allowed')
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('JSON file utilities', () => {
   test('creates a nested JSON file', async () => {
     const home = await mkdtemp(join(tmpdir(), 'difflab-fsx-'))
