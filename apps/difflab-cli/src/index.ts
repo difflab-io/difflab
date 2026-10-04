@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { MigrationError, ProjectStoreError } from 'difflab-db'
+import { MigrationError, DifflabDbError } from 'difflab-db'
 import { createProgram } from './cli.js'
 import { DifflabError } from './errors.js'
 
@@ -13,7 +13,7 @@ try {
 } catch (error) {
   if (
     !(error instanceof DifflabError) &&
-    !(error instanceof ProjectStoreError) &&
+    !(error instanceof DifflabDbError) &&
     !(error instanceof MigrationError)
   )
     throw error

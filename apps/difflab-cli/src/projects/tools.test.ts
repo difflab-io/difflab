@@ -14,7 +14,7 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { initializeRepository } from './init.js'
+import { createProgram } from '../cli.js'
 import { createProjectTools } from './tools.js'
 import { createUserStore, userPaths } from '../store/user-store.js'
 
@@ -51,7 +51,7 @@ test('returns typed context without writing database sidecars or migrating old s
   // Arrange
   await mkdir(home)
   const project = await createProject('MYA', 'My Project')
-  await initializeRepository({ cwd: repo, home, projectId: project.id })
+  await initialize({ cwd: repo, home, projectId: project.id })
   const tool = createProjectTools(home)[0]!
   const paths = userPaths(home)
   const before = await readdir(paths.root)
@@ -82,7 +82,7 @@ test('rejects a manifest for another project rather than auto-linking the origin
   await mkdir(home)
   const project = await createProject('FIR', 'First')
   const second = await createProject('SEC', 'Second')
-  await initializeRepository({ cwd: repo, home, projectId: project.id })
+  await initialize({ cwd: repo, home, projectId: project.id })
   const path = join(repo, 'difflab.yaml')
   await writeFile(path, (await readFile(path, 'utf8')).replace(project.id, second.id))
 
@@ -92,14 +92,14 @@ test('rejects a manifest for another project rather than auto-linking the origin
   // Assert
   expect(result.isError).toBe(true)
   expect(JSON.stringify(result.content)).toContain('not registered')
-  expect((await createUserStore(home).inspectProject(second.id)).repositories).toHaveLength(0)
+  expect((await createUserStore(home).getProjectById(second.id)).repositories).toHaveLength(0)
 })
 
 test('rejects missing databases and wrong symlinks without repairing either', async () => {
   // Arrange
   await mkdir(home)
   const project = await createProject('FIR', 'First')
-  await initializeRepository({ cwd: repo, home, projectId: project.id })
+  await initialize({ cwd: repo, home, projectId: project.id })
   const tool = createProjectTools(home)[0]!
   const link = join(repo, '.difflab')
   await rm(link)
@@ -126,6 +126,15 @@ afterEach(async () => {
 })
 
 // Helpers ---------------------------------------------------------------------
+async function initialize(options: { cwd: string; home: string; projectId: string }) {
+  await createProgram(() => {}, '0.1.0', options).parseAsync([
+    'node',
+    'difflab',
+    'init',
+    options.projectId,
+  ])
+}
+
 function createProject(key: string, name: string) {
   return createUserStore(home).createProject(key, name)
 }

@@ -42,11 +42,11 @@ test('rejects missing origin and resolves a Git worktree with a .git file', asyn
   expect(discovered.root).toBe(await realpath(worktree))
   expect(discovered.originUrl).toBe('https://github.com/example/root.git')
   expect((await lstat(join(worktree, '.git'))).isFile()).toBe(true)
-  const exclude = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], {
+  const gitDir = execFileSync('git', ['rev-parse', '--git-dir'], {
     cwd: worktree,
     encoding: 'utf8',
   }).trim()
-  expect(discovered.excludePath).toBe(resolve(discovered.root, exclude))
+  expect(discovered.excludePath).toBe(join(resolve(worktree, gitDir), 'info', 'exclude'))
 })
 
 test('adds an exclude entry once without changing existing newline handling', async () => {

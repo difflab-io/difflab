@@ -4,10 +4,10 @@ import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { openProjectStore, type Project, type Repository } from './index.js'
+import { createDifflabDb, type Project, type Repository } from './index.js'
 
 // Constants -------------------------------------------------------------------
-const workerPath = fileURLToPath(new URL('./concurrency-worker.fixture.ts', import.meta.url))
+const workerPath = fileURLToPath(new URL('./concurrency-process.fixture.ts', import.meta.url))
 
 // Tests -----------------------------------------------------------------------
 test('separate processes can migrate and create distinct projects in one new database', async () => {
@@ -18,9 +18,9 @@ test('separate processes can migrate and create distinct projects in one new dat
     expect(results.map((project) => (project as Project).id).sort()).toEqual(
       Array.from({ length: 8 }, (_, index) => `PRJ${String(index).padStart(2, '0')}`),
     )
-    const store = await openProjectStore(dbPath)
+    const store = await createDifflabDb(dbPath)
     try {
-      expect(await store.listProjects()).toHaveLength(8)
+      expect(await store.projects.listProjects()).toHaveLength(8)
     } finally {
       await store.close()
     }
@@ -39,18 +39,18 @@ test('separate processes linking one origin all return the same repository', asy
   const root = await mkdtemp(join(tmpdir(), 'difflab-db-process-'))
   const dbPath = join(root, 'projects.sqlite')
   try {
-    const store = await openProjectStore(dbPath)
+    const store = await createDifflabDb(dbPath)
     try {
-      await store.createProject('BASE', 'Base')
+      await store.projects.createProject('BASE', 'Base')
     } finally {
       await store.close()
     }
     const results = (await runWorkers(root, dbPath, 'link', 12)) as Repository[]
     expect(new Set(results.map((repository) => repository.id)).size).toBe(1)
     expect(results.every((repository) => repository.projectId === 'BASE')).toBe(true)
-    const check = await openProjectStore(dbPath)
+    const check = await createDifflabDb(dbPath)
     try {
-      expect((await check.getProjectById('BASE')).repositories).toEqual([results[0]])
+      expect((await check.projects.getProjectById('BASE')).repositories).toEqual([results[0]])
     } finally {
       await check.close()
     }
@@ -67,7 +67,7 @@ test('a preexisting invalid schema still fails after bounded migration retries',
     db.run('CREATE TABLE projects (invalid TEXT)')
     db.close()
     const started = Date.now()
-    await expect(openProjectStore(dbPath)).rejects.toThrow('Could not migrate project database')
+    await expect(createDifflabDb(dbPath)).rejects.toThrow('Could not migrate project database')
     expect(Date.now() - started).toBeLessThan(10_000)
   } finally {
     await rm(root, { recursive: true, force: true })

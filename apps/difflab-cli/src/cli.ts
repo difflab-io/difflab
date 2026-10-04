@@ -1,8 +1,12 @@
 import { Command } from 'commander'
-import { canonicalGithubUrl } from 'difflab-db'
-import { ProjectSetupError } from './errors.js'
-import { initializeRepository } from './projects/repo-store.js'
-import { createUserStore } from './store/user-store.js'
+import { validateProjectKey } from 'difflab-db'
+import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'difflab-ts/gitx'
+import { join } from 'node:path'
+import { ProjectSetupError, RepoStoreError } from './errors.js'
+import { createRepoConfig, readRepoConfig } from './projects/config.js'
+import { getProjectContext } from './context.js'
+import { ensureRepoStore, preflightRepoStore } from './projects/repo-store.js'
+import { createUserStore, userPaths, withUserStore } from './store/user-store.js'
 
 // Types -----------------------------------------------------------------------
 type ProgramOptions = {
@@ -29,7 +33,7 @@ export function createProgram(
     .option('--name <name>', 'Project name when creating a project')
     .option(
       '--repo <origin>',
-      'GitHub repository origin (repeatable)',
+      'Git repository origin (repeatable)',
       (value: string, all: string[]) => [...all, value],
       [],
     )
@@ -40,7 +44,7 @@ export function createProgram(
         throw new ProjectSetupError(
           'project add requires a project key, --name, and at least one --repo; use project add <key> --name <name> --repo <origin>',
         )
-      repositories.forEach(canonicalGithubUrl)
+      repositories.forEach(canonicalGitUrl)
       const created = await createUserStore(options.home).createProject(
         projectKey,
         name,
@@ -50,7 +54,7 @@ export function createProgram(
     })
   project
     .command('list')
-    .description('List projects and associated GitHub repositories')
+    .description('List projects and associated Git repositories')
     .action(async () => {
       const projects = await createUserStore(options.home).listProjects()
       if (!projects.length) {
@@ -59,18 +63,47 @@ export function createProgram(
       }
       for (const project of projects) {
         write(`${project.id}\t${project.name}`)
-        for (const repo of project.repositories) write(`  ${repo.githubUrl}`)
+        for (const repo of project.repositories) write(`  ${repo.url}`)
       }
     })
 
   program
     .command('init <project>')
-    .description('Associate this GitHub repository with an existing local project')
+    .description('Associate this Git repository with an existing local project')
     .action(async (projectId: string) => {
       const cwd = options.cwd ?? process.cwd()
-      const context = await initializeRepository(cwd, projectId, options.home)
+      const git = discoverGitRepository(cwd)
+      const key = validateProjectKey(projectId)
+      const config = await readRepoConfig(git.root)
+      if (config && config.project.id !== key)
+        throw new RepoStoreError(
+          `Repository already belongs to project ${config.project.id}; requested ${key}`,
+        )
+      const origin = canonicalGitUrl(git.originUrl)
+      const target = join(userPaths(options.home).projects, key, repositorySlug(origin))
+      await preflightRepoStore(git.root, target)
+      const project = await withUserStore(
+        async (db) => {
+          const project = await db.projects.getProjectById(key)
+          await db.repositories.linkRepositoryToProject(project.id, origin)
+          return project
+        },
+        { home: options.home },
+      )
+      await ensureRepoStore(git.root, target, git.excludePath)
+      if (!config) {
+        try {
+          await createRepoConfig({ schemaVersion: 1, project: { id: project.id } }, git.root)
+        } catch (error) {
+          if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
+          const existing = await readRepoConfig(git.root)
+          if (!existing || existing.project.id !== project.id)
+            throw new RepoStoreError(`Repository config conflicts at ${git.root}`)
+        }
+      }
+      const context = await getProjectContext(git, key, options.home)
       write(
-        `Initialized ${context.repository.github} in project ${context.project.name} (${context.project.id})`,
+        `Initialized ${context.repository.origin} in project ${context.project.name} (${context.project.id})`,
       )
     })
 

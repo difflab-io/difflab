@@ -18,7 +18,8 @@ domain-neutral names such as `fsx`, `osx`, `processx`, and `pathx`.
 
 Use semantic exceptions for failure cases that callers need to catch and
 handle. Define application-level exceptions in `src/errors.ts` and
-module-specific exceptions in the relevant module.
+module-specific exceptions in the relevant module. In a module, place module-scoped
+error classes in the Types section; app-scoped errors remain in `src/errors.ts`.
 
 ## Tests
 

@@ -6,7 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { join } from 'node:path'
 import { createTempDirectory } from '../extensions/testx'
-import { initializeRepository } from '../projects/repo-store.js'
+import { createProgram } from '../cli.js'
 
 // Setup -----------------------------------------------------------------------
 const cleanups: (() => Promise<void>)[] = []
@@ -73,7 +73,12 @@ describe('Difflab MCP over stdio', () => {
       cwd: repositoryRoot,
     })
     const project = await createUserStore(userHome).createProject('STD', 'Stdio Project')
-    await initializeRepository(repositoryRoot, project.id, userHome)
+    await createProgram(() => {}, '0.1.0', { cwd: repositoryRoot, home: userHome }).parseAsync([
+      'node',
+      'difflab',
+      'init',
+      project.id,
+    ])
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [
@@ -97,7 +102,7 @@ describe('Difflab MCP over stdio', () => {
         (response.structuredContent as { repository: { localPath: string } }).repository.localPath,
       ).toBe(await realpath(repositoryRoot))
       expect(responseText(response).project.id).toBe(project.id)
-      expect(responseText(response).repository.github).toBe('https://github.com/example/stdio')
+      expect(responseText(response).repository.origin).toBe('https://github.com/example/stdio')
     } finally {
       await client.close()
     }

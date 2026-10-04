@@ -63,8 +63,8 @@ for (const [name, args] of [
   })
 }
 
-test('invalid GitHub origin does not create a project', () => {
-  execFileSync('git', ['remote', 'set-url', 'origin', 'https://gitlab.com/example/cli'], {
+test('invalid repository URL does not create a project', () => {
+  execFileSync('git', ['remote', 'set-url', 'origin', 'not-a-repository-url'], {
     cwd: repo,
   })
   const result = cli(
@@ -74,10 +74,10 @@ test('invalid GitHub origin does not create a project', () => {
     '--name',
     'Must Not Exist',
     '--repo',
-    'https://gitlab.com/example/cli',
+    'not-a-repository-url',
   )
   expect(result.status).toBe(1)
-  expect(result.stderr).toContain('GitHub')
+  expect(result.stderr).toContain('valid URL')
   expect(cli('project', 'list').stdout).toContain('No projects yet.')
 })
 

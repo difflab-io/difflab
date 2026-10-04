@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { InvalidRepoConfig, MissingGlobalConfig, MissingRepoConfig } from '../errors.js'
-import { readProjectContext } from './context.js'
+import { readProjectContext } from '../context.js'
 import { readRepoConfig } from './config.js'
 
 // Setup -----------------------------------------------------------------------

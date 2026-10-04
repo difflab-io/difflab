@@ -28,10 +28,10 @@ export async function withDatabaseAccess<T>(path: string, work: () => Promise<T>
   }
 }
 
-export class ProjectStoreError extends Error {
+export class DifflabDbError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
-    this.name = 'ProjectStoreError'
+    this.name = 'DifflabDbError'
   }
 }
 
@@ -43,10 +43,10 @@ export async function openDatabase(
     try {
       const entry = await lstat(dbPath)
       if (!entry.isFile())
-        throw new ProjectStoreError(`Expected a regular project database: ${dbPath}`)
+        throw new DifflabDbError(`Expected a regular project database: ${dbPath}`)
     } catch (error) {
-      if (error instanceof ProjectStoreError) throw error
-      throw new ProjectStoreError(`Project database does not exist: ${dbPath}`, { cause: error })
+      if (error instanceof DifflabDbError) throw error
+      throw new DifflabDbError(`Project database does not exist: ${dbPath}`, { cause: error })
     }
   }
   const db = new Kysely<ProjectDatabase>({

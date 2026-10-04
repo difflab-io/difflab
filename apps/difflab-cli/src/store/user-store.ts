@@ -2,7 +2,7 @@ import { realpathSync } from 'node:fs'
 import { lstat, mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { openProjectStore, type Project, type Repository } from 'difflab-db'
+import { createDifflabDb, type Project, type Repository } from 'difflab-db'
 import { DifflabError } from '../errors.js'
 
 // Constants -------------------------------------------------------------------
@@ -10,9 +10,8 @@ const missing = (error: unknown) =>
   error instanceof Error && 'code' in error && error.code === 'ENOENT'
 
 // Types -----------------------------------------------------------------------
-type ProjectStore = Awaited<ReturnType<typeof openProjectStore>>
+type UserDatabase = Awaited<ReturnType<typeof createDifflabDb>>
 
-// API -------------------------------------------------------------------------
 export class UserStoreError extends DifflabError {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
@@ -27,40 +26,46 @@ export class MissingUserDatabase extends UserStoreError {
   }
 }
 
+// API -------------------------------------------------------------------------
 /** The database belongs to the user, not to any particular Project or repository. */
 export function userPaths(home = process.env.HOME || homedir()) {
   // Git returns the physical worktree path on systems such as macOS where
   // /var is a symlink; normalize the home as well for reliable link checks.
-  let canonicalHome: string
+  let tilde: string
   try {
-    canonicalHome = realpathSync(home)
+    tilde = realpathSync(home)
   } catch (error) {
     if (!missing(error)) throw error
-    canonicalHome = resolve(home)
+    tilde = resolve(home)
   }
-  const root = join(canonicalHome, '.difflab')
+  const root = join(tilde, '.difflab')
   return { root, projects: join(root, 'projects'), database: join(root, 'difflab.sqlite') }
 }
 
 /** Only expose user-wide project operations; each call closes its database handle. */
+export async function ensureUserStore(home?: string): Promise<void> {
+  const paths = userPaths(home)
+  await ensureDirectory(paths.root)
+  await ensureDirectory(paths.projects)
+  const db = await createDifflabDb(paths.database)
+  await db.close()
+}
+
 export function createUserStore(home?: string) {
   return {
     createProject: (key: string, name: string, origins: string[] = []): Promise<Project> =>
-      withUserStore((store) => store.createProject(key, name, origins), { home }),
+      withUserStore((db) => db.projects.createProject(key, name, origins), { home }),
     listProjects: (): Promise<Project[]> => listUserProjects(home),
     getProjectById: (key: string): Promise<Project> =>
-      withUserStore((store) => store.getProjectById(key), { home, readonly: true }),
-    inspectProject: (key: string): Promise<Project> =>
-      withUserStore((store) => store.inspectProject(key), { home, readonly: true }),
-    linkRepository: (key: string, origin: string): Promise<Repository> =>
-      withUserStore((store) => store.linkRepository(key, origin), { home }),
+      withUserStore((db) => db.projects.getProjectById(key), { home, readonly: true }),
+    linkRepositoryToProject: (key: string, origin: string): Promise<Repository> =>
+      withUserStore((db) => db.repositories.linkRepositoryToProject(key, origin), { home }),
   }
 }
 
-// Helpers ---------------------------------------------------------------------
 /** Open a store only for the lifetime of the operation, including on errors. */
-async function withUserStore<T>(
-  operation: (store: ProjectStore) => Promise<T>,
+export async function withUserStore<T>(
+  operation: (db: UserDatabase) => Promise<T>,
   options: { home?: string; readonly?: boolean } = {},
 ): Promise<T> {
   const paths = userPaths(options.home)
@@ -74,18 +79,19 @@ async function withUserStore<T>(
     await ensureDirectory(paths.root)
     await ensureDirectory(paths.projects)
   }
-  const store = await openProjectStore(paths.database, { readonly: options.readonly ?? false })
+  const db = await createDifflabDb(paths.database, { readonly: options.readonly ?? false })
   try {
-    return await operation(store)
+    return await operation(db)
   } finally {
-    await store.close()
+    await db.close()
   }
 }
 
+// Helpers ---------------------------------------------------------------------
 /** Listing a user without a database is an empty, strictly non-mutating read. */
 async function listUserProjects(home?: string): Promise<Project[]> {
   try {
-    return await withUserStore((store) => store.listProjects(), { home, readonly: true })
+    return await withUserStore((db) => db.projects.listProjects(), { home, readonly: true })
   } catch (error) {
     if (error instanceof MissingUserDatabase) return []
     throw error

@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { z } from 'zod'
 import { defineTool } from '../tools.js'
-import { readProjectContext } from './context.js'
+import { readProjectContext } from '../context.js'
 
 // Constants -------------------------------------------------------------------
 const setupHint = 'Use the difflab-init skill to set up this repository with the Difflab CLI.'
@@ -9,10 +9,13 @@ const projectContextOutput = z.strictObject({
   project: z.strictObject({ id: z.string(), name: z.string() }),
   repository: z.strictObject({
     id: z.string(),
-    github: z.string(),
+    origin: z.string(),
     slug: z.string(),
     localPath: z.string(),
   }),
+  relatedRepositories: z.array(
+    z.strictObject({ id: z.string(), origin: z.string(), slug: z.string() }),
+  ),
   root: z.string(),
 })
 

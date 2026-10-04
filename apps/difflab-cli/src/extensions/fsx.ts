@@ -7,6 +7,15 @@ import { hasErrorCode } from './osx.js'
 export type JsonObject = Record<string, unknown>
 
 // API -------------------------------------------------------------------------
+export async function lstatOrNull(file: string) {
+  try {
+    return await lstat(file)
+  } catch (error) {
+    if (hasErrorCode(error, 'ENOENT')) return null
+    throw error
+  }
+}
+
 export function isObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
