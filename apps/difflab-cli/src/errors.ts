@@ -13,6 +13,13 @@ export class ConfigurationError extends DifflabError {
   }
 }
 
+export class ProjectSetupError extends DifflabError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'ProjectSetupError'
+  }
+}
+
 export class CommandExecutionError extends DifflabError {
   constructor(command: string, message: string, options?: ErrorOptions) {
     super(`Could not configure ${command}: ${message}`, options)

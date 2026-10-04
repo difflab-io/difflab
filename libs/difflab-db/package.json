@@ -1,0 +1,33 @@
+{
+  "name": "difflab-db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Difflab project databases and migrations",
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo 'Source-only library: no build required'",
+    "clean": "rm -rf coverage",
+    "test": "bun test",
+    "lint": "bun scripts/embed-migrations.ts --check && tsc --noEmit",
+    "migrations:generate": "drizzle-kit generate && bun scripts/embed-migrations.ts",
+    "lint:fix": "bun run format && bun run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "drizzle-kit": "0.31.11",
+    "prettier": "3.9.8",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.3"
+  }
+}

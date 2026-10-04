@@ -1,0 +1,132 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "8a6281a8-0ba8-4c9f-8a0e-a87ef5e0a4b0",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "project_info": {
+      "name": "project_info",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "singleton": {
+          "name": "singleton",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {
+        "project_info_slug_unique": {
+          "name": "project_info_slug_unique",
+          "columns": ["slug"],
+          "isUnique": true
+        },
+        "project_info_one_row": {
+          "name": "project_info_one_row",
+          "columns": ["singleton"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "project_info_singleton": {
+          "name": "project_info_singleton",
+          "value": "\"project_info\".\"singleton\" = 1"
+        }
+      }
+    },
+    "repositories": {
+      "name": "repositories",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "github_url": {
+          "name": "github_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "repositories_github_url_unique": {
+          "name": "repositories_github_url_unique",
+          "columns": ["github_url"],
+          "isUnique": true
+        },
+        "repositories_project_slug_unique": {
+          "name": "repositories_project_slug_unique",
+          "columns": ["project_id", "slug"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "repositories_project_id_project_info_id_fk": {
+          "name": "repositories_project_id_project_info_id_fk",
+          "tableFrom": "repositories",
+          "tableTo": "project_info",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

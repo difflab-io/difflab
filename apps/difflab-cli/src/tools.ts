@@ -28,6 +28,7 @@ export function defineTool<Schema extends z.ZodType, Output>(
   name: string,
   config: { description: string; inputSchema: Schema; annotations?: ToolAnnotations },
   handler: (input: z.output<Schema>) => Promise<Output>,
+  options: { errorHint?: string } = {},
 ): ToolDefinition {
   return {
     name,
@@ -41,7 +42,9 @@ export function defineTool<Schema extends z.ZodType, Output>(
         return serializeToolResult(await handler(config.inputSchema.parse(untrustedInput)))
       } catch (error) {
         return {
-          ...serializeToolResult({ error: error instanceof Error ? error.message : String(error) }),
+          ...serializeToolResult({
+            error: `${error instanceof Error ? error.message : String(error)}${options.errorHint ? ` ${options.errorHint}` : ''}`,
+          }),
           isError: true,
         }
       }

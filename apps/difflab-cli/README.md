@@ -8,6 +8,24 @@ A Bun command-line application with a local Difflab MCP server.
 bunx @difflab/difflab-cli
 ```
 
+## Local Projects
+
+A Project can contain multiple GitHub repositories. The CLI stores one SQLite database per Project at `~/.difflab/projects/<project-slug>/db/project.sqlite`; there is no overall organization/team/user database yet. Migrations are bundled into the CLI and run locally, even in a standalone executable without network access.
+
+```bash
+difflab project list
+cd /path/to/existing/github-repository
+difflab init                         # choose an existing Project or create one in a terminal
+difflab init --project <project-id>  # for a non-interactive shell
+difflab init --new-project 'My Project'
+```
+
+The existing `difflab-cli` command is an alias for `difflab`. Initialization requires a GitHub HTTPS or SSH origin and never creates a Git repository. It writes a tracked `difflab.yaml` containing the Project ID and canonical GitHub URL without staging it. The repo-root `.difflab` symlink points at the Project's per-repository artifact directory; an exact `/.difflab` entry is appended only to this repository's Git `info/exclude`, not its tracked `.gitignore`. Existing conflicting paths are never overwritten. Do not commit the symlink, SQLite files, or local Git exclusion. A manifest copied to another machine needs explicit local setup; the read-only MCP tool will not import or repair it.
+
+If initialization is interrupted, use `difflab project list` and retry with the same `--project <id>`; matching partial links and database rows can be reused, but conflicting paths require manual inspection. If the registry reports a stale lock, inspect `~/.difflab/projects/.registry.lock/owner.json`, verify that its PID is no longer running, and only then remove that lock directory. Do not delete a Project database to repair a link.
+
+The `project_context({ cwd })` MCP tool inspects initialized repositories without creating files or applying migrations. If it reports missing or inconsistent setup, load the portable `skills/difflab-init/SKILL.md` in your client's Agent Skills directory and follow its CLI steps. It asks which Project the user wants, rather than choosing automatically. Existing `todo_*` MCP tools remain available.
+
 ## MCP setup
 
 After installing the CLI so `difflab-cli` is on your PATH, register it with the MCP clients you use:
