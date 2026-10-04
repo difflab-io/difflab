@@ -20,6 +20,13 @@ export class ProjectSetupError extends DifflabError {
   }
 }
 
+export class RepoStoreError extends ProjectSetupError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'RepoStoreError'
+  }
+}
+
 export class MissingRepoConfig extends ProjectSetupError {
   constructor(message: string) {
     super(message)

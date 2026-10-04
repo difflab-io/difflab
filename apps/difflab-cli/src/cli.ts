@@ -1,15 +1,13 @@
 import { Command } from 'commander'
-import { canonicalGithubUrl, createProject, listProjects } from 'difflab-db'
-import { input } from '@inquirer/prompts'
+import { canonicalGithubUrl } from 'difflab-db'
 import { ProjectSetupError } from './errors.js'
-import { initializeRepository, preflightInit } from './projects/init.js'
+import { initializeRepository } from './projects/repo-store.js'
+import { createUserStore } from './store/user-store.js'
 
 // Types -----------------------------------------------------------------------
 type ProgramOptions = {
   home?: string
   cwd?: string
-  promptProjectAdd?: () => Promise<{ key?: string; name: string; repositories: string[] }>
-  promptInput?: (options: { message: string }) => Promise<string>
 }
 
 // API -------------------------------------------------------------------------
@@ -36,40 +34,25 @@ export function createProgram(
       [],
     )
     .action(async (projectKey: string | undefined, flags: { name?: string; repo: string[] }) => {
-      let name = flags.name
-      let repositories = flags.repo
-      let key = projectKey
-      if (!key || !name || !repositories.length) {
-        if (!options.promptProjectAdd && !options.promptInput && !process.stdin.isTTY)
-          throw new ProjectSetupError(
-            'project add requires missing values; use project add <key> --name <name> --repo <origin>',
-          )
-        const answers = options.promptProjectAdd
-          ? await options.promptProjectAdd()
-          : await promptForProjectAdd(
-              {
-                key: key === undefined,
-                name: !name,
-                repositories: repositories.length === 0,
-              },
-              options.promptInput,
-            )
-        key ||= answers.key
-        name ||= answers.name
-        repositories = repositories.length ? repositories : answers.repositories
-      }
-      if (!repositories.length)
-        throw new ProjectSetupError('project add requires at least one --repo')
-      if (!key) throw new ProjectSetupError('project add requires a project key')
+      const name = flags.name
+      const repositories = flags.repo
+      if (!projectKey || !name?.trim() || !repositories.length)
+        throw new ProjectSetupError(
+          'project add requires a project key, --name, and at least one --repo; use project add <key> --name <name> --repo <origin>',
+        )
       repositories.forEach(canonicalGithubUrl)
-      const created = await createProject(key, name ?? '', options.home, repositories)
+      const created = await createUserStore(options.home).createProject(
+        projectKey,
+        name,
+        repositories,
+      )
       write(`Created project ${created.name} (${created.id})`)
     })
   project
     .command('list')
     .description('List projects and associated GitHub repositories')
     .action(async () => {
-      const projects = await listProjects(options.home)
+      const projects = await createUserStore(options.home).listProjects()
       if (!projects.length) {
         write('No projects yet.')
         return
@@ -85,10 +68,7 @@ export function createProgram(
     .description('Associate this GitHub repository with an existing local project')
     .action(async (projectId: string) => {
       const cwd = options.cwd ?? process.cwd()
-      const preflight = await preflightInit(cwd, options.home)
-      if (preflight.configuredProjectId && preflight.configuredProjectId !== projectId)
-        throw new ProjectSetupError('Repository already belongs to a different project')
-      const context = await initializeRepository({ cwd, home: options.home, projectId })
+      const context = await initializeRepository(cwd, projectId, options.home)
       write(
         `Initialized ${context.repository.github} in project ${context.project.name} (${context.project.id})`,
       )
@@ -116,34 +96,4 @@ export function createProgram(
       await setupMcpClients(client, write)
     })
   return program
-}
-
-// Helpers ---------------------------------------------------------------------
-async function promptForProjectAdd(
-  missing: {
-    key: boolean
-    name: boolean
-    repositories: boolean
-  },
-  ask: (options: { message: string }) => Promise<string> = input,
-): Promise<{
-  key?: string
-  name: string
-  repositories: string[]
-}> {
-  const key = missing.key
-    ? await ask({ message: 'Project key (3-16 uppercase letters/digits):' })
-    : undefined
-  const name = missing.name ? await ask({ message: 'Project name:' }) : ''
-  const origins = missing.repositories
-    ? await ask({ message: 'GitHub repository origins (comma-separated):' })
-    : ''
-  return {
-    key,
-    name,
-    repositories: origins
-      .split(',')
-      .map((origin: string) => origin.trim())
-      .filter(Boolean),
-  }
 }

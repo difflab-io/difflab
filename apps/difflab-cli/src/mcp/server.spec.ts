@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
 import { mkdir, realpath } from 'node:fs/promises'
-import { createProject } from 'difflab-db'
+import { createUserStore } from '../store/user-store.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { join } from 'node:path'
 import { createTempDirectory } from '../extensions/testx'
-import { initializeRepository } from '../projects/init.js'
+import { initializeRepository } from '../projects/repo-store.js'
 
 // Setup -----------------------------------------------------------------------
 const cleanups: (() => Promise<void>)[] = []
@@ -61,19 +61,19 @@ describe('Difflab MCP over stdio', () => {
     }
   }, 15_000)
 
-  test('returns configured project context over stdio with an isolated home', async () => {
+  test('returns configured project context over stdio with a temporary user home', async () => {
     const directory = await createTempDirectory('difflab-context-stdio-')
     cleanups.push(directory.cleanup)
-    const home = join(directory.path, 'home')
-    const repo = join(directory.path, 'repo')
-    await mkdir(home)
-    await mkdir(repo)
-    execFileSync('git', ['init', '-q', repo])
+    const userHome = join(directory.path, 'home')
+    const repositoryRoot = join(directory.path, 'repo')
+    await mkdir(userHome)
+    await mkdir(repositoryRoot)
+    execFileSync('git', ['init', '-q', repositoryRoot])
     execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:example/stdio.git'], {
-      cwd: repo,
+      cwd: repositoryRoot,
     })
-    const project = await createProject('STD', 'Stdio Project', home)
-    await initializeRepository({ cwd: repo, home, projectId: project.id })
+    const project = await createUserStore(userHome).createProject('STD', 'Stdio Project')
+    await initializeRepository(repositoryRoot, project.id, userHome)
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [
@@ -81,18 +81,21 @@ describe('Difflab MCP over stdio', () => {
         'mcp',
         'serve',
       ],
-      env: { ...process.env, HOME: home },
+      env: { ...process.env, HOME: userHome },
       stderr: 'pipe',
     })
     const client = new Client({ name: 'difflab-test', version: '0.1.0' })
     try {
       await client.connect(transport)
-      const response = await client.callTool({ name: 'project_context', arguments: { cwd: repo } })
+      const response = await client.callTool({
+        name: 'project_context',
+        arguments: { cwd: repositoryRoot },
+      })
       expect(response.isError).toBeUndefined()
       expect(response.structuredContent).toBeDefined()
       expect(
         (response.structuredContent as { repository: { localPath: string } }).repository.localPath,
-      ).toBe(await realpath(repo))
+      ).toBe(await realpath(repositoryRoot))
       expect(responseText(response).project.id).toBe(project.id)
       expect(responseText(response).repository.github).toBe('https://github.com/example/stdio')
     } finally {

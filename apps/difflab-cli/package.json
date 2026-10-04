@@ -40,7 +40,6 @@
     "start": "bun src/index.ts"
   },
   "dependencies": {
-    "@inquirer/prompts": "8.7.2",
     "@modelcontextprotocol/sdk": "1.31.0",
     "commander": "15.0.0",
     "yaml": "2.9.1",

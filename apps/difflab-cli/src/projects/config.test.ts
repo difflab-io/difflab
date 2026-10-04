@@ -26,10 +26,7 @@ test('readProjectContext throws MissingRepoConfig when difflab.yaml is absent', 
 })
 
 test('readProjectContext throws MissingGlobalConfig when the repo is linked without global setup', async () => {
-  await writeFile(
-    join(repo, 'difflab.yaml'),
-    'schemaVersion: 1\nproject:\n  id: MYA\nrepository:\n  github: https://github.com/example/one\n',
-  )
+  await writeFile(join(repo, 'difflab.yaml'), 'schemaVersion: 1\nproject:\n  id: MYA\n')
   await symlink(join(temp, 'missing-project', 'example--one'), join(repo, '.difflab'))
 
   await expect(readProjectContext(repo, home)).rejects.toBeInstanceOf(MissingGlobalConfig)
@@ -44,7 +41,7 @@ test('readRepoConfig reports malformed config as InvalidRepoConfig', async () =>
 test('readRepoConfig groups all schema issues in one InvalidRepoConfig', async () => {
   await writeFile(
     join(repo, 'difflab.yaml'),
-    'schemaVersion: 2\nproject:\n  id: bad\nrepository:\n  github: not-a-url\nextra: true\n',
+    'schemaVersion: 2\nproject:\n  id: bad\nextra: true\n',
   )
 
   try {
@@ -54,16 +51,12 @@ test('readRepoConfig groups all schema issues in one InvalidRepoConfig', async (
     expect(error).toBeInstanceOf(InvalidRepoConfig)
     expect((error as Error).message).toContain('schemaVersion')
     expect((error as Error).message).toContain('project.id')
-    expect((error as Error).message).toContain('repository.github')
     expect((error as Error).message).toContain('Unrecognized key')
   }
 })
 
 test('readRepoConfig rejects non-canonical project keys before database lookup', async () => {
-  await writeFile(
-    join(repo, 'difflab.yaml'),
-    'schemaVersion: 1\nproject:\n  id: bad\nrepository:\n  github: https://github.com/example/one\n',
-  )
+  await writeFile(join(repo, 'difflab.yaml'), 'schemaVersion: 1\nproject:\n  id: bad\n')
 
   await expect(readRepoConfig(repo)).rejects.toMatchObject({ name: 'InvalidRepoConfig' })
 })

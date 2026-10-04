@@ -10,7 +10,7 @@ bunx @difflab/difflab-cli
 
 ## Local Projects
 
-A Project can contain multiple GitHub repositories. Its key is the sole project identifier and directory name: the CLI stores one SQLite database per Project under `~/.difflab/projects/<PROJECT_KEY>/...`; there is no separate slug or UUID. Migrations are bundled into the CLI and run locally, even in a standalone executable without network access.
+A Project can contain multiple GitHub repositories. Its key is the sole project identifier and directory name; there is no separate slug or UUID. All Projects and repositories share one user-wide SQLite database at `~/.difflab/difflab.sqlite`. The CLI keeps repository artifacts separately under `~/.difflab/projects/<PROJECT_KEY>/<github-owner>--<github-repo>/`. The database migrations run locally on write operations.
 
 Create a Project, repeating `--repo` for each repository:
 
@@ -25,11 +25,11 @@ cd /path/to/existing/github-repository
 difflab init <PROJECT_KEY>
 ```
 
-The `project add` command uses an Inquirer questionnaire for missing key, name, or repositories in a terminal. Agents and other non-interactive shells must provide these arguments explicitly. `difflab init <PROJECT_KEY>` only links the current repository to an existing Project; it never creates one. The existing `difflab-cli` command is an alias for `difflab`.
+The `project add` command requires a project key, name, and at least one repository. If any value is missing, it returns command guidance instead of prompting. `difflab init <PROJECT_KEY>` only links the current repository to an existing Project; it never creates one. The existing `difflab-cli` command is an alias for `difflab`.
 
-Initialization requires a GitHub HTTPS or SSH origin and never creates a Git repository. It writes a tracked `difflab.yaml` containing the Project key and canonical GitHub URL without staging it. The repo-root `.difflab` symlink points at the Project's per-repository artifact directory. Existing conflicting paths are never overwritten. Do not commit the symlink or SQLite files. A repository config copied to another machine needs explicit local setup; the read-only MCP tool will not import or repair it.
+Initialization requires a GitHub HTTPS or SSH origin and never creates a Git repository. It writes a tracked `difflab.yaml` containing only the Project key without staging it. The repo-root `.difflab` symlink points at the Project's per-repository artifact directory. Existing conflicting paths are never overwritten. Do not commit the symlink or SQLite files. A repository config copied to another machine needs explicit local setup; the read-only MCP tool will not import or repair it.
 
-If initialization is interrupted, retry `difflab init <PROJECT_KEY>`; matching partial links and database rows can be reused, but conflicting paths require manual inspection. If the project registry reports a stale lock, inspect `~/.difflab/projects/.registry.lock/owner.json`, verify that its PID is no longer running, and only then remove that lock directory. Do not delete a Project database to repair a link.
+If initialization is interrupted, retry `difflab init <PROJECT_KEY>`; matching partial links and database rows can be reused, but conflicting paths require manual inspection. Do not delete the shared database to repair a repository link.
 
 The `project_context({ cwd })` MCP tool inspects initialized repositories without creating files or applying migrations. If it reports missing or inconsistent setup, load the portable `skills/difflab-init/SKILL.md` in your client's Agent Skills directory and follow its CLI steps. Existing `todo_*` MCP tools remain available.
 

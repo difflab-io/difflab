@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process'
 import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { canonicalGithubUrl } from 'difflab-db'
 import { addPathToGitExcludes, discoverGitRepository } from './gitx.js'
 
 // Setup -----------------------------------------------------------------------
@@ -16,17 +15,8 @@ beforeEach(async () => {
 })
 
 // Tests -----------------------------------------------------------------------
-test('normalizes HTTPS and scp-like SSH origins', () => {
-  expect(canonicalGithubUrl('git@github.com:Org/Repo.git')).toBe('https://github.com/org/repo')
-  expect(canonicalGithubUrl('ssh://git@github.com/Org/Repo.git')).toBe(
-    'https://github.com/org/repo',
-  )
-  expect(canonicalGithubUrl('https://github.com/ORG/Repo.git')).toBe('https://github.com/org/repo')
-  expect(() => canonicalGithubUrl('https://github.com.evil.test/org/repo')).toThrow()
-})
-
 test('rejects missing origin and resolves a Git worktree with a .git file', async () => {
-  expect(() => discoverGitRepository(root)).toThrow('GitHub origin')
+  expect(() => discoverGitRepository(root)).toThrow('origin')
   execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/root.git'], {
     cwd: root,
   })
@@ -50,7 +40,7 @@ test('rejects missing origin and resolves a Git worktree with a .git file', asyn
 
   const discovered = discoverGitRepository(worktree)
   expect(discovered.root).toBe(await realpath(worktree))
-  expect(discovered.githubUrl).toBe('https://github.com/example/root')
+  expect(discovered.originUrl).toBe('https://github.com/example/root.git')
   expect((await lstat(join(worktree, '.git'))).isFile()).toBe(true)
   const exclude = execFileSync('git', ['rev-parse', '--git-path', 'info/exclude'], {
     cwd: worktree,
