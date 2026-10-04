@@ -4,49 +4,56 @@
 
 [Purpose, system boundary, users, and explicit non-goals.]
 
-### Context
+## Requirement
 
-[What this system depends on and what depends on it.]
+### Functional
 
-### Technology Stack
+[Functionality app, lib or product must perform.]
 
-| Layer   | Choice       | Reason                  |
-| ------- | ------------ | ----------------------- |
-| [layer] | [technology] | [constraint or benefit] |
+- FR1
+- FR2
+- ...
+
+### Non-Functional
+
+[Performance, security, cost and other non-functional characteristics which the system must fulfil.]
+
+- NFR1
+- NFR2
 
 ## Design
 
 ### Components and Responsibilities
 
-| Component | Responsibility       | Public interface |
-| --------- | -------------------- | ---------------- |
-| [name]    | [one responsibility] | [API or event]   |
+[System diagram(s) with bullet list enumerating and explaining components and their relationships. Prefer mermaid diagrams unless user/AGENTS.md provde other stated preferences.]
+
+> @agent: add example mermaid diagram
+
+```mermaid
+
+```
+
+- Component A does this.
+- It then calls component B to do this.
+- And so on.
 
 ### Data and Control Flow
 
-[Describe the main request/event path and where state lives. Include a diagram if helpful.]
+[Describe the main request/event path and where state lives. Include flow charts or sequence diagrams if applicable.]
 
 ### Interfaces and Contracts
 
-[Input/output schemas, failure semantics, compatibility, and trust boundaries.]
-
-### Alternatives and Trade-offs
-
-[Options considered, chosen approach, and disadvantages. Link ADRs where relevant.]
+[Database entities, input/output schemas, endpoints, core types, and public methods. Include ERD where applicable.]
 
 ## Implementation
 
-### Dependencies and Repository Layout
+### Important topic 1
 
 [Owned modules, dependency direction, and extension points.]
 
-### Operations
+### Important topic 2
 
-[Deployment, configuration, observability, rollback, and failure recovery.]
-
-### Quality Attributes
-
-[Security, performance, reliability, scalability, and how they will be verified.]
+[More important topics.]
 
 ## References
 

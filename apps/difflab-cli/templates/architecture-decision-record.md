@@ -14,8 +14,15 @@
 
 ## Considered Options
 
-- [Option A]
-- [Option B]
+### [Option A]
+
+- Good: [reason.]
+- Bad: [reason.]
+
+### [Option B]
+
+- Good: [reason.]
+- Bad: [reason.]
 
 ## Decision Outcome
 
@@ -29,18 +36,16 @@ Chosen option: [option], because [reason and evidence].
 
 - [Cost or follow-up work.]
 
-## Pros and Cons of the Options
-
-### [Option A]
-
-- Good: [reason.]
-- Bad: [reason.]
-
-### [Option B]
-
-- Good: [reason.]
-- Bad: [reason.]
-
-## Links
+## References
 
 - [Related decision, issue, or evidence.]
+
+## Appendix
+
+### Appendix A
+
+Useful background information.
+
+### Appendix B
+
+More useful background information.

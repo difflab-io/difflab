@@ -19,9 +19,13 @@
 
 [Describe the intended behavior and the main architectural choices.]
 
+### Infrastructure Changes
+
+[Any infra changes. Optional. Only include if there's actual infra being handled in repo.]
+
 ### Interfaces
 
-[CLI, API, data, or user-facing contracts, including failures.]
+[CLI commands, API endpoint, data contracts, db entities, modules, apps, libs, project tasks added, changed or removed. Summary of how a user's interaction with the app/lib/cli/sdk/etc. will change as a result.]
 
 ### Consequences
 
@@ -29,16 +33,39 @@
 
 ## Phases
 
+[Instructions broken down granularly, specifying modules/classes/methods/files to be added/updated/removed, and relevant technical work done with terse reasoning. Terse for human readers, sufficiently detailed for delegating implementation to less capable language models i.e. a fool proof guide for a junior developer.]
+
 ### Phase 1: [Outcome]
 
-- **Phase ID:** P1
-- **Prerequisites:** None
-- **Objective:** [Result that completes this phase.]
-- **Constraints:** [Guardrails or None.]
+- [ ] [Task A]
+- [ ] [Task B]
+- [ ] [Task C]
+- [ ] [Task D]
+- [ ] Validation
+  - [ ] Lint, format, etc.
+  - [ ] Commit, CI green (if expected)
 
-- [ ] **T1** [First verifiable task.]
-- [ ] **T2** [Next verifiable task.]
+### Phase 2: [Outcome]
+
+- [ ] [Task A]
+- [ ] [Task B]
+- [ ] [Task C]
+- [ ] [Task D]
+- [ ] Validation
+  - [ ] Lint, format, etc.
+  - [ ] Commit, CI green (if expected)
+
+### Phase 3: [Outcome]
+
+- [ ] [Task A]
+- [ ] [Task B]
+- [ ] [Task C]
+- [ ] [Task D]
+- [ ] Validation
+  - [ ] Lint, format, etc.
+  - [ ] Commit, CI green (if expected)
 
 ## References
 
 - [Source or related decision.]
+- [External references, docs supporting the implementation plan.]

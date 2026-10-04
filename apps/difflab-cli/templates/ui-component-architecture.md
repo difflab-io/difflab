@@ -11,13 +11,13 @@
 ```text
 +---------------------------------------+
 | [Title]                       [Action] |
-|---------------------------------------|
-| [Main content]                        |
+|----------------------------------------|
+| [Main content]                         |
 | [Status or feedback]                   |
 +---------------------------------------+
 ```
 
-[Replace the sketch with the actual component layout, including responsive changes.]
+[Replace the sketch with the actual component layout, including responsive changes. Could also be an image or inline svg.]
 
 ### Behavior
 
@@ -38,11 +38,7 @@
 
 ### Styling and Responsiveness
 
-[Tokens, breakpoints, and layout constraints.]
-
-### Dependencies and Integration
-
-[External components, services, and contracts.]
+[Tokens, breakpoints, layout constraints, loading behavior, interaction design, etc. Optional. Often theme controlled.]
 
 ### Maintainer Notes
 

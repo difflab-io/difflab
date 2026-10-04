@@ -10,27 +10,27 @@
 
 ## Readability
 
-[Can a new reader follow the flow, names, and error paths?]
+[Can a new reader follow the flow, names, and error paths? Is code readable for and understandable for an average mide-level developer at a glance?]
 
 ## Semantic Organization
 
-[Are responsibilities, boundaries, and public APIs arranged by meaning?]
+[Are responsibilities, boundaries, and public APIs arranged by meaning? Are modules semantically meaningful? Is code in applications and libraries well sliced by concerns?]
 
 ## Maintainability
 
-[Are extensions, configuration, migrations, and failure recovery understandable?]
+[Is the code DRY? Is the code over-engineered beyond required scope? Are well trusted / industry-standard libraries and frameworks used for standard tasks? Are domain specific conventions approprate for the codebase being followed? Is basic linting, formatting and static analysis hygiene present?]
 
-## Quality and Tests
+## Reliability/Testing
 
-[Behavior, edge cases, test coverage, and evidence from executed checks.]
+[Behavior, edge cases, test coverage, and evidence from executed checks. Adhere to repo testing standards if specified in AGENTS.md or docs. Otherwise, generally prioritize e2e coverage and test readability and organization.]
 
 ## Performance
 
-[Cost, allocations, I/O, scaling, and measured or expected impact.]
+[Cost, allocations, I/O, scaling, and measured or expected impact. State SKIPPED with reasons for non-perf bugfixes, minor refactors, and non-performance critical applications.]
 
 ## Security
 
-[Inputs, trust boundaries, permissions, secrets, dependencies, and abuse cases.]
+[Evaluate authentication and autorization, permissions, secrets, dependencies, input validation, proper error handling, and trust boundaries. State SKIPPED if skipped with reason, for example for chores, simple scripting, pure cosmetic UI work, documentation, etc.]
 
 ## Findings
 

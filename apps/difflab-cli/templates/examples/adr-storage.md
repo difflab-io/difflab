@@ -15,8 +15,15 @@ Exports may exceed the response size limit of the application server. Where shou
 
 ## Considered Options
 
-- Store exports in object storage.
-- Store exports in the database.
+### Object storage
+
+- Good: Lifecycle rules remove expired exports without an application job.
+- Bad: Requires bucket credentials and signed download URLs.
+
+### Database
+
+- Good: Existing backup process covers exports.
+- Bad: Large blobs make backups slow and expensive.
 
 ## Decision Outcome
 
@@ -30,18 +37,16 @@ Chosen option: object storage, because it provides expiry policies and direct do
 
 - Download authorization requires short-lived signed URLs.
 
-## Pros and Cons of the Options
-
-### Object storage
-
-- Good: Lifecycle rules remove expired exports.
-- Bad: Requires credentials and bucket configuration.
-
-### Database
-
-- Good: Existing backup process covers exports.
-- Bad: Large blobs make backups slow and expensive.
-
-## Links
+## References
 
 - EX-41 — example export requirement.
+
+## Appendix
+
+### Appendix A
+
+A seven-day lifecycle rule deletes exports even if a user never downloads them. Issue signed URLs only after checking that the requester owns the export.
+
+### Appendix B
+
+An export job records the object key and expiry time so the download endpoint can reject expired requests before generating a URL.

@@ -43,10 +43,6 @@ The router owns navigation state; the component derives the active item from `cu
 
 Use existing navigation tokens; collapse below the compact breakpoint.
 
-### Dependencies and Integration
-
-Route links come from the application router. Do not duplicate permission checks in display code.
-
 ### Maintainer Notes
 
-Test route changes, keyboard operation, permission-filtered items, and compact layout.
+Route links come from the application router; do not duplicate permission checks in display code. Test route changes, keyboard operation, permission-filtered items, and compact layout.

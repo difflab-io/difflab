@@ -13,10 +13,10 @@ Let project owners invite teammates without sharing credentials.
 - `bun test src/invitations.test.ts` — passed in this example.
 - Manual check: expired and already-used tokens did not grant membership.
 
-## References
-
-- Issue: EX-12 (example)
-
 ## Further Work
 
 Add invitation resend and cancellation in a separate change.
+
+## References
+
+- Issue: EX-12 (example)

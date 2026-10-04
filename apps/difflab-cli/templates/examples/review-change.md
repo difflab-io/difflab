@@ -10,19 +10,19 @@ The acceptance path checks expiry before membership creation. The resend path wa
 
 ## Readability
 
-Function names describe outcomes; the expiry check would be easier to follow before token decoding.
+Function names describe outcomes, and the request path is understandable without tracing helpers. Move the expiry guard before token decoding so a mid-level maintainer can see the rejection path at a glance.
 
 ## Semantic Organization
 
-Invitation policy belongs in the invitation service, not the HTTP handler.
+Invitation policy belongs in the invitation service, not the HTTP handler. The handler should own transport errors; the service should own token and membership rules.
 
 ## Maintainability
 
-The shared expiry helper keeps request and background paths consistent.
+The shared expiry helper avoids duplicate rules in request and background paths. No new library or abstraction is needed for this change; formatting and static analysis should remain clean.
 
-## Quality and Tests
+## Reliability/Testing
 
-Tests cover expiry at the boundary and a used token. The behavior for clock skew is not covered.
+Tests cover expiry at the boundary and a used token. A clock-skew case is missing; add a readable test that checks the server clock source and confirms no membership is created on rejection.
 
 ## Performance
 
@@ -30,7 +30,7 @@ One lookup occurs per acceptance; no new unbounded loop is present.
 
 ## Security
 
-The response does not reveal whether an address has an account. Tokens are compared as opaque values.
+The response does not reveal whether an address has an account. The recipient is authorized before the token is consumed, tokens are treated as opaque values, and failed acceptance does not create membership.
 
 ## Findings
 

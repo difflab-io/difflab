@@ -40,10 +40,6 @@ Parent owns `open` and performs deletion; the dialog owns only pending/error dis
 
 Use shared spacing tokens and a 28rem maximum width; stack actions below 22rem.
 
-### Dependencies and Integration
-
-Use the design system modal primitive for focus management.
-
 ### Maintainer Notes
 
-Test Escape, focus restoration, double-submit prevention, and the server error path.
+Use the design system modal primitive for focus management. Test Escape, focus restoration, double-submit prevention, and the server error path.

@@ -1,5 +1,7 @@
 # [User outcome or product change]
 
+> @agent: make this closer to the PRD under prd dir!
+
 - **Status:** draft
 - **Owner:** [person or team]
 - **Date:** [YYYY-MM-DD]

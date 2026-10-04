@@ -2,19 +2,15 @@
 
 ## Objective
 
-[What do you want to change?]
+[What do you want to add/change?]
 
-## Context
+## Requirements/Instructions
 
-[Why is this needed? Optional.]
+[Requirements deliverable must meet. Alternately, imperative instructions which must be followed.]
 
 ## Constraints
 
-[Must-haves or limits. Optional.]
-
-## Out of Scope
-
-[What should this work avoid? Optional.]
+[Implementation requirements (particularly non-functional ones), important invariants, behavioral must-haves or limits. Optional.]
 
 ## Open Questions
 
