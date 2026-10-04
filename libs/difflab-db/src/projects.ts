@@ -1,20 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, rename, rm } from 'node:fs/promises'
-import { join } from 'node:path'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { sql, type Kysely, type Transaction } from 'kysely'
 import { canonicalGithubUrl, repositorySlug } from './repositories.js'
-import { projectInfo, repositories } from './schema.js'
-import {
-  databasePath,
-  ensureProjectsRoot,
-  openProjectDatabase,
-  projectDirectory,
-  projectKeys,
-  ProjectStoreError,
-  requireDirectory,
-  requireRegularFile,
-  withRegistryLock,
-} from './registry.js'
+import { ProjectStoreError, withDatabaseAccess } from './registry.js'
+import { retryDatabaseOperation } from './retry.js'
+import type { ProjectDatabase, RepositoryRow } from './schema.js'
 
 // Types -----------------------------------------------------------------------
 export type Repository = { id: string; projectId: string; githubUrl: string; slug: string }
@@ -35,127 +24,162 @@ export function validateProjectKey(key: string): string {
   return normalized
 }
 
-export async function createProject(
-  key: string,
-  name: string,
-  home?: string,
-  initialOrigins: string[] = [],
-): Promise<Project> {
-  const trimmed = name.trim()
-  if (!trimmed || name.length > 100)
-    throw new ProjectStoreError('Project name must be nonempty and at most 100 characters')
-  const projectKey = validateProjectKey(key)
-  const githubUrls = initialOrigins.map(canonicalGithubUrl)
-  if (new Set(githubUrls).size !== githubUrls.length)
-    throw new ProjectConflictError('Duplicate GitHub repository origins')
-  return withRegistryLock(home, async () => {
-    const root = await ensureProjectsRoot(home)
-    const projects = await scanProjectsUnlocked(home)
-    if (projects.some((project) => project.id === projectKey)) {
-      throw new ProjectConflictError(`Project already exists: ${projectKey}`)
-    }
-    await assertAvailableDirectory(projectDirectory(projectKey, home))
-    for (const githubUrl of githubUrls) {
-      const owner = projects.find((project) =>
-        project.repositories.some((repo) => repo.githubUrl === githubUrl),
-      )
-      if (owner)
-        throw new ProjectConflictError(`GitHub repository already belongs to project ${owner.name}`)
-    }
-    const stage = join(root, `.creating-${randomUUID()}`)
-    await mkdir(join(stage, 'db'), { recursive: true, mode: 0o700 })
+export class ProjectStore {
+  constructor(
+    private readonly db: Kysely<ProjectDatabase>,
+    private readonly readonly: boolean,
+    private readonly dbPath: string,
+  ) {}
+
+  async createProject(key: string, name: string, initialOrigins: string[] = []): Promise<Project> {
+    this.assertWritable()
+    const trimmed = name.trim()
+    if (!trimmed || trimmed.length > 100)
+      throw new ProjectStoreError('Project name must be nonempty and at most 100 characters')
+    const projectKey = validateProjectKey(key)
+    const urls = initialOrigins.map(canonicalGithubUrl)
+    if (new Set(urls).size !== urls.length)
+      throw new ProjectConflictError('Duplicate GitHub repository origins')
     try {
-      const database = openProjectDatabase(join(stage, 'db', 'project.sqlite'))
-      const id = projectKey
-      const initialRepositories: Repository[] = githubUrls.map((githubUrl) => ({
-        id: randomUUID(),
-        projectId: id,
-        githubUrl,
-        slug: repositorySlug(githubUrl),
-      }))
-      try {
-        const orm = drizzle({ client: database })
-        database
-          .transaction(() => {
-            orm.insert(projectInfo).values({ id: projectKey, name: trimmed }).run()
-            if (initialRepositories.length)
-              orm.insert(repositories).values(initialRepositories).run()
-          })
-          .immediate()
-      } finally {
-        database.close()
-      }
-      await assertAvailableDirectory(projectDirectory(projectKey, home))
-      await rename(stage, projectDirectory(projectKey, home))
-      return {
-        id: projectKey,
-        name: trimmed,
-        repositories: initialRepositories,
-      }
-    } finally {
-      await rm(stage, { recursive: true, force: true })
+      return await withDatabaseAccess(this.dbPath, () =>
+        retryDatabaseOperation(() =>
+          this.db.transaction().execute(async (tx) => {
+            await tx.insertInto('projects').values({ key: projectKey, name: trimmed }).execute()
+            const repositories: Repository[] = []
+            for (const githubUrl of urls) {
+              const repository = makeRepository(projectKey, githubUrl)
+              await tx.insertInto('repositories').values(toRow(repository)).execute()
+              repositories.push(repository)
+            }
+            return { id: projectKey, name: trimmed, repositories }
+          }),
+        ),
+      )
+    } catch (error) {
+      if (isConstraint(error))
+        throw new ProjectConflictError(`Project key or repository already exists: ${projectKey}`)
+      throw error
     }
-  })
-}
+  }
 
-export async function listProjects(home?: string): Promise<Project[]> {
-  return withRegistryLock(home, () => scanProjectsUnlocked(home))
-}
+  async listProjects(): Promise<Project[]> {
+    return withDatabaseAccess(this.dbPath, () =>
+      this.db.transaction().execute(async (tx) => {
+        const rows = await tx.selectFrom('projects').selectAll().orderBy('key').execute()
+        const repositories = await tx
+          .selectFrom('repositories')
+          .selectAll()
+          .orderBy(sql`rowid`)
+          .execute()
+        return rows.map((row) => ({
+          id: row.key,
+          name: row.name,
+          repositories: repositories.filter((repo) => repo.project_key === row.key).map(fromRow),
+        }))
+      }),
+    )
+  }
 
-/** Internal: call only while holding the registry lock. */
-export async function scanProjectsUnlocked(home?: string): Promise<Project[]> {
-  const projects: Project[] = []
-  for (const key of await projectKeys(home)) projects.push(await loadProject(key, home))
-  return projects
-}
+  async getProjectById(key: string): Promise<Project> {
+    const projectKey = validateProjectKey(key)
+    return withDatabaseAccess(this.dbPath, () =>
+      this.db.transaction().execute(async (tx) => {
+        const row = await tx
+          .selectFrom('projects')
+          .selectAll()
+          .where('key', '=', projectKey)
+          .executeTakeFirst()
+        if (!row) throw new ProjectStoreError(`Project not found: ${projectKey}`)
+        const repositories = await tx
+          .selectFrom('repositories')
+          .selectAll()
+          .where('project_key', '=', projectKey)
+          .orderBy(sql`rowid`)
+          .execute()
+        return { id: row.key, name: row.name, repositories: repositories.map(fromRow) }
+      }),
+    )
+  }
 
-export async function getProjectById(id: string, home?: string): Promise<Project> {
-  const projects = await listProjects(home)
-  const project = projects.find((item) => item.id === id)
-  if (!project) throw new ProjectStoreError(`Project not found: ${id}`)
-  return project
-}
+  async inspectProject(key: string): Promise<Project> {
+    return this.getProjectById(key)
+  }
 
-/** Read only one project. Does not create home, project folders, SQLite sidecars or migrations. */
-export async function inspectProject(projectKey: string, home?: string): Promise<Project> {
-  return loadProject(projectKey, home, true)
+  async linkRepository(projectKey: string, origin: string): Promise<Repository> {
+    this.assertWritable()
+    const key = validateProjectKey(projectKey)
+    const githubUrl = canonicalGithubUrl(origin)
+    const repository = makeRepository(key, githubUrl)
+    try {
+      return await withDatabaseAccess(this.dbPath, () =>
+        retryDatabaseOperation(() =>
+          this.db.transaction().execute(async (tx) => {
+            await requireProject(tx, key)
+            await tx
+              .insertInto('repositories')
+              .values(toRow(repository))
+              .onConflict((conflict) => conflict.doNothing())
+              .execute()
+            const existing = await tx
+              .selectFrom('repositories')
+              .selectAll()
+              .where('github_url', '=', githubUrl)
+              .executeTakeFirst()
+            if (!existing || existing.project_key !== key)
+              throw new ProjectConflictError(
+                `GitHub repository already belongs to another project: ${githubUrl}`,
+              )
+            return fromRow(existing)
+          }),
+        ),
+      )
+    } catch (error) {
+      if (isConstraint(error))
+        throw new ProjectConflictError(`Repository already exists: ${githubUrl}`)
+      throw error
+    }
+  }
+
+  async close(): Promise<void> {
+    await this.db.destroy()
+  }
+
+  // Helpers -------------------------------------------------------------------
+  private assertWritable(): void {
+    if (this.readonly) throw new ProjectStoreError('Project database is read-only')
+  }
 }
 
 // Helpers ---------------------------------------------------------------------
-async function assertAvailableDirectory(path: string): Promise<void> {
-  try {
-    await lstat(path)
-    throw new ProjectConflictError(`Project directory already exists: ${path}`)
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return
-    throw error
+async function requireProject(tx: Transaction<ProjectDatabase>, key: string): Promise<void> {
+  const project = await tx
+    .selectFrom('projects')
+    .select('key')
+    .where('key', '=', key)
+    .executeTakeFirst()
+  if (!project) throw new ProjectStoreError(`Project not found: ${key}`)
+}
+
+function makeRepository(projectId: string, githubUrl: string): Repository {
+  return { id: randomUUID(), projectId, githubUrl, slug: repositorySlug(githubUrl) }
+}
+
+function fromRow(row: RepositoryRow): Repository {
+  return { id: row.id, projectId: row.project_key, githubUrl: row.github_url, slug: row.slug }
+}
+
+function toRow(repository: Repository): RepositoryRow {
+  return {
+    id: repository.id,
+    project_key: repository.projectId,
+    github_url: repository.githubUrl,
+    slug: repository.slug,
   }
 }
 
-async function loadProject(
-  projectKey: string,
-  home: string | undefined,
-  readonly = false,
-): Promise<Project> {
-  await requireDirectory(projectDirectory(projectKey, home))
-  await requireDirectory(join(projectDirectory(projectKey, home), 'db'))
-  const file = databasePath(projectKey, home)
-  await requireRegularFile(file)
-  const database = openProjectDatabase(file, readonly)
-  try {
-    const orm = drizzle({ client: database })
-    const rows = orm.select().from(projectInfo).all()
-    if (rows.length !== 1 || rows[0]?.id !== projectKey) {
-      throw new ProjectStoreError(
-        `Project database metadata does not match directory: ${projectKey}`,
-      )
-    }
-    return {
-      id: rows[0].id,
-      name: rows[0].name,
-      repositories: orm.select().from(repositories).all(),
-    }
-  } finally {
-    database.close()
-  }
+function isConstraint(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /SQLITE_CONSTRAINT|constraint failed|UNIQUE constraint/i.test(error.message)
+  )
 }

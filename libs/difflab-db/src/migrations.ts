@@ -1,5 +1,43 @@
-import type { Database } from 'bun:sqlite'
-import { migrations } from './generated/migrations.js'
+import { type Kysely, sql } from 'kysely'
+import { Migrator, type Migration, type MigrationProvider } from 'kysely/migration'
+import type { ProjectDatabase } from './schema.js'
+
+// Constants -------------------------------------------------------------------
+const initialMigration: Migration = {
+  async up(db: Kysely<unknown>): Promise<void> {
+    await db.schema
+      .createTable('projects')
+      .addColumn('key', 'text', (column) => column.primaryKey())
+      .addColumn('name', 'text', (column) => column.notNull())
+      .execute()
+    await db.schema
+      .createTable('repositories')
+      .addColumn('id', 'text', (column) => column.primaryKey())
+      .addColumn('project_key', 'text', (column) =>
+        column.notNull().references('projects.key').onDelete('cascade'),
+      )
+      .addColumn('github_url', 'text', (column) => column.notNull().unique())
+      .addColumn('slug', 'text', (column) => column.notNull())
+      .execute()
+    await db.schema
+      .createIndex('repositories_project_slug_unique')
+      .on('repositories')
+      .columns(['project_key', 'slug'])
+      .unique()
+      .execute()
+  },
+  async down(db: Kysely<unknown>): Promise<void> {
+    await db.schema.dropTable('repositories').execute()
+    await db.schema.dropTable('projects').execute()
+  },
+}
+
+const migrations = { '001_initial': initialMigration }
+const provider: MigrationProvider = {
+  async getMigrations() {
+    return migrations
+  },
+}
 
 // API -------------------------------------------------------------------------
 export class MigrationError extends Error {
@@ -9,83 +47,31 @@ export class MigrationError extends Error {
   }
 }
 
-/** Verify without creating a database, sidecar, migration table, or directory. */
-export function assertCurrentSchema(database: Database): void {
-  const version = schemaVersion(database)
-  if (version !== migrations.length) {
-    throw new MigrationError(
-      `Project database schema ${version} is not current (${migrations.length})`,
-    )
-  }
-  verifyHistory(database, version)
+export async function migrate(db: Kysely<ProjectDatabase>): Promise<void> {
+  const { error } = await new Migrator({ db, provider }).migrateToLatest()
+  if (error) throw new MigrationError('Could not migrate project database', { cause: error })
 }
 
-export function migrate(database: Database): void {
-  const version = schemaVersion(database)
-  if (version > migrations.length)
-    throw new MigrationError(`Unknown project schema version ${version}`)
-  database.run(
-    'CREATE TABLE IF NOT EXISTS difflab_migrations (version INTEGER PRIMARY KEY, tag TEXT NOT NULL, hash TEXT NOT NULL)',
-  )
-  verifyHistory(database, version)
-
-  for (let index = version; index < migrations.length; index++) {
-    const migration = migrations[index]
-    if (!migration) throw new MigrationError(`Missing migration ${index}`)
-    try {
-      database
-        .transaction(() => {
-          for (const statement of migration.statements) database.run(statement)
-          database
-            .query('INSERT INTO difflab_migrations (version, tag, hash) VALUES (?, ?, ?)')
-            .run(index + 1, migration.tag, migration.hash)
-          database.run(`PRAGMA user_version = ${index + 1}`)
-        })
-        .immediate()
-    } catch (error) {
-      throw new MigrationError(`Could not apply project migration ${migration.tag}`, {
-        cause: error,
-      })
-    }
-  }
-}
-
-// Helpers ---------------------------------------------------------------------
-function schemaVersion(database: Database): number {
-  const row = database.query('PRAGMA user_version').get() as { user_version: number } | null
-  if (!row || !Number.isSafeInteger(row.user_version) || row.user_version < 0) {
-    throw new MigrationError('Invalid project database schema version')
-  }
-  return row.user_version
-}
-
-function verifyHistory(database: Database, version: number): void {
-  const table = database
-    .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'difflab_migrations'")
-    .get()
-  if (!table) {
-    if (version === 0) return
-    throw new MigrationError('Project database migration history is missing')
-  }
-  let applied: { version: number; tag: string; hash: string }[]
-  try {
-    applied = database
-      .query('SELECT version, tag, hash FROM difflab_migrations ORDER BY version')
-      .all() as typeof applied
-  } catch (error) {
-    throw new MigrationError('Invalid project database migration history', { cause: error })
-  }
+/** Read-only schema verification: never construct a Migrator, which creates its own tables. */
+export async function assertCurrentSchema(db: Kysely<ProjectDatabase>): Promise<void> {
+  const { rows: tables } = await sql<{
+    name: string
+  }>`SELECT name FROM sqlite_master WHERE type = 'table'`.execute(db)
+  const names = new Set(tables.map((table) => table.name))
   if (
-    applied.length !== version ||
-    applied.some(
-      (row, index) =>
-        row.version !== index + 1 ||
-        row.tag !== migrations[index]?.tag ||
-        row.hash !== migrations[index]?.hash,
+    !['projects', 'repositories', 'kysely_migration', 'kysely_migration_lock'].every((name) =>
+      names.has(name),
     )
   ) {
-    throw new MigrationError(
-      'Project database migration history does not match this Difflab version',
-    )
+    throw new MigrationError('Project database schema is not current')
+  }
+  const { rows } = await sql<{
+    name: string
+  }>`SELECT name FROM kysely_migration ORDER BY name`.execute(db)
+  if (
+    rows.length !== Object.keys(migrations).length ||
+    rows.some((row, index) => row.name !== Object.keys(migrations)[index])
+  ) {
+    throw new MigrationError('Project database schema is not current')
   }
 }
