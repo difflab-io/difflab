@@ -1,0 +1,54 @@
+[tools]
+bun = "1.4.2"
+node = "24"
+
+[tasks.install]
+description = "Install Bun workspace dependencies through the root task"
+depends = ["//:install"]
+run = 'echo "Workspace dependencies installed by //:install"'
+
+[tasks.build]
+description = "Build the library"
+depends = ["install"]
+run = "bun run build"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "bun run clean"
+
+[tasks.test]
+description = "Run the Bun test suite"
+depends = ["install"]
+run = "bun run test"
+
+[tasks.lint]
+description = "Type-check the library and tests"
+depends = ["install"]
+run = "bun run lint"
+
+[tasks."lint:fix"]
+description = "Format and type-check the library"
+depends = ["install"]
+run = "bun run lint:fix"
+
+[tasks.format]
+description = "Format project files"
+depends = ["install"]
+run = "bun run format"
+
+[tasks."format:check"]
+description = "Check project formatting"
+depends = ["install"]
+run = "bun run format:check"
+
+[tasks.env-pull]
+description = "Pull external environment configuration"
+run = 'echo "env-pull: nothing to pull"'
+
+[tasks."publish:rc"]
+description = "Skip internal release candidate publication"
+run = 'echo "publish:rc: package is internal; nothing to publish"'
+
+[tasks.publish]
+description = "Skip internal stable publication"
+run = 'echo "publish: package is internal; nothing to publish"'

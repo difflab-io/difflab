@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
+import { execFileSync } from 'node:child_process'
+import { mkdir, realpath } from 'node:fs/promises'
+import { createUserStore } from '../store/user-store.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { join } from 'node:path'
 import { createTempDirectory } from '../extensions/testx'
+import { createProgram } from '../cli.js'
 
 // Setup -----------------------------------------------------------------------
 const cleanups: (() => Promise<void>)[] = []
@@ -33,14 +37,72 @@ describe('Difflab MCP over stdio', () => {
       })
 
       // Assert
-      expect(tools.map((tool) => tool.name).sort()).toEqual([
-        'todo_add',
-        'todo_complete',
-        'todo_init',
-        'todo_list',
-        'todo_remove',
-      ])
+      expect(tools.map((tool) => tool.name).sort()).toEqual(
+        [
+          'todo_add',
+          'todo_complete',
+          'todo_init',
+          'todo_list',
+          'todo_remove',
+          'project_context',
+        ].sort(),
+      )
+      expect(tools.find((tool) => tool.name === 'project_context')?.outputSchema).toBeDefined()
       expect(responseText(response)).toEqual({ created: true, list: { version: 1, tasks: [] } })
+      const context = await client.callTool({
+        name: 'project_context',
+        arguments: { cwd: directory.path },
+      })
+      expect(context.isError).toBe(true)
+      expect(context.structuredContent).toBeUndefined()
+      expect(responseText(context).error).toContain('difflab-init')
+    } finally {
+      await client.close()
+    }
+  }, 15_000)
+
+  test('returns configured project context over stdio with a temporary user home', async () => {
+    const directory = await createTempDirectory('difflab-context-stdio-')
+    cleanups.push(directory.cleanup)
+    const userHome = join(directory.path, 'home')
+    const repositoryRoot = join(directory.path, 'repo')
+    await mkdir(userHome)
+    await mkdir(repositoryRoot)
+    execFileSync('git', ['init', '-q', repositoryRoot])
+    execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:example/stdio.git'], {
+      cwd: repositoryRoot,
+    })
+    const project = await createUserStore(userHome).createProject('STD', 'Stdio Project')
+    await createProgram(() => {}, '0.1.0', { cwd: repositoryRoot, home: userHome }).parseAsync([
+      'node',
+      'difflab',
+      'init',
+      project.id,
+    ])
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [
+        process.env.DIFFLAB_MCP_TEST_ENTRY ?? join(import.meta.dir, '..', 'index.ts'),
+        'mcp',
+        'serve',
+      ],
+      env: { ...process.env, HOME: userHome },
+      stderr: 'pipe',
+    })
+    const client = new Client({ name: 'difflab-test', version: '0.1.0' })
+    try {
+      await client.connect(transport)
+      const response = await client.callTool({
+        name: 'project_context',
+        arguments: { cwd: repositoryRoot },
+      })
+      expect(response.isError).toBeUndefined()
+      expect(response.structuredContent).toBeDefined()
+      expect(
+        (response.structuredContent as { repository: { localPath: string } }).repository.localPath,
+      ).toBe(await realpath(repositoryRoot))
+      expect(responseText(response).project.id).toBe(project.id)
+      expect(responseText(response).repository.origin).toBe('https://github.com/example/stdio')
     } finally {
       await client.close()
     }

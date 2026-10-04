@@ -16,3 +16,8 @@ workspace:
       path: apps/difflab-cli
       answers:
         name: difflab-cli
+    - name: difflab-db
+      template: cloudvoyant/premise-bun:premise-ts-lib
+      path: libs/difflab-db
+      answers:
+        name: difflab-db

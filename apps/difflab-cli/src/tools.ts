@@ -10,6 +10,7 @@ type ToolAnnotations = {
 
 type ToolResult = {
   content: { type: 'text'; text: string }[]
+  structuredContent?: Record<string, unknown>
   isError?: boolean
 }
 
@@ -19,6 +20,7 @@ export type ToolDefinition = {
     description: string
     inputSchema: z.ZodType
     annotations?: ToolAnnotations
+    outputSchema?: z.ZodType
   }
   callback: (untrustedInput: unknown) => Promise<ToolResult>
 }
@@ -26,8 +28,14 @@ export type ToolDefinition = {
 // API -------------------------------------------------------------------------
 export function defineTool<Schema extends z.ZodType, Output>(
   name: string,
-  config: { description: string; inputSchema: Schema; annotations?: ToolAnnotations },
+  config: {
+    description: string
+    inputSchema: Schema
+    annotations?: ToolAnnotations
+    outputSchema?: z.ZodType
+  },
   handler: (input: z.output<Schema>) => Promise<Output>,
+  options: { errorHint?: string } = {},
 ): ToolDefinition {
   return {
     name,
@@ -35,13 +43,22 @@ export function defineTool<Schema extends z.ZodType, Output>(
       description: config.description,
       inputSchema: config.inputSchema,
       ...(config.annotations ? { annotations: config.annotations } : {}),
+      ...(config.outputSchema ? { outputSchema: config.outputSchema } : {}),
     },
     callback: async (untrustedInput: unknown) => {
       try {
-        return serializeToolResult(await handler(config.inputSchema.parse(untrustedInput)))
+        return serializeToolResult(
+          await handler(config.inputSchema.parse(untrustedInput)),
+          config.outputSchema,
+        )
       } catch (error) {
         return {
-          ...serializeToolResult({ error: error instanceof Error ? error.message : String(error) }),
+          ...serializeToolResult(
+            {
+              error: `${error instanceof Error ? error.message : String(error)}${options.errorHint ? ` ${options.errorHint}` : ''}`,
+            },
+            undefined,
+          ),
           isError: true,
         }
       }
@@ -50,6 +67,12 @@ export function defineTool<Schema extends z.ZodType, Output>(
 }
 
 // Helpers ---------------------------------------------------------------------
-function serializeToolResult(value: unknown): ToolResult {
-  return { content: [{ type: 'text', text: JSON.stringify(value) }] }
+function serializeToolResult(value: unknown, outputSchema?: z.ZodType): ToolResult {
+  const structuredContent = outputSchema?.parse(value)
+  return {
+    content: [{ type: 'text', text: JSON.stringify(value) }],
+    ...(structuredContent
+      ? { structuredContent: structuredContent as Record<string, unknown> }
+      : {}),
+  }
 }

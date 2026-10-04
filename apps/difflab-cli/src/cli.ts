@@ -1,19 +1,113 @@
 import { Command } from 'commander'
+import { validateProjectKey } from 'difflab-db'
+import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'difflab-ts/gitx'
+import { join } from 'node:path'
+import { ProjectSetupError, RepoStoreError } from './errors.js'
+import { createRepoConfig, readRepoConfig } from './projects/config.js'
+import { getProjectContext } from './context.js'
+import { ensureRepoStore, preflightRepoStore } from './projects/repo-store.js'
+import { createUserStore, userPaths, withUserStore } from './store/user-store.js'
+
+// Types -----------------------------------------------------------------------
+type ProgramOptions = {
+  home?: string
+  cwd?: string
+}
 
 // API -------------------------------------------------------------------------
 export function createProgram(
   write: (message: string) => void = console.log,
   version = '0.1.0',
+  options: ProgramOptions = {},
 ): Command {
   const program = new Command()
-    .name('difflab-cli')
+    .name('difflab')
     .description('Difflab CLI and local MCP server')
     .version(version)
 
   program.action(() => program.outputHelp())
 
-  const mcp = program.command('mcp').description('Difflab MCP server commands')
+  const project = program.command('project').description('Manage local projects')
+  project
+    .command('add [project-key]')
+    .option('--name <name>', 'Project name when creating a project')
+    .option(
+      '--repo <origin>',
+      'Git repository origin (repeatable)',
+      (value: string, all: string[]) => [...all, value],
+      [],
+    )
+    .action(async (projectKey: string | undefined, flags: { name?: string; repo: string[] }) => {
+      const name = flags.name
+      const repositories = flags.repo
+      if (!projectKey || !name?.trim() || !repositories.length)
+        throw new ProjectSetupError(
+          'project add requires a project key, --name, and at least one --repo; use project add <key> --name <name> --repo <origin>',
+        )
+      repositories.forEach(canonicalGitUrl)
+      const created = await createUserStore(options.home).createProject(
+        projectKey,
+        name,
+        repositories,
+      )
+      write(`Created project ${created.name} (${created.id})`)
+    })
+  project
+    .command('list')
+    .description('List projects and associated Git repositories')
+    .action(async () => {
+      const projects = await createUserStore(options.home).listProjects()
+      if (!projects.length) {
+        write('No projects yet.')
+        return
+      }
+      for (const project of projects) {
+        write(`${project.id}\t${project.name}`)
+        for (const repo of project.repositories) write(`  ${repo.url}`)
+      }
+    })
 
+  program
+    .command('init <project>')
+    .description('Associate this Git repository with an existing local project')
+    .action(async (projectId: string) => {
+      const cwd = options.cwd ?? process.cwd()
+      const git = discoverGitRepository(cwd)
+      const key = validateProjectKey(projectId)
+      const config = await readRepoConfig(git.root)
+      if (config && config.project.id !== key)
+        throw new RepoStoreError(
+          `Repository already belongs to project ${config.project.id}; requested ${key}`,
+        )
+      const origin = canonicalGitUrl(git.originUrl)
+      const target = join(userPaths(options.home).projects, key, repositorySlug(origin))
+      await preflightRepoStore(git.root, target)
+      const project = await withUserStore(
+        async (db) => {
+          const project = await db.projects.getProjectById(key)
+          await db.repositories.linkRepositoryToProject(project.id, origin)
+          return project
+        },
+        { home: options.home },
+      )
+      await ensureRepoStore(git.root, target, git.excludePath)
+      if (!config) {
+        try {
+          await createRepoConfig({ schemaVersion: 1, project: { id: project.id } }, git.root)
+        } catch (error) {
+          if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
+          const existing = await readRepoConfig(git.root)
+          if (!existing || existing.project.id !== project.id)
+            throw new RepoStoreError(`Repository config conflicts at ${git.root}`)
+        }
+      }
+      const context = await getProjectContext(git, key, options.home)
+      write(
+        `Initialized ${context.repository.origin} in project ${context.project.name} (${context.project.id})`,
+      )
+    })
+
+  const mcp = program.command('mcp').description('Difflab MCP server commands')
   mcp
     .command('serve')
     .description('Serve Difflab tools over MCP stdio')
@@ -21,7 +115,6 @@ export function createProgram(
       const { serveMcp } = await import('./mcp/index.js')
       await serveMcp(version)
     })
-
   mcp
     .command('setup')
     .description('Register the installed Difflab MCP server in selected user-level clients')
@@ -35,6 +128,5 @@ export function createProgram(
       const { setupMcpClients } = await import('./mcp/index.js')
       await setupMcpClients(client, write)
     })
-
   return program
 }
