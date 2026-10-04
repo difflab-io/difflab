@@ -7,7 +7,6 @@ export const projectInfo = sqliteTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
-    slug: text('slug').notNull().unique(),
     singleton: integer('singleton').notNull().default(1),
   },
   (table) => [

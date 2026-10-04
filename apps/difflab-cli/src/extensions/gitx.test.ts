@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
-import { lstat, mkdtemp, realpath, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { canonicalGithubUrl } from 'difflab-db'
-import { discoverGitRepository } from './git.js'
+import { addPathToGitExcludes, discoverGitRepository } from './gitx.js'
 
 // Setup -----------------------------------------------------------------------
 let temp: string
@@ -57,6 +57,14 @@ test('rejects missing origin and resolves a Git worktree with a .git file', asyn
     encoding: 'utf8',
   }).trim()
   expect(discovered.excludePath).toBe(resolve(discovered.root, exclude))
+})
+
+test('adds an exclude entry once without changing existing newline handling', async () => {
+  const exclude = join(temp, 'exclude')
+  await writeFile(exclude, 'first\r\n')
+  await addPathToGitExcludes(exclude, '/.difflab')
+  await addPathToGitExcludes(exclude, '/.difflab')
+  expect(await readFile(exclude, 'utf8')).toBe('first\r\n/.difflab\r\n')
 })
 
 // Cleanup ---------------------------------------------------------------------

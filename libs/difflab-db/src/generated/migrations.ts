@@ -2,10 +2,9 @@
 export const migrations = [
   {
     tag: '0000_initial',
-    hash: '212f825cb88f9b6fe2318b86f88b70659ed55fd6ca8b92a559e18add95b3c8ee',
+    hash: '9d5254870022567384383de9abc0a321f2c21905a86377f22bcd644199a65f2b',
     statements: [
-      'CREATE TABLE `project_info` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`name` text NOT NULL,\n\t`slug` text NOT NULL,\n\t`singleton` integer DEFAULT 1 NOT NULL,\n\tCONSTRAINT "project_info_singleton" CHECK("project_info"."singleton" = 1)\n);',
-      'CREATE UNIQUE INDEX `project_info_slug_unique` ON `project_info` (`slug`);',
+      'CREATE TABLE `project_info` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`name` text NOT NULL,\n\t`singleton` integer DEFAULT 1 NOT NULL,\n\tCONSTRAINT "project_info_singleton" CHECK("project_info"."singleton" = 1)\n);',
       'CREATE UNIQUE INDEX `project_info_one_row` ON `project_info` (`singleton`);',
       'CREATE TABLE `repositories` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`project_id` text NOT NULL,\n\t`github_url` text NOT NULL,\n\t`slug` text NOT NULL,\n\tFOREIGN KEY (`project_id`) REFERENCES `project_info`(`id`) ON UPDATE no action ON DELETE no action\n);',
       'CREATE UNIQUE INDEX `repositories_github_url_unique` ON `repositories` (`github_url`);',

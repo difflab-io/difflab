@@ -5,23 +5,26 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { listProjects } from 'difflab-db'
 import { createProgram } from './cli'
-import { ProjectSetupError } from './errors.js'
 
 // Tests -----------------------------------------------------------------------
 describe('commander CLI', () => {
   test('shows help when no command is supplied', async () => {
+    // Arrange
     const output: string[] = []
     const program = createProgram()
     program.configureOutput({ writeOut: (message) => output.push(message) })
 
+    // Act
     await program.parseAsync([], { from: 'user' })
 
+    // Assert
     expect(output.join('')).toContain('Usage: difflab')
     expect(output.join('')).toContain('mcp')
     expect(output.join('')).not.toContain('Hello,')
   })
 
-  test('canceling an interactive selection creates no project', async () => {
+  test('injected project add answers create a project', async () => {
+    // Arrange
     const temp = await mkdtemp(join(tmpdir(), 'difflab-cancel-'))
     const home = join(temp, 'home')
     const repo = join(temp, 'repo')
@@ -35,16 +38,20 @@ describe('commander CLI', () => {
       const program = createProgram(() => {}, '0.1.0', {
         home,
         cwd: repo,
-        chooseProject: async (projects) => {
-          expect(projects).toEqual([])
-          throw new ProjectSetupError('Initialization cancelled')
-        },
+        promptProjectAdd: async () => ({
+          key: 'INT',
+          name: 'Interactive project',
+          repositories: ['https://github.com/example/cancel'],
+        }),
       })
 
-      await expect(program.parseAsync(['init'], { from: 'user' })).rejects.toThrow(
-        'Initialization cancelled',
-      )
-      expect(await listProjects(home)).toEqual([])
+      // Act
+      await program.parseAsync(['project', 'add'], { from: 'user' })
+
+      // Assert
+      expect((await listProjects(home)).map((project) => project.name)).toEqual([
+        'Interactive project',
+      ])
     } finally {
       await rm(temp, { recursive: true, force: true })
     }

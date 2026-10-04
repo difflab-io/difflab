@@ -5,8 +5,19 @@ import { readProjectContext } from './context.js'
 
 // Constants -------------------------------------------------------------------
 const setupHint = 'Use the difflab-init skill to set up this repository with the Difflab CLI.'
+const projectContextOutput = z.strictObject({
+  project: z.strictObject({ id: z.string(), name: z.string() }),
+  repository: z.strictObject({
+    id: z.string(),
+    github: z.string(),
+    slug: z.string(),
+    localPath: z.string(),
+  }),
+  root: z.string(),
+})
 
 // API -------------------------------------------------------------------------
+/** Create MCP tools for reading project context. */
 export function createProjectTools(home?: string) {
   return [
     defineTool(
@@ -17,6 +28,7 @@ export function createProjectTools(home?: string) {
         inputSchema: z.strictObject({
           cwd: z.string().refine(isAbsolute, 'cwd must be an absolute existing directory'),
         }),
+        outputSchema: projectContextOutput,
         annotations: { readOnlyHint: true, openWorldHint: false },
       },
       async ({ cwd }) => readProjectContext(cwd, home),
@@ -25,4 +37,5 @@ export function createProjectTools(home?: string) {
   ]
 }
 
+/** Default project-context MCP tools. */
 export const projectTools = createProjectTools()

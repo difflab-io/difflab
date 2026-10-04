@@ -46,17 +46,17 @@ test('missing setup and invalid cwd produce skill-directed errors without creati
 
 test('returns configured project context and rejects old schemas without migrating', async () => {
   await mkdir(home)
-  const project = await createProject('My Project', home)
+  const project = await createProject('MYA', 'My Project', home)
   await initializeRepository({ cwd: repo, home, projectId: project.id })
   const tool = createProjectTools(home)[0]!
-  const dbDirectory = join(home, '.difflab', 'projects', project.slug, 'db')
+  const dbDirectory = join(home, '.difflab', 'projects', project.id, 'db')
   const before = await readdir(dbDirectory)
   const ready = await tool.callback({ cwd: repo })
   expect(await readdir(dbDirectory)).toEqual(before)
   expect(ready.isError).toBeUndefined()
   expect(JSON.parse(ready.content[0]!.text).project.id).toBe(project.id)
 
-  const file = databasePath(project.slug, home)
+  const file = databasePath(project.id, home)
   const db = new Database(file)
   db.run('PRAGMA user_version = 0')
   db.close()
@@ -73,8 +73,8 @@ test('returns configured project context and rejects old schemas without migrati
 
 test('rejects a manifest that refers to another project', async () => {
   await mkdir(home)
-  const project = await createProject('First', home)
-  const second = await createProject('Second', home)
+  const project = await createProject('FIR', 'First', home)
+  const second = await createProject('SEC', 'Second', home)
   await initializeRepository({ cwd: repo, home, projectId: project.id })
   const path = join(repo, 'difflab.yaml')
   await writeFile(path, (await readFile(path, 'utf8')).replace(project.id, second.id))
@@ -86,7 +86,7 @@ test('rejects a manifest that refers to another project', async () => {
 
 test('rejects missing databases and mismatched symlinks without repairing them', async () => {
   await mkdir(home)
-  const project = await createProject('First', home)
+  const project = await createProject('FIR', 'First', home)
   await initializeRepository({ cwd: repo, home, projectId: project.id })
   const tool = createProjectTools(home)[0]!
   const link = join(repo, '.difflab')
@@ -96,8 +96,8 @@ test('rejects missing databases and mismatched symlinks without repairing them',
   expect(mismatch.isError).toBe(true)
   expect(JSON.stringify(mismatch.content)).toContain('outside a project')
   await rm(link)
-  await symlink(join(home, '.difflab', 'projects', project.slug, 'example--one'), link)
-  const file = databasePath(project.slug, home)
+  await symlink(join(home, '.difflab', 'projects', project.id, 'example--one'), link)
+  const file = databasePath(project.id, home)
   await rename(file, `${file}.missing`)
   const missing = await tool.callback({ cwd: repo })
   expect(missing.isError).toBe(true)

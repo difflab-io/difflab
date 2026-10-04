@@ -4,7 +4,7 @@ export {
   inspectProject,
   listProjects,
   ProjectConflictError,
-  slugForName,
+  validateProjectKey,
 } from './projects.js'
 export type { Project, Repository } from './projects.js'
 export { canonicalGithubUrl, linkRepository, repositorySlug } from './repositories.js'

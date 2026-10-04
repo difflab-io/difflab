@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, realpath } from 'node:fs/promises'
 import { createProject } from 'difflab-db'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
@@ -47,12 +47,14 @@ describe('Difflab MCP over stdio', () => {
           'project_context',
         ].sort(),
       )
+      expect(tools.find((tool) => tool.name === 'project_context')?.outputSchema).toBeDefined()
       expect(responseText(response)).toEqual({ created: true, list: { version: 1, tasks: [] } })
       const context = await client.callTool({
         name: 'project_context',
         arguments: { cwd: directory.path },
       })
       expect(context.isError).toBe(true)
+      expect(context.structuredContent).toBeUndefined()
       expect(responseText(context).error).toContain('difflab-init')
     } finally {
       await client.close()
@@ -70,7 +72,7 @@ describe('Difflab MCP over stdio', () => {
     execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:example/stdio.git'], {
       cwd: repo,
     })
-    const project = await createProject('Stdio Project', home)
+    const project = await createProject('STD', 'Stdio Project', home)
     await initializeRepository({ cwd: repo, home, projectId: project.id })
     const transport = new StdioClientTransport({
       command: process.execPath,
@@ -87,6 +89,10 @@ describe('Difflab MCP over stdio', () => {
       await client.connect(transport)
       const response = await client.callTool({ name: 'project_context', arguments: { cwd: repo } })
       expect(response.isError).toBeUndefined()
+      expect(response.structuredContent).toBeDefined()
+      expect(
+        (response.structuredContent as { repository: { localPath: string } }).repository.localPath,
+      ).toBe(await realpath(repo))
       expect(responseText(response).project.id).toBe(project.id)
       expect(responseText(response).repository.github).toBe('https://github.com/example/stdio')
     } finally {

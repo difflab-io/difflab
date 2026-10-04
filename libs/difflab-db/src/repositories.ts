@@ -70,7 +70,7 @@ export async function linkRepository(
     if (project.repositories.some((repo) => repo.slug === slug)) {
       throw new ProjectConflictError(`Repository directory already exists in project: ${slug}`)
     }
-    const database = openProjectDatabase(databasePath(project.slug, home))
+    const database = openProjectDatabase(databasePath(project.id, home))
     try {
       const repository: Repository = { id: randomUUID(), projectId, githubUrl, slug }
       drizzle({ client: database }).insert(repositories).values(repository).run()

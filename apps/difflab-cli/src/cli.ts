@@ -1,14 +1,14 @@
 import { Command } from 'commander'
-import { listProjects, type Project } from 'difflab-db'
+import { canonicalGithubUrl, createProject, listProjects } from 'difflab-db'
+import { input } from '@inquirer/prompts'
 import { ProjectSetupError } from './errors.js'
 import { initializeRepository, preflightInit } from './projects/init.js'
 
 // Types -----------------------------------------------------------------------
-type Selection = { projectId?: string; newProject?: string }
 type ProgramOptions = {
   home?: string
   cwd?: string
-  chooseProject?: (projects: Project[]) => Promise<Selection>
+  promptProjectAdd?: () => Promise<{ key?: string; name: string; repositories: string[] }>
 }
 
 // API -------------------------------------------------------------------------
@@ -24,9 +24,40 @@ export function createProgram(
 
   program.action(() => program.outputHelp())
 
-  program
-    .command('project')
-    .description('Manage local projects')
+  const project = program.command('project').description('Manage local projects')
+  project
+    .command('add [project-key]')
+    .option('--name <name>', 'Project name when creating a project')
+    .option(
+      '--repo <origin>',
+      'GitHub repository origin (repeatable)',
+      (value: string, all: string[]) => [...all, value],
+      [],
+    )
+    .action(async (projectKey: string | undefined, flags: { name?: string; repo: string[] }) => {
+      let name = flags.name
+      let repositories = flags.repo
+      let key = projectKey
+      if (!key || !name || !repositories.length) {
+        const answers = options.promptProjectAdd
+          ? await options.promptProjectAdd()
+          : await promptForProjectAdd({
+              key: key !== undefined,
+              name: Boolean(name),
+              repositories: repositories.length > 0,
+            })
+        key ||= answers.key
+        name ||= answers.name
+        repositories = repositories.length ? repositories : answers.repositories
+      }
+      if (!repositories.length)
+        throw new ProjectSetupError('project add requires at least one --repo')
+      if (!key) throw new ProjectSetupError('project add requires a project key')
+      repositories.forEach(canonicalGithubUrl)
+      const created = await createProject(key, name ?? '', options.home, repositories)
+      write(`Created project ${created.name} (${created.id})`)
+    })
+  project
     .command('list')
     .description('List projects and associated GitHub repositories')
     .action(async () => {
@@ -42,28 +73,14 @@ export function createProgram(
     })
 
   program
-    .command('init')
-    .description('Associate this GitHub repository with a local project')
-    .option('--project <id>', 'Use an existing project ID')
-    .option('--new-project <name>', 'Create a named project')
-    .action(async (flags: Selection) => {
-      if (flags.projectId && flags.newProject)
-        throw new ProjectSetupError('--project and --new-project are mutually exclusive')
+    .command('init <project>')
+    .description('Associate this GitHub repository with an existing local project')
+    .action(async (projectId: string) => {
       const cwd = options.cwd ?? process.cwd()
       const preflight = await preflightInit(cwd, options.home)
-      let selection = flags
-      if (!selection.projectId && !selection.newProject) {
-        if (preflight.configuredProjectId) selection = { projectId: preflight.configuredProjectId }
-        else if (options.chooseProject)
-          selection = await options.chooseProject(await listProjects(options.home))
-        else if (process.stdin.isTTY)
-          selection = await promptForProject(await listProjects(options.home), write)
-        else
-          throw new ProjectSetupError(
-            'Non-interactive init requires --project <id> or --new-project <name>',
-          )
-      }
-      const context = await initializeRepository({ cwd, home: options.home, ...selection })
+      if (preflight.configuredProjectId && preflight.configuredProjectId !== projectId)
+        throw new ProjectSetupError('Repository already belongs to a different project')
+      const context = await initializeRepository({ cwd, home: options.home, projectId })
       write(
         `Initialized ${context.repository.github} in project ${context.project.name} (${context.project.id})`,
       )
@@ -94,29 +111,28 @@ export function createProgram(
 }
 
 // Helpers ---------------------------------------------------------------------
-async function promptForProject(
-  projects: Project[],
-  write: (message: string) => void,
-): Promise<Selection> {
-  const { createInterface } = await import('node:readline/promises')
-  projects.forEach((project, index) => write(`${index + 1}. ${project.name} (${project.id})`))
-  write(`${projects.length + 1}. Create new project`)
-  const input = createInterface({ input: process.stdin, output: process.stdout })
-  try {
-    const choice = (await input.question('Choose a project number (empty to cancel): ')).trim()
-    const number = Number(choice)
-    if (!choice || !Number.isSafeInteger(number) || number < 1 || number > projects.length + 1) {
-      throw new ProjectSetupError('Initialization cancelled or invalid project choice')
-    }
-    if (number <= projects.length) {
-      const project = projects[number - 1]
-      if (!project) throw new ProjectSetupError('Project choice is unavailable')
-      return { projectId: project.id }
-    }
-    const name = (await input.question('New project name: ')).trim()
-    if (!name) throw new ProjectSetupError('Initialization cancelled: project name is empty')
-    return { newProject: name }
-  } finally {
-    input.close()
+async function promptForProjectAdd(missing: {
+  key: boolean
+  name: boolean
+  repositories: boolean
+}): Promise<{
+  key?: string
+  name: string
+  repositories: string[]
+}> {
+  const key = missing.key
+    ? await input({ message: 'Project key (3-16 uppercase letters/digits):' })
+    : undefined
+  const name = missing.name ? await input({ message: 'Project name:' }) : ''
+  const origins = missing.repositories
+    ? await input({ message: 'GitHub repository origins (comma-separated):' })
+    : ''
+  return {
+    key,
+    name,
+    repositories: origins
+      .split(',')
+      .map((origin: string) => origin.trim())
+      .filter(Boolean),
   }
 }

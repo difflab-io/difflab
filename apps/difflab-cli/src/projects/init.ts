@@ -1,25 +1,25 @@
 import { lstat, mkdir, readlink, rm, rmdir, symlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { createProject, getProjectById, linkRepository, projectDirectory } from 'difflab-db'
+import { getProjectById, linkRepository, projectDirectory } from 'difflab-db'
 import { ProjectSetupError } from '../errors.js'
-import { addLocalExclusion } from './exclusion.js'
+import { addPathToGitExcludes } from '../extensions/gitx.js'
 import { readProjectContext } from './context.js'
-import { discoverGitRepository, type GitRepository } from './git.js'
-import { manifestPath, readManifest, writeManifest } from './manifest.js'
+import { discoverGitRepository, type GitRepository } from '../extensions/gitx.js'
+import { ensureRepoConfig, readRepoConfig, repoConfigPath } from './config.js'
 
 // Types -----------------------------------------------------------------------
-export type InitOptions = { cwd: string; home?: string; projectId?: string; newProject?: string }
+export type InitOptions = { cwd: string; home?: string; projectId: string }
 export type InitPreflight = { git: GitRepository; configuredProjectId?: string; hasLink: boolean }
 
 // API -------------------------------------------------------------------------
 export async function preflightInit(cwd: string, home?: string): Promise<InitPreflight> {
   const git = discoverGitRepository(cwd)
-  const manifest = await readManifest(git.root)
+  const repositoryConfig = await readRepoConfig(git.root)
   const link = join(git.root, '.difflab')
   const existing = await optionalStat(link)
   if (existing && !existing.isSymbolicLink())
     throw new ProjectSetupError(`Refusing to replace existing .difflab path: ${link}`)
-  if (manifest) {
+  if (repositoryConfig) {
     const context = await readProjectContext(git.root, home)
     return { git, configuredProjectId: context.project.id, hasLink: true }
   }
@@ -27,32 +27,20 @@ export async function preflightInit(cwd: string, home?: string): Promise<InitPre
 }
 
 export async function initializeRepository(options: InitOptions) {
-  const { cwd, home, projectId, newProject } = options
-  if (
-    (projectId === undefined && newProject === undefined) ||
-    (projectId !== undefined && newProject !== undefined)
-  ) {
-    throw new ProjectSetupError('Choose exactly one of --project <id> or --new-project <name>')
-  }
-  // Inspect Git and conflicting setup before creating a project in the registry.
+  const { cwd, home, projectId } = options
+  // Inspect Git and conflicting setup before linking the existing project.
   const preflight = await preflightInit(cwd, home)
   if (preflight.configuredProjectId) {
-    if (projectId !== preflight.configuredProjectId || newProject) {
+    if (projectId !== preflight.configuredProjectId) {
       throw new ProjectSetupError(
-        'Repository already belongs to a different or existing project; do not overwrite its manifest',
+        'Repository already belongs to a different or existing project; do not overwrite its repository config',
       )
     }
     return readProjectContext(preflight.git.root, home)
   }
-  if (newProject && preflight.hasLink)
-    throw new ProjectSetupError(
-      'Unfinished .difflab link exists; select its existing project or repair it first',
-    )
   const { git } = preflight
-  const project = projectId
-    ? await getProjectById(projectId, home)
-    : await createProject(requireProjectName(newProject), home, git.githubUrl)
-  const target = join(projectDirectory(project.slug, home), git.slug)
+  const project = await getProjectById(projectId, home)
+  const target = join(projectDirectory(project.id, home), git.slug)
   const link = join(git.root, '.difflab')
   const registeredBefore = project.repositories.some((repo) => repo.githubUrl === git.githubUrl)
   const priorTarget = await optionalStat(target)
@@ -66,7 +54,7 @@ export async function initializeRepository(options: InitOptions) {
   await linkRepository(project.id, git.githubUrl, home)
   let madeDirectory = false
   let madeLink = false
-  let madeManifest = false
+  let madeRepositoryConfig = false
   try {
     if (!priorTarget) {
       await mkdir(target, { mode: 0o700 })
@@ -76,16 +64,16 @@ export async function initializeRepository(options: InitOptions) {
       await symlink(target, link)
       madeLink = true
     }
-    await addLocalExclusion(git.excludePath)
-    await writeManifest(git.root, {
+    await addPathToGitExcludes(git.excludePath, '/.difflab')
+    await ensureRepoConfig(git.root, {
       schemaVersion: 1,
       project: { id: project.id },
       repository: { github: git.githubUrl },
     })
-    madeManifest = true
+    madeRepositoryConfig = true
     return await readProjectContext(git.root, home)
   } catch (error) {
-    if (madeManifest) await rm(manifestPath(git.root))
+    if (madeRepositoryConfig) await rm(repoConfigPath(git.root))
     if (madeLink) await rm(link)
     if (madeDirectory) await rmdir(target).catch(() => {}) // Retain any data written by another process.
     throw error
@@ -93,11 +81,6 @@ export async function initializeRepository(options: InitOptions) {
 }
 
 // Helpers ---------------------------------------------------------------------
-function requireProjectName(name: string | undefined): string {
-  if (!name) throw new ProjectSetupError('A new project needs a nonempty name')
-  return name
-}
-
 async function optionalStat(path: string) {
   try {
     return await lstat(path)

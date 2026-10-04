@@ -21,13 +21,13 @@ export function dataRoot(home = homedir()): string {
   return join(home, '.difflab')
 }
 
-export function projectDirectory(slug: string, home?: string): string {
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new ProjectStoreError('Invalid project slug')
-  return join(dataRoot(home), 'projects', slug)
+export function projectDirectory(key: string, home?: string): string {
+  if (!/^[A-Z][A-Z0-9]{2,15}$/.test(key)) throw new ProjectStoreError('Invalid project key')
+  return join(dataRoot(home), 'projects', key)
 }
 
-export function databasePath(slug: string, home?: string): string {
-  return join(projectDirectory(slug, home), 'db', 'project.sqlite')
+export function databasePath(key: string, home?: string): string {
+  return join(projectDirectory(key, home), 'db', 'project.sqlite')
 }
 
 export async function ensureProjectsRoot(home?: string): Promise<string> {
@@ -38,7 +38,7 @@ export async function ensureProjectsRoot(home?: string): Promise<string> {
   return projects
 }
 
-export async function projectSlugs(home?: string): Promise<string[]> {
+export async function projectKeys(home?: string): Promise<string[]> {
   const root = await ensureProjectsRoot(home)
   const entries = await readdir(root, { withFileTypes: true })
   return entries

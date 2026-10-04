@@ -19,26 +19,42 @@ beforeEach(async () => {
 })
 
 // Tests -----------------------------------------------------------------------
-test('non-interactive init needs an explicit selection; new and repeated setup succeed', () => {
-  const missing = cli('init')
-  expect(missing.status).toBe(1)
-  expect(missing.stderr).toContain('--project <id> or --new-project <name>')
-
-  const created = cli('init', '--new-project', 'CLI Project')
-  expect(created.status).toBe(0)
+test('project add creates a project and init associates an existing project', () => {
+  // Arrange
+  const created = cli(
+    'project',
+    'add',
+    'CLI',
+    '--name',
+    'CLI Project',
+    '--repo',
+    'https://github.com/example/cli',
+  )
+  // Act
   const projects = cli('project', 'list')
+  // Assert
+  expect(created.status).toBe(0)
   expect(projects.stdout).toContain('CLI Project')
   expect(projects.stdout).toContain('https://github.com/example/cli')
-  const id = /^[0-9a-f-]{36}/.exec(projects.stdout)?.[0]
-  expect(id).toBeDefined()
-  expect(cli('init', '--project', id!).status).toBe(0)
+  const key = /^CLI\t/.test(projects.stdout) ? 'CLI' : undefined
+  expect(key).toBeDefined()
+  expect(cli('init', key!).status).toBe(0)
+  expect(cli('init', 'MISSING').status).toBe(1)
 })
 
-test('invalid GitHub origin with --new-project does not create a project', () => {
+test('invalid GitHub origin does not create a project', () => {
   execFileSync('git', ['remote', 'set-url', 'origin', 'https://gitlab.com/example/cli'], {
     cwd: repo,
   })
-  const result = cli('init', '--new-project', 'Must Not Exist')
+  const result = cli(
+    'project',
+    'add',
+    'BAD',
+    '--name',
+    'Must Not Exist',
+    '--repo',
+    'https://gitlab.com/example/cli',
+  )
   expect(result.status).toBe(1)
   expect(result.stderr).toContain('GitHub')
   expect(cli('project', 'list').stdout).toContain('No projects yet.')

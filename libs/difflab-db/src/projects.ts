@@ -9,7 +9,7 @@ import {
   ensureProjectsRoot,
   openProjectDatabase,
   projectDirectory,
-  projectSlugs,
+  projectKeys,
   ProjectStoreError,
   requireDirectory,
   requireRegularFile,
@@ -18,7 +18,7 @@ import {
 
 // Types -----------------------------------------------------------------------
 export type Repository = { id: string; projectId: string; githubUrl: string; slug: string }
-export type Project = { id: string; name: string; slug: string; repositories: Repository[] }
+export type Project = { id: string; name: string; repositories: Repository[] }
 
 // API -------------------------------------------------------------------------
 export class ProjectConflictError extends ProjectStoreError {
@@ -28,36 +28,34 @@ export class ProjectConflictError extends ProjectStoreError {
   }
 }
 
-export function slugForName(name: string): string {
-  const slug = name
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-  if (!name.trim() || name.length > 100 || !slug)
-    throw new ProjectStoreError(
-      'Project name must produce a nonempty filesystem-safe slug (max 100 characters)',
-    )
-  return slug
+export function validateProjectKey(key: string): string {
+  const normalized = key.trim().toUpperCase()
+  if (!/^[A-Z][A-Z0-9]{2,15}$/.test(normalized))
+    throw new ProjectStoreError('Project key must be 3-16 uppercase letters or digits')
+  return normalized
 }
 
 export async function createProject(
+  key: string,
   name: string,
   home?: string,
-  initialOrigin?: string,
+  initialOrigins: string[] = [],
 ): Promise<Project> {
   const trimmed = name.trim()
-  const slug = slugForName(trimmed)
-  const githubUrl = initialOrigin ? canonicalGithubUrl(initialOrigin) : undefined
+  if (!trimmed || name.length > 100)
+    throw new ProjectStoreError('Project name must be nonempty and at most 100 characters')
+  const projectKey = validateProjectKey(key)
+  const githubUrls = initialOrigins.map(canonicalGithubUrl)
+  if (new Set(githubUrls).size !== githubUrls.length)
+    throw new ProjectConflictError('Duplicate GitHub repository origins')
   return withRegistryLock(home, async () => {
     const root = await ensureProjectsRoot(home)
     const projects = await scanProjectsUnlocked(home)
-    if (projects.some((project) => project.slug === slug)) {
-      throw new ProjectConflictError(`Project already exists: ${slug}`)
+    if (projects.some((project) => project.id === projectKey)) {
+      throw new ProjectConflictError(`Project already exists: ${projectKey}`)
     }
-    await assertAvailableDirectory(projectDirectory(slug, home))
-    if (githubUrl) {
+    await assertAvailableDirectory(projectDirectory(projectKey, home))
+    for (const githubUrl of githubUrls) {
       const owner = projects.find((project) =>
         project.repositories.some((repo) => repo.githubUrl === githubUrl),
       )
@@ -68,24 +66,32 @@ export async function createProject(
     await mkdir(join(stage, 'db'), { recursive: true, mode: 0o700 })
     try {
       const database = openProjectDatabase(join(stage, 'db', 'project.sqlite'))
-      const id = randomUUID()
-      const initialRepository: Repository | undefined = githubUrl
-        ? { id: randomUUID(), projectId: id, githubUrl, slug: repositorySlug(githubUrl) }
-        : undefined
+      const id = projectKey
+      const initialRepositories: Repository[] = githubUrls.map((githubUrl) => ({
+        id: randomUUID(),
+        projectId: id,
+        githubUrl,
+        slug: repositorySlug(githubUrl),
+      }))
       try {
         const orm = drizzle({ client: database })
         database
           .transaction(() => {
-            orm.insert(projectInfo).values({ id, name: trimmed, slug }).run()
-            if (initialRepository) orm.insert(repositories).values(initialRepository).run()
+            orm.insert(projectInfo).values({ id: projectKey, name: trimmed }).run()
+            if (initialRepositories.length)
+              orm.insert(repositories).values(initialRepositories).run()
           })
           .immediate()
       } finally {
         database.close()
       }
-      await assertAvailableDirectory(projectDirectory(slug, home))
-      await rename(stage, projectDirectory(slug, home))
-      return { id, name: trimmed, slug, repositories: initialRepository ? [initialRepository] : [] }
+      await assertAvailableDirectory(projectDirectory(projectKey, home))
+      await rename(stage, projectDirectory(projectKey, home))
+      return {
+        id: projectKey,
+        name: trimmed,
+        repositories: initialRepositories,
+      }
     } finally {
       await rm(stage, { recursive: true, force: true })
     }
@@ -99,7 +105,7 @@ export async function listProjects(home?: string): Promise<Project[]> {
 /** Internal: call only while holding the registry lock. */
 export async function scanProjectsUnlocked(home?: string): Promise<Project[]> {
   const projects: Project[] = []
-  for (const slug of await projectSlugs(home)) projects.push(await loadProject(slug, home))
+  for (const key of await projectKeys(home)) projects.push(await loadProject(key, home))
   return projects
 }
 
@@ -111,8 +117,8 @@ export async function getProjectById(id: string, home?: string): Promise<Project
 }
 
 /** Read only one project. Does not create home, project folders, SQLite sidecars or migrations. */
-export async function inspectProject(slug: string, home?: string): Promise<Project> {
-  return loadProject(slug, home, true)
+export async function inspectProject(projectKey: string, home?: string): Promise<Project> {
+  return loadProject(projectKey, home, true)
 }
 
 // Helpers ---------------------------------------------------------------------
@@ -127,25 +133,26 @@ async function assertAvailableDirectory(path: string): Promise<void> {
 }
 
 async function loadProject(
-  slug: string,
+  projectKey: string,
   home: string | undefined,
   readonly = false,
 ): Promise<Project> {
-  await requireDirectory(projectDirectory(slug, home))
-  await requireDirectory(join(projectDirectory(slug, home), 'db'))
-  const file = databasePath(slug, home)
+  await requireDirectory(projectDirectory(projectKey, home))
+  await requireDirectory(join(projectDirectory(projectKey, home), 'db'))
+  const file = databasePath(projectKey, home)
   await requireRegularFile(file)
   const database = openProjectDatabase(file, readonly)
   try {
     const orm = drizzle({ client: database })
     const rows = orm.select().from(projectInfo).all()
-    if (rows.length !== 1 || rows[0]?.slug !== slug) {
-      throw new ProjectStoreError(`Project database metadata does not match directory: ${slug}`)
+    if (rows.length !== 1 || rows[0]?.id !== projectKey) {
+      throw new ProjectStoreError(
+        `Project database metadata does not match directory: ${projectKey}`,
+      )
     }
     return {
       id: rows[0].id,
       name: rows[0].name,
-      slug,
       repositories: orm.select().from(repositories).all(),
     }
   } finally {
