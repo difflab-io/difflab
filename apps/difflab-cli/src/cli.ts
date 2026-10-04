@@ -9,6 +9,7 @@ type ProgramOptions = {
   home?: string
   cwd?: string
   promptProjectAdd?: () => Promise<{ key?: string; name: string; repositories: string[] }>
+  promptInput?: (options: { message: string }) => Promise<string>
 }
 
 // API -------------------------------------------------------------------------
@@ -39,13 +40,20 @@ export function createProgram(
       let repositories = flags.repo
       let key = projectKey
       if (!key || !name || !repositories.length) {
+        if (!options.promptProjectAdd && !options.promptInput && !process.stdin.isTTY)
+          throw new ProjectSetupError(
+            'project add requires missing values; use project add <key> --name <name> --repo <origin>',
+          )
         const answers = options.promptProjectAdd
           ? await options.promptProjectAdd()
-          : await promptForProjectAdd({
-              key: key !== undefined,
-              name: Boolean(name),
-              repositories: repositories.length > 0,
-            })
+          : await promptForProjectAdd(
+              {
+                key: key === undefined,
+                name: !name,
+                repositories: repositories.length === 0,
+              },
+              options.promptInput,
+            )
         key ||= answers.key
         name ||= answers.name
         repositories = repositories.length ? repositories : answers.repositories
@@ -111,21 +119,24 @@ export function createProgram(
 }
 
 // Helpers ---------------------------------------------------------------------
-async function promptForProjectAdd(missing: {
-  key: boolean
-  name: boolean
-  repositories: boolean
-}): Promise<{
+async function promptForProjectAdd(
+  missing: {
+    key: boolean
+    name: boolean
+    repositories: boolean
+  },
+  ask: (options: { message: string }) => Promise<string> = input,
+): Promise<{
   key?: string
   name: string
   repositories: string[]
 }> {
   const key = missing.key
-    ? await input({ message: 'Project key (3-16 uppercase letters/digits):' })
+    ? await ask({ message: 'Project key (3-16 uppercase letters/digits):' })
     : undefined
-  const name = missing.name ? await input({ message: 'Project name:' }) : ''
+  const name = missing.name ? await ask({ message: 'Project name:' }) : ''
   const origins = missing.repositories
-    ? await input({ message: 'GitHub repository origins (comma-separated):' })
+    ? await ask({ message: 'GitHub repository origins (comma-separated):' })
     : ''
   return {
     key,

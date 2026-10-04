@@ -42,6 +42,18 @@ test('project add creates a project and init associates an existing project', ()
   expect(cli('init', 'MISSING').status).toBe(1)
 })
 
+test('project add without required values fails with non-interactive guidance', () => {
+  const result = cli('project', 'add')
+  expect(result.status).toBe(1)
+  expect(result.stderr).toContain('project add <key> --name <name> --repo <origin>')
+})
+
+test('project add with partial values fails with non-interactive guidance', () => {
+  const result = cli('project', 'add', 'CLI', '--name', 'CLI Project')
+  expect(result.status).toBe(1)
+  expect(result.stderr).toContain('project add <key> --name <name> --repo <origin>')
+})
+
 test('invalid GitHub origin does not create a project', () => {
   execFileSync('git', ['remote', 'set-url', 'origin', 'https://gitlab.com/example/cli'], {
     cwd: repo,
