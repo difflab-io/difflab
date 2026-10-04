@@ -20,6 +20,14 @@ const filename = z
     'filename must be a single non-empty file name',
   )
   .describe('Name of the new file inside path, such as my-plan.md; no separators')
+const templateInfo = z.object({
+  name: z.string(),
+  description: z.string(),
+})
+const templateListOutput = z.object({ result: z.array(templateInfo) })
+const scaffoldOutput = z.object({
+  result: z.object({ name: z.string(), path: z.string() }),
+})
 
 // API -------------------------------------------------------------------------
 export const templateTools = [
@@ -29,9 +37,11 @@ export const templateTools = [
       description:
         'List eight document templates; install any missing defaults and examples in the user templates directory without overwriting local edits.',
       inputSchema: z.strictObject({}),
+      outputSchema: templateListOutput,
       annotations: { openWorldHint: false },
     },
     async () => new TemplateService().listTemplates(),
+    { toStructuredContent: (result) => ({ result }) },
   ),
   defineTool(
     'scaffold',
@@ -46,11 +56,13 @@ export const templateTools = [
         path,
         filename,
       }),
+      outputSchema: scaffoldOutput,
       annotations: { openWorldHint: false },
     },
     async ({ name, cwd, path, filename }) => ({
       name,
       path: await new TemplateService().scaffoldFromTemplate(name, cwd, path, filename),
     }),
+    { toStructuredContent: (result) => ({ result }) },
   ),
 ]

@@ -1,42 +1,14 @@
 import { constants } from 'node:fs'
 import { lstat, open, rm } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { isAbsolute, join } from 'node:path'
 import { ensureFileParent } from '../extensions/fsx.js'
 import { resolveHomeDirectory, hasErrorCode } from '../extensions/osx.js'
 import { resolvePath } from '../extensions/pathx.js'
-
-// Constants -------------------------------------------------------------------
-const catalog = [
-  { name: 'spec-driven-plan', description: 'Spec-driven implementation plan' },
-  { name: 'software-architecture-design', description: 'Software architecture design' },
-  { name: 'architecture-decision-record', description: 'Architecture decision record' },
-  { name: 'product-requirements-document', description: 'Product requirements document' },
-  { name: 'code-review', description: 'Thorough code review' },
-  { name: 'planning-intent', description: 'Planning intent for a user to fill in' },
-  { name: 'ui-component-architecture', description: 'UI component design and implementation' },
-  { name: 'pull-request-description', description: 'Draft pull request description' },
-] as const
-const examples = [
-  'plan-feature.md',
-  'plan-migration.md',
-  'design-service.md',
-  'adr-storage.md',
-  'prd-onboarding.md',
-  'review-change.md',
-  'intent-request.md',
-  'component-dialog.md',
-  'component-navigation.md',
-  'pull-request-feature.md',
-] as const
-const assets = [
-  ...catalog.map(({ name }) => `${name}.md`),
-  ...examples.map((name) => join('examples', name)),
-]
+import { embeddedSource, type TemplateInfo, type TemplateSource } from './source.js'
 
 // Types -----------------------------------------------------------------------
-export type TemplateInfo = (typeof catalog)[number]
-export type TemplateServiceOptions = { home?: string; bundle?: string }
+export type { TemplateInfo } from './source.js'
+export type TemplateServiceOptions = { home?: string; source?: TemplateSource }
 
 export class TemplateError extends Error {}
 export class UnknownTemplateError extends TemplateError {}
@@ -46,16 +18,16 @@ export class TemplateDestinationExistsError extends TemplateError {}
 // API -------------------------------------------------------------------------
 export class TemplateService {
   private readonly home: string
-  private readonly bundle: string
+  private readonly source: TemplateSource
 
   constructor(options: TemplateServiceOptions = {}) {
     this.home = resolveHomeDirectory(options.home)
-    this.bundle = options.bundle ?? defaultBundleDirectory()
+    this.source = options.source ?? embeddedSource
   }
 
   async listTemplates(): Promise<TemplateInfo[]> {
     await this.installMissing()
-    return [...catalog]
+    return [...this.source.catalog]
   }
 
   async scaffoldFromTemplate(
@@ -64,7 +36,7 @@ export class TemplateService {
     path: string,
     filename: string,
   ): Promise<string> {
-    if (!catalog.some((item) => item.name === name)) {
+    if (!this.source.catalog.some((item) => item.name === name)) {
       throw new UnknownTemplateError(`Unknown template: ${name}`)
     }
     if (!path.trim() || isAbsolute(path)) {
@@ -76,7 +48,7 @@ export class TemplateService {
     await this.installMissing()
     const installed = await resolvePath(this.home, join('.difflab', 'templates', `${name}.md`))
     const contents = await readMarkdown(installed)
-    const destination = await ensureFileParent(cwd, join(path, filename))
+    const destination = await ensureFileParent(join(path, filename), cwd)
     try {
       await createExclusive(destination, contents)
     } catch (error) {
@@ -92,10 +64,9 @@ export class TemplateService {
 
   // Helpers -------------------------------------------------------------------
   private async installMissing(): Promise<void> {
-    for (const asset of assets) {
+    for (const asset of this.source.assets) {
       const relative = join('.difflab', 'templates', asset)
-      const destination = await ensureFileParent(this.home, relative)
-      const source = await resolvePath(dirname(this.bundle), join(basename(this.bundle), asset))
+      const destination = await ensureFileParent(relative, this.home)
       try {
         if ((await lstat(destination)).isSymbolicLink()) {
           throw new TemplateSourceError(`Installed template asset is a symlink: ${destination}`)
@@ -103,7 +74,7 @@ export class TemplateService {
         await readMarkdown(destination)
       } catch (error) {
         if (!hasErrorCode(error, 'ENOENT')) throw error
-        const content = await readMarkdown(source)
+        const content = await readSource(this.source, asset)
         try {
           await createExclusive(destination, content)
         } catch (writeError) {
@@ -117,9 +88,15 @@ export class TemplateService {
 }
 
 // Helpers ---------------------------------------------------------------------
-function defaultBundleDirectory(): string {
-  const moduleDir = dirname(fileURLToPath(import.meta.url))
-  return resolve(moduleDir, basename(moduleDir) === 'dist' ? '../templates' : '../../templates')
+async function readSource(source: TemplateSource, asset: string): Promise<string> {
+  try {
+    const content = await source.read(asset)
+    if (!content.trim()) throw new TemplateSourceError(`Template is empty: ${asset}`)
+    return content
+  } catch (error) {
+    if (error instanceof TemplateSourceError) throw error
+    throw new TemplateSourceError(`Cannot read template asset: ${asset}`, { cause: error })
+  }
 }
 
 async function readMarkdown(path: string): Promise<string> {

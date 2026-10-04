@@ -11,12 +11,23 @@ describe('file parent utility', () => {
     const home = await mkdtemp(join(tmpdir(), 'difflab-fsx-'))
     try {
       // Act
-      const file = await ensureFileParent(home, 'one/two/custom.md')
+      const file = await ensureFileParent('one/two/custom.md', home)
       await writeFile(file, '# Document\n')
       // Assert
       expect(await readFile(join(home, 'one/two/custom.md'), 'utf8')).toBe('# Document\n')
     } finally {
       await rm(home, { recursive: true, force: true })
+    }
+  })
+
+  test('defaults cwd to the process working directory', async () => {
+    const relativeDirectory = `.difflab-fsx-test-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const relativePath = join(relativeDirectory, 'nested', 'custom.md')
+    try {
+      const file = await ensureFileParent(relativePath)
+      expect(file).toBe(join(process.cwd(), relativePath))
+    } finally {
+      await rm(join(process.cwd(), relativeDirectory), { recursive: true, force: true })
     }
   })
 
@@ -27,8 +38,8 @@ describe('file parent utility', () => {
       await mkdir(join(home, 'target'))
       await symlink(join(home, 'target'), join(home, 'link'))
       // Act
-      const traversal = ensureFileParent(home, '../escape.md')
-      const symlinkPath = ensureFileParent(home, 'link/custom.md')
+      const traversal = ensureFileParent('../escape.md', home)
+      const symlinkPath = ensureFileParent('link/custom.md', home)
       // Assert
       await expect(traversal).rejects.toThrow('parent traversal')
       await expect(symlinkPath).rejects.toThrow('Symlink paths are not allowed')

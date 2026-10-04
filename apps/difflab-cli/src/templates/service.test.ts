@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { cp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { cp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { createTempDirectory, expectFailureWith } from '../extensions/testx.js'
 import { TemplateService, UnknownTemplateError } from './service.js'
+import { embeddedSource } from './source.js'
 
 // Setup -----------------------------------------------------------------------
 let directory: Awaited<ReturnType<typeof createTempDirectory>>
@@ -10,6 +13,7 @@ let home: string
 let bundle: string
 let cwd: string
 let service: TemplateService
+const execFileAsync = promisify(execFile)
 
 beforeEach(async () => {
   directory = await createTempDirectory('difflab-templates-')
@@ -19,12 +23,18 @@ beforeEach(async () => {
   await mkdir(home)
   await mkdir(cwd)
   await cp(join(import.meta.dir, '..', '..', 'templates'), bundle, { recursive: true })
-  service = new TemplateService({ home, bundle })
+  service = new TemplateService({
+    home,
+    source: {
+      ...embeddedSource,
+      read: (asset) => readFile(join(bundle, asset), 'utf8'),
+    },
+  })
 })
 
 // Tests -----------------------------------------------------------------------
 describe('TemplateService', () => {
-  test('lists eight hyphenated templates and installs templates and examples', async () => {
+  test('lists and installs every bundled template and example asset', async () => {
     const names = (await service.listTemplates()).map(({ name }) => name)
     expect(names).toEqual([
       'spec-driven-plan',
@@ -36,6 +46,7 @@ describe('TemplateService', () => {
       'ui-component-architecture',
       'pull-request-description',
     ])
+    expect(await readdir(join(home, '.difflab/templates/examples'))).toHaveLength(10)
     expect(await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8')).toContain(
       '## Intent',
     )
@@ -45,6 +56,43 @@ describe('TemplateService', () => {
     expect(
       await readFile(join(home, '.difflab/templates/examples/component-dialog.md'), 'utf8'),
     ).toContain('## Design')
+  })
+
+  test('npm package contains the built CLI without raw template assets', async () => {
+    const packageRoot = join(import.meta.dir, '..', '..')
+    await execFileAsync('bun', ['run', 'build'], { cwd: packageRoot })
+    const { stdout } = await execFileAsync('npm', ['pack', '--json', '--dry-run'], {
+      cwd: packageRoot,
+    })
+    const packageContents = JSON.parse(stdout)[0].files.map(({ path }: { path: string }) => path)
+
+    expect(packageContents).not.toContain('templates/spec-driven-plan.md')
+    expect(packageContents).toContain('dist/index.js')
+  })
+
+  test('lists and scaffolds templates from a custom source', async () => {
+    await writeFile(join(bundle, 'custom-template.md'), '# Custom template\\n')
+    const customService = new TemplateService({
+      home,
+      source: {
+        ...embeddedSource,
+        catalog: [{ name: 'custom-template', description: 'Custom template' }],
+        assets: ['custom-template.md'],
+        read: (asset) => readFile(join(bundle, asset), 'utf8'),
+      },
+    })
+
+    expect(await customService.listTemplates()).toEqual([
+      { name: 'custom-template', description: 'Custom template' },
+    ])
+    const file = await customService.scaffoldFromTemplate('custom-template', cwd, '.', 'custom.md')
+    expect(await readFile(file, 'utf8')).toBe('# Custom template\\n')
+  })
+
+  test('uses embedded templates by default when scaffolding', async () => {
+    const defaultService = new TemplateService({ home })
+    const file = await defaultService.scaffoldFromTemplate('spec-driven-plan', cwd, '.', 'PLAN.md')
+    expect(await readFile(file, 'utf8')).toContain('## Intent')
   })
 
   test('scaffolds installed customizations and never overwrites existing files', async () => {
@@ -88,25 +136,19 @@ describe('TemplateService', () => {
     await expectFailureWith(readFile(join(cwd, 'output.md')), 'ENOENT')
   })
 
-  test('rejects missing, empty, and symlinked sources', async () => {
+  test('rejects missing injected sources', async () => {
     await rm(join(bundle, 'spec-driven-plan.md'))
     await expectFailureWith(
       service.scaffoldFromTemplate('spec-driven-plan', cwd, '.', 'output.md'),
       'Cannot read template asset',
     )
+  })
+
+  test('rejects empty injected sources', async () => {
     await writeFile(join(bundle, 'spec-driven-plan.md'), '  \n')
     await expectFailureWith(
       service.scaffoldFromTemplate('spec-driven-plan', cwd, '.', 'output.md'),
       'Template is empty',
-    )
-    await rm(join(bundle, 'spec-driven-plan.md'))
-    await symlink(
-      join(bundle, 'software-architecture-design.md'),
-      join(bundle, 'spec-driven-plan.md'),
-    )
-    await expectFailureWith(
-      service.scaffoldFromTemplate('spec-driven-plan', cwd, '.', 'output.md'),
-      'Symlink paths are not allowed',
     )
   })
 
