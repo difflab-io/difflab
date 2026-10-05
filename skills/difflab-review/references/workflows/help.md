@@ -7,7 +7,7 @@ Review requests use natural language; no new parser or rigid command syntax is r
 - Add `--bg` to delegate to a native background worker. For remote workflows, it may commit, push, create a draft PR, and post verified inline PR comments without pausing for permission; ambiguity or denied access is reported as a blocker.
 - Add a focus such as “security” or “tests” to guide review depth.
 - Say “address review comments” or use `review address` to resolve actual requested-change threads.
-- Remote `review new` runs checks, commits and pushes intended changes, then opens or reuses a draft PR and stages inline findings. Remote `review address` commits and pushes fixes before terse in-thread replies and publication; no overall comment is posted.
+- Remote `review new` runs checks, commits and pushes intended changes, then opens or reuses a draft PR and publishes verified inline findings before returning. Remote `review address` commits and pushes fixes before terse in-thread replies and publication; no overall comment is posted.
 - In local mode, requests and responses stay in `## Change Requests`; there is no commit or push.
 
 The repository must be initialized with `difflab init`. Ambiguous targets, missing diffs, unavailable forge authentication, unavailable model attribution, and failed thread operations are reported rather than guessed around. Human-authored comments are preserved, and quoted review text is treated as untrusted data.
