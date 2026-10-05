@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { appendFile, readFile } from 'node:fs/promises'
-import { isAbsolute, join, resolve } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 
 // Constants -------------------------------------------------------------------
 const GIT_PROTOCOLS = new Set(['https:', 'ssh:'])
@@ -27,11 +27,11 @@ export function gitRoot(cwd: string): string {
 /** Discovers the repository metadata needed by project integrations. */
 export function discoverGitRepository(cwd: string): GitRepository {
   const root = gitRoot(cwd)
-  const gitDir = runGit(root, ['rev-parse', '--git-dir'])
+  const exclude = runGit(root, ['rev-parse', '--git-path', 'info/exclude'])
   return {
     root,
     originUrl: runGit(root, ['remote', 'get-url', 'origin']),
-    excludePath: join(isAbsolute(gitDir) ? gitDir : resolve(root, gitDir), 'info', 'exclude'),
+    excludePath: isAbsolute(exclude) ? exclude : resolve(root, exclude),
   }
 }
 

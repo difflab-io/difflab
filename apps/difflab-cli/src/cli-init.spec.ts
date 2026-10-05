@@ -13,11 +13,12 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { createProgram } from './cli.js'
 import { readProjectContext } from './context.js'
 import { discoverGitRepository } from './extensions/gitx.js'
 import { createUserStore, userPaths } from './store/user-store.js'
+import { TemplateService } from './templates/service.js'
 
 let temp: string
 let home: string
@@ -150,19 +151,37 @@ test('two worktrees share one repository row and keep local context roots', asyn
     cwd: worktree,
     encoding: 'utf8',
   }).trim()
-  await mkdir(dirname(excludePath), { recursive: true })
-  await mkdir(join(repo, '.git', 'worktrees', 'worktree', 'info'), { recursive: true })
+  expect(excludePath).toBe(await realpath(join(repo, '.git', 'info', 'exclude')))
   await addProject()
   // Act
   const first = await runInit(repo)
   const second = await runInit(worktree)
+  await createProgram(() => {}, 'test', {
+    home,
+    cwd: worktree,
+    templateService: new TemplateService({ home }),
+  }).parseAsync([
+    'node',
+    'difflab',
+    'templates',
+    'scaffold',
+    'spec-driven-plan',
+    '.difflab/plans/261005-worktree',
+    'PLAN.md',
+    '--cwd',
+    worktree,
+  ])
   // Assert
   expect(second).toBeDefined()
+  expect(
+    await readFile(join(worktree, '.difflab/plans/261005-worktree/PLAN.md'), 'utf8'),
+  ).toContain('## Phases')
   expect((await createUserStore(home).listProjects())[0]?.repositories).toHaveLength(1)
   expect((await readProjectContext(worktree, home)).repository.localPath).toBe(
     await realpath(worktree),
   )
   expect((await lstat(join(worktree, '.difflab'))).isSymbolicLink()).toBe(true)
+  expect(await readFile(excludePath, 'utf8')).toContain('/.difflab')
   expect(
     execFileSync('git', ['check-ignore', '.difflab'], { cwd: worktree, encoding: 'utf8' }).trim(),
   ).toBe('.difflab')

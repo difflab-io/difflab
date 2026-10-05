@@ -4,6 +4,7 @@ import { cp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } from '
 import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { createTempDirectory, expectFailureWith } from '../extensions/testx.js'
+import { userPaths } from '../store/user-store.js'
 import { TemplateService, UnknownTemplateError } from './service.js'
 import { embeddedSource } from './source.js'
 
@@ -49,6 +50,9 @@ describe('TemplateService', () => {
     expect(await readdir(join(home, '.difflab/templates/examples'))).toHaveLength(10)
     expect(await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8')).toContain(
       '## Intent',
+    )
+    expect(await readFile(join(home, '.difflab/templates/code-review.md'), 'utf8')).toContain(
+      '## Change Requests',
     )
     expect(
       await readFile(join(home, '.difflab/templates/pull-request-description.md'), 'utf8'),
@@ -115,6 +119,70 @@ describe('TemplateService', () => {
     expect(await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8')).toBe(
       '# My customized plan\n',
     )
+  })
+
+  test('scaffolds inside an initialized project symlink without following other symlinks', async () => {
+    // Arrange
+    await configureGitRepo()
+    const store = join(userPaths(home).projects, 'DIFFLAB', 'github.com--example--repo')
+    await mkdir(store, { recursive: true })
+    await symlink(store, join(cwd, '.difflab'))
+
+    // Act
+    const file = await service.scaffoldFromTemplate(
+      'spec-driven-plan',
+      cwd,
+      '.difflab/plans/261005-example',
+      'PLAN.md',
+    )
+
+    // Assert
+    expect(file).toBe(await realpath(join(store, 'plans', '261005-example', 'PLAN.md')))
+    expect(await readFile(file, 'utf8')).toContain('## Phases')
+    await symlink(bundle, join(store, 'outside'))
+    await expectFailureWith(
+      service.scaffoldFromTemplate('spec-driven-plan', cwd, '.difflab/outside', 'escape.md'),
+      'Symlink paths are not allowed',
+    )
+    await expectFailureWith(
+      service.scaffoldFromTemplate('spec-driven-plan', cwd, '.difflab/../', 'escape.md'),
+      'parent traversal',
+    )
+    await expectFailureWith(
+      service.scaffoldFromTemplate('spec-driven-plan', '.', '.difflab/plans', 'PLAN.md'),
+      'cwd must be an absolute path',
+    )
+  })
+
+  test('rejects a project link outside the user project store', async () => {
+    // Arrange
+    await configureGitRepo()
+    await symlink(bundle, join(cwd, '.difflab'))
+
+    // Act / Assert
+    await expectFailureWith(
+      service.scaffoldFromTemplate('spec-driven-plan', cwd, '.difflab/plans', 'PLAN.md'),
+      'links elsewhere',
+    )
+    await expectFailureWith(readFile(join(bundle, 'plans', 'PLAN.md')), 'ENOENT')
+  })
+
+  test('rejects a link to another valid project store under the same home', async () => {
+    // Arrange
+    await configureGitRepo()
+    const projects = userPaths(home).projects
+    const expected = join(projects, 'DIFFLAB', 'github.com--example--repo')
+    const unrelated = join(projects, 'OTHER', 'github.com--example--other')
+    await mkdir(expected, { recursive: true })
+    await mkdir(unrelated, { recursive: true })
+    await symlink(unrelated, join(cwd, '.difflab'))
+
+    // Act / Assert
+    await expectFailureWith(
+      service.scaffoldFromTemplate('code-review', cwd, '.difflab/reviews', 'REVIEW.md'),
+      'links elsewhere',
+    )
+    await expectFailureWith(readFile(join(unrelated, 'reviews', 'REVIEW.md')), 'ENOENT')
   })
 
   test('installs newly available assets without replacing existing user copies', async () => {
@@ -204,3 +272,12 @@ describe('TemplateService', () => {
 afterEach(async () => {
   await directory.cleanup()
 })
+
+// Helpers ---------------------------------------------------------------------
+async function configureGitRepo(): Promise<void> {
+  await execFileAsync('git', ['init', '-q'], { cwd })
+  await execFileAsync('git', ['remote', 'add', 'origin', 'https://github.com/example/repo.git'], {
+    cwd,
+  })
+  await writeFile(join(cwd, 'difflab.yaml'), 'schemaVersion: 1\nproject:\n  id: DIFFLAB\n')
+}
