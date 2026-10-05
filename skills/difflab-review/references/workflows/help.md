@@ -3,7 +3,8 @@
 Review requests use natural language; no new parser or rigid command syntax is required.
 
 - Say “review this” or use `review new` to create a grounded review from the current diff.
-- Add `--local` to keep change requests in `REVIEW.md` with no remote writes.
+- Add `--local` to keep change requests in `REVIEW.md` with no remote writes, even in the background.
+- Add `--bg` to delegate to a native background worker. For remote workflows, it may commit, push, create a draft PR, and post verified inline PR comments without pausing for permission; ambiguity or denied access is reported as a blocker.
 - Add a focus such as “security” or “tests” to guide review depth.
 - Say “address review comments” or use `review address` to resolve actual requested-change threads.
 - Remote `review new` runs checks, commits and pushes intended changes, then opens or reuses a draft PR and stages inline findings. Remote `review address` commits and pushes fixes before terse in-thread replies and publication; no overall comment is posted.
