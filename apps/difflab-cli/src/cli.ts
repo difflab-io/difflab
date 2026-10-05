@@ -12,7 +12,9 @@ import { createUserStore, userPaths, withUserStore } from './store/user-store.js
 type ProgramOptions = {
   home?: string
   cwd?: string
+  templateService?: TemplateService
 }
+import type { TemplateService } from './templates/service.js'
 
 // API -------------------------------------------------------------------------
 export function createProgram(
@@ -128,5 +130,35 @@ export function createProgram(
       const { setupMcpClients } = await import('./mcp/index.js')
       await setupMcpClients(client, write)
     })
+
+  const templates = program.command('templates').description('List and scaffold documents')
+  const service = async () =>
+    options.templateService ?? new (await import('./templates/service.js')).TemplateService()
+
+  templates
+    .command('list')
+    .description('List available document templates')
+    .action(async () => {
+      const templatesService = await service()
+      for (const template of await templatesService.listTemplates()) {
+        write(`${template.name} — ${template.description}`)
+      }
+    })
+
+  templates
+    .command('scaffold <name> <path> <filename>')
+    .description('Copy a template into a new document inside a directory; never overwrite')
+    .option('--cwd <directory>', 'absolute base directory for the relative destination path')
+    .action(async (name: string, path: string, filename: string, options: { cwd?: string }) => {
+      const templatesService = await service()
+      const destination = await templatesService.scaffoldFromTemplate(
+        name,
+        options.cwd ?? process.cwd(),
+        path,
+        filename,
+      )
+      write(destination)
+    })
+
   return program
 }

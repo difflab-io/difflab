@@ -1,19 +1,19 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
-import { mkdir, realpath } from 'node:fs/promises'
-import { createUserStore } from '../store/user-store.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { mkdir, readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createTempDirectory } from '../extensions/testx'
 import { createProgram } from '../cli.js'
+import { createTempDirectory } from '../extensions/testx'
+import { createUserStore } from '../store/user-store.js'
 
 // Setup -----------------------------------------------------------------------
 const cleanups: (() => Promise<void>)[] = []
 
 // Tests -----------------------------------------------------------------------
 describe('Difflab MCP over stdio', () => {
-  test('lists todo tools and handles a request over stdio', async () => {
+  test('lists todo and template tools and handles requests over stdio', async () => {
     // Arrange
     const directory = await createTempDirectory('difflab-mcp-')
     cleanups.push(directory.cleanup)
@@ -25,6 +25,7 @@ describe('Difflab MCP over stdio', () => {
         'serve',
       ],
       stderr: 'pipe',
+      env: { ...process.env, HOME: directory.path },
     })
     const client = new Client({ name: 'difflab-test', version: '0.1.0' })
     try {
@@ -35,16 +36,59 @@ describe('Difflab MCP over stdio', () => {
         name: 'todo_init',
         arguments: { cwd: directory.path, path: 'todos.json' },
       })
+      const listed = await client.callTool({ name: 'template_list', arguments: {} })
+      const scaffolded = await client.callTool({
+        name: 'scaffold',
+        arguments: {
+          name: 'spec-driven-plan',
+          cwd: directory.path,
+          path: 'docs/deep',
+          filename: 'custom.md',
+        },
+      })
+      const duplicate = await client.callTool({
+        name: 'scaffold',
+        arguments: {
+          name: 'spec-driven-plan',
+          cwd: directory.path,
+          path: 'docs/deep',
+          filename: 'custom.md',
+        },
+      })
+      const invalidName = await client.callTool({
+        name: 'scaffold',
+        arguments: { name: 'invalid', cwd: directory.path, path: '.', filename: 'other.md' },
+      })
+      const invalidPath = await client.callTool({
+        name: 'scaffold',
+        arguments: {
+          name: 'spec-driven-plan',
+          cwd: directory.path,
+          path: '../',
+          filename: 'escape.md',
+        },
+      })
+      const invalidFilename = await client.callTool({
+        name: 'scaffold',
+        arguments: {
+          name: 'spec-driven-plan',
+          cwd: directory.path,
+          path: '.',
+          filename: '../escape.md',
+        },
+      })
 
       // Assert
       expect(tools.map((tool) => tool.name).sort()).toEqual(
         [
+          'project_context',
+          'scaffold',
+          'template_list',
           'todo_add',
           'todo_complete',
           'todo_init',
           'todo_list',
           'todo_remove',
-          'project_context',
         ].sort(),
       )
       expect(tools.find((tool) => tool.name === 'project_context')?.outputSchema).toBeDefined()
@@ -56,6 +100,36 @@ describe('Difflab MCP over stdio', () => {
       expect(context.isError).toBe(true)
       expect(context.structuredContent).toBeUndefined()
       expect(responseText(context).error).toContain('difflab-init')
+      expect((responseText(listed) as { name: string }[]).map((item) => item.name)).toEqual([
+        'spec-driven-plan',
+        'software-architecture-design',
+        'architecture-decision-record',
+        'product-requirements-document',
+        'code-review',
+        'planning-intent',
+        'ui-component-architecture',
+        'pull-request-description',
+      ])
+      expect(responseText(scaffolded)).toEqual({
+        name: 'spec-driven-plan',
+        path: join(await realpath(directory.path), 'docs/deep/custom.md'),
+      })
+      expect(await readFile(join(directory.path, 'docs/deep/custom.md'), 'utf8')).toBe(
+        await readFile(join(directory.path, '.difflab/templates/spec-driven-plan.md'), 'utf8'),
+      )
+      expect(duplicate.isError).toBe(true)
+      expect(responseText(duplicate)).toEqual({ error: expect.stringContaining('already exists') })
+      expect(invalidName.isError).toBe(true)
+      expect(responseText(invalidName)).toEqual({
+        error: expect.stringContaining('Unknown template'),
+      })
+      expect(invalidPath.isError).toBe(true)
+      expect(responseText(invalidPath)).toEqual({
+        error: expect.stringContaining('parent traversal'),
+      })
+      expect(invalidFilename.isError).toBe(true)
+      // MCP's schema validation rejects this before the tool callback serializes JSON.
+      expect(JSON.stringify(invalidFilename)).toContain('filename')
     } finally {
       await client.close()
     }

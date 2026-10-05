@@ -46,6 +46,19 @@ Clients are selected explicitly. Supported names: `pi`, `cursor`, `codex`, `clau
 
 MCP clients launch `npx -y @difflab/difflab-cli mcp serve` over stdio, so no daemon or port is needed. Bun must be on the client's PATH.
 
+## Document templates
+
+List the available templates or scaffold a new document from one:
+
+```bash
+difflab-cli templates list
+difflab-cli templates scaffold spec-driven-plan docs/plans first-plan.md --cwd /absolute/project/path
+```
+
+The CLI defaults `--cwd` to its current directory. The MCP server exposes `template_list({})` and `scaffold({"name":"spec-driven-plan","cwd":"/absolute/project/path","path":"docs/plans","filename":"first-plan.md"})`. Both interfaces take a hyphenated template name, a relative destination **directory** (`path`, or `.` for `cwd`), and a separate **filename**. MCP always requires an absolute existing `cwd`. Missing destination directories are created. Available names: `spec-driven-plan`, `software-architecture-design`, `architecture-decision-record`, `product-requirements-document`, `code-review`, `planning-intent`, `ui-component-architecture`, and `pull-request-description` (adapted from Diffpi's PR template).
+
+On first use, missing bundled templates and filled examples are copied to `~/.difflab/templates` and `~/.difflab/templates/examples`. Edit the installed templates to customize future documents. Later runs add missing files but never replace existing ones, even after an upgrade. Examples are for reference, not selectable templates. Copying is literal: prompts and placeholders are not substituted. An unknown name, missing or invalid source, unsafe path, symlink, or existing destination causes an error; destination files are never overwritten. The target directory must remain inside `cwd` and the filename must be a single file name without separators. To restore a bundled default, move your installed copy aside before listing again.
+
 ## Develop
 
 ```bash

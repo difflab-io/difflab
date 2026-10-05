@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { hasErrorCode } from './osx.js'
+import { resolvePath } from './pathx.js'
 
 // Types -----------------------------------------------------------------------
 export type JsonObject = Record<string, unknown>
@@ -14,6 +15,14 @@ export async function lstatOrNull(file: string) {
     if (hasErrorCode(error, 'ENOENT')) return null
     throw error
   }
+}
+
+/** Ensure directories exist for a relative file path inside an existing root. */
+export async function ensurePathDirsExist(path: string, cwd = process.cwd()): Promise<string> {
+  const file = await resolvePath(cwd, path)
+  await mkdir(dirname(file), { recursive: true })
+  // Recheck the path after creating parents in case one became a symlink.
+  return resolvePath(cwd, path)
 }
 
 export function isObject(value: unknown): value is JsonObject {
