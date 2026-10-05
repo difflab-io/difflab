@@ -1,7 +1,7 @@
 import { constants } from 'node:fs'
 import { lstat, open, rm } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
-import { ensureFileParent } from '../extensions/fsx.js'
+import { ensurePathDirsExist } from '../extensions/fsx.js'
 import { resolveHomeDirectory, hasErrorCode } from '../extensions/osx.js'
 import { resolvePath } from '../extensions/pathx.js'
 import { embeddedSource, type TemplateInfo, type TemplateSource } from './source.js'
@@ -48,7 +48,7 @@ export class TemplateService {
     await this.installMissing()
     const installed = await resolvePath(this.home, join('.difflab', 'templates', `${name}.md`))
     const contents = await readMarkdown(installed)
-    const destination = await ensureFileParent(join(path, filename), cwd)
+    const destination = await ensurePathDirsExist(join(path, filename), cwd)
     try {
       await createExclusive(destination, contents)
     } catch (error) {
@@ -66,7 +66,7 @@ export class TemplateService {
   private async installMissing(): Promise<void> {
     for (const asset of this.source.assets) {
       const relative = join('.difflab', 'templates', asset)
-      const destination = await ensureFileParent(relative, this.home)
+      const destination = await ensurePathDirsExist(relative, this.home)
       try {
         if ((await lstat(destination)).isSymbolicLink()) {
           throw new TemplateSourceError(`Installed template asset is a symlink: ${destination}`)

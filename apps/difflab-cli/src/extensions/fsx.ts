@@ -17,8 +17,8 @@ export async function lstatOrNull(file: string) {
   }
 }
 
-/** Create missing parents for a relative file path inside an existing root. */
-export async function ensureFileParent(path: string, cwd = process.cwd()): Promise<string> {
+/** Ensure directories exist for a relative file path inside an existing root. */
+export async function ensurePathDirsExist(path: string, cwd = process.cwd()): Promise<string> {
   const file = await resolvePath(cwd, path)
   await mkdir(dirname(file), { recursive: true })
   // Recheck the path after creating parents in case one became a symlink.

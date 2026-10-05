@@ -1,25 +1,9 @@
-import { isAbsolute } from 'node:path'
 import { z } from 'zod'
+import { fileName, absolutePath, relativePath } from '../extensions/zodx.js'
 import { defineTool } from '../tools.js'
 import { TemplateService } from './service.js'
 
 // Constants -------------------------------------------------------------------
-const cwd = z
-  .string()
-  .refine(isAbsolute, 'cwd must be an absolute path')
-  .describe('Absolute path to an existing destination base directory')
-const path = z
-  .string()
-  .min(1)
-  .refine((value) => value.trim().length > 0 && !isAbsolute(value), 'path must be relative to cwd')
-  .describe('Relative directory inside cwd; use . for cwd itself; missing directories are created')
-const filename = z
-  .string()
-  .refine(
-    (value) => value.trim().length > 0 && value !== '.' && value !== '..' && !/[/\\\0]/.test(value),
-    'filename must be a single non-empty file name',
-  )
-  .describe('Name of the new file inside path, such as my-plan.md; no separators')
 const templateInfo = z.object({
   name: z.string(),
   description: z.string(),
@@ -52,9 +36,13 @@ export const templateTools = [
         name: z
           .string()
           .describe('Hyphenated template name from template_list, such as spec-driven-plan'),
-        cwd,
-        path,
-        filename,
+        cwd: absolutePath.describe('Absolute path to an existing destination base directory'),
+        path: relativePath.describe(
+          'Relative directory inside cwd; use . for cwd itself; missing directories are created',
+        ),
+        filename: fileName.describe(
+          'Name of the new file inside path, such as my-plan.md; no separators',
+        ),
       }),
       outputSchema: scaffoldOutput,
       annotations: { openWorldHint: false },
