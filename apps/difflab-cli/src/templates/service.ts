@@ -4,6 +4,10 @@ import { isAbsolute, join } from 'node:path'
 import { ensurePathDirsExist } from '../extensions/fsx.js'
 import { resolveHomeDirectory, hasErrorCode } from '../extensions/osx.js'
 import { resolvePath } from '../extensions/pathx.js'
+import { canonicalGitUrl, discoverGitRepository, repositorySlug } from '../extensions/gitx.js'
+import { readRepoConfig } from '../projects/config.js'
+import { checkRepoStore } from '../projects/repo-store.js'
+import { userPaths } from '../store/user-store.js'
 import { embeddedSource, type TemplateInfo, type TemplateSource } from './source.js'
 
 // Types -----------------------------------------------------------------------
@@ -48,7 +52,9 @@ export class TemplateService {
     await this.installMissing()
     const installed = await resolvePath(this.home, join('.difflab', 'templates', `${name}.md`))
     const contents = await readMarkdown(installed)
-    const destination = await ensurePathDirsExist(join(path, filename), cwd)
+    const destination = path.startsWith('.difflab/')
+      ? await this.projectDestination(cwd, path.slice('.difflab/'.length), filename)
+      : await ensurePathDirsExist(join(path, filename), cwd)
     try {
       await createExclusive(destination, contents)
     } catch (error) {
@@ -63,6 +69,21 @@ export class TemplateService {
   }
 
   // Helpers -------------------------------------------------------------------
+  private async projectDestination(cwd: string, path: string, filename: string): Promise<string> {
+    if (!isAbsolute(cwd)) throw new TemplateError('cwd must be an absolute path')
+    const git = discoverGitRepository(cwd)
+    const config = await readRepoConfig(git.root)
+    if (!config)
+      throw new TemplateError(`Initialize this repository with difflab init: ${git.root}`)
+    const target = join(
+      userPaths(this.home).projects,
+      config.project.id,
+      repositorySlug(canonicalGitUrl(git.originUrl)),
+    )
+    await checkRepoStore(git.root, target)
+    return ensurePathDirsExist(join(path, filename), target)
+  }
+
   private async installMissing(): Promise<void> {
     for (const asset of this.source.assets) {
       const relative = join('.difflab', 'templates', asset)

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
@@ -99,7 +99,7 @@ describe('Git repository discovery', () => {
     expect(() => discoverGitRepository(tempRoot)).toThrow()
   })
 
-  test('returns the canonical root, raw origin, and worktree exclude path', async () => {
+  test('returns the canonical root, raw origin, and shared Git exclude path', async () => {
     // Arrange
     const worktree = join(tempRoot, 'worktree')
     runGit(tempRoot, ['init', '-b', 'main'])
@@ -117,8 +117,7 @@ describe('Git repository discovery', () => {
     // Assert
     expect(repository.root).toBe(runGit(worktree, ['rev-parse', '--show-toplevel']))
     expect(repository.originUrl).toBe('https://github.com/Org/Repo.git')
-    expect(repository.excludePath).toContain(join('.git', 'worktrees'))
-    expect(repository.excludePath).toContain(join('info', 'exclude'))
+    expect(repository.excludePath).toBe(await realpath(join(tempRoot, '.git', 'info', 'exclude')))
   })
 })
 

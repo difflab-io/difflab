@@ -32,6 +32,21 @@
 
 [Evaluate authentication and autorization, permissions, secrets, dependencies, input validation, proper error handling, and trust boundaries. State SKIPPED if skipped with reason, for example for chores, simple scripting, pure cosmetic UI work, documentation, etc.]
 
+## Change Requests
+
+Track actionable inline requests with one entry per request. End each generated request and response with its own model attribution quote; preserve human text unchanged.
+
+### [file:line — request]
+
+- **Status:** [open/in progress/resolved]
+- **Request:** [verbatim request or concise generated finding]
+
+> Generated via [actual model name, only for a generated request]
+
+- **Response:** [resolution, evidence, or reason this remains open]
+
+> Generated via [actual model name, only for a generated response]
+
 ## Findings
 
 | Severity                 | Location    | Evidence and impact        | Required change or question |

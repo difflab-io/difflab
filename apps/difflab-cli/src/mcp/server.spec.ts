@@ -77,11 +77,21 @@ describe('Difflab MCP over stdio', () => {
           filename: '../escape.md',
         },
       })
+      const logPath = join(await realpath(directory.path), 'logs.txt')
+      const logged = await client.callTool({
+        name: 'log_append',
+        arguments: { path: logPath, message: 'Implementation started' },
+      })
+      const invalidLog = await client.callTool({
+        name: 'log_append',
+        arguments: { path: logPath, message: 'bad\nentry' },
+      })
 
       // Assert
       expect(tools.map((tool) => tool.name).sort()).toEqual(
         [
           'project_context',
+          'log_append',
           'scaffold',
           'template_list',
           'todo_add',
@@ -127,6 +137,15 @@ describe('Difflab MCP over stdio', () => {
       expect(responseText(invalidPath)).toEqual({
         error: expect.stringContaining('parent traversal'),
       })
+      expect(logged.isError).toBeUndefined()
+      expect(logged.structuredContent).toEqual({
+        result: {
+          path: logPath,
+          entry: expect.stringMatching(/^\[\d{6} \d{2}:\d{2}:\d{2}\]: Implementation started$/),
+        },
+      })
+      expect(await readFile(logPath, 'utf8')).toBe(`${responseText(logged).entry}\n`)
+      expect(invalidLog.isError).toBe(true)
       expect(invalidFilename.isError).toBe(true)
       // MCP's schema validation rejects this before the tool callback serializes JSON.
       expect(JSON.stringify(invalidFilename)).toContain('filename')
