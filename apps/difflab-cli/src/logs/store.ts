@@ -18,7 +18,11 @@ export async function appendProgressLog(
   if (!isAbsolute(path) || resolve(path) !== path || basename(path) !== 'logs.txt') {
     throw new ProgressLogError('path must be an absolute, normalized path ending in logs.txt')
   }
-  if (!message.trim() || /[\r\n\0]/.test(message) || Buffer.byteLength(message, 'utf8') > 2048) {
+  if (
+    !message.trim() ||
+    /[\r\n\v\f\0\u0085\u2028\u2029]/.test(message) ||
+    Buffer.byteLength(message, 'utf8') > 2048
+  ) {
     throw new ProgressLogError('message must be one non-empty line of at most 2048 bytes')
   }
   // Agents use the physical project-store path, not the repository's .difflab symlink.

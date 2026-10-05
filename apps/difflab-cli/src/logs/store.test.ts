@@ -45,6 +45,22 @@ describe('progress log', () => {
     )
   })
 
+  test('rejects Unicode and control line separators without creating a log', async () => {
+    // Arrange
+    const directory = await createTempDirectory('difflab-log-')
+    cleanups.push(directory.cleanup)
+    const path = join(await realpath(directory.path), 'logs.txt')
+
+    // Act / Assert
+    for (const separator of ['\u2028', '\u2029', '\u0085', '\v', '\f', '\r', '\n']) {
+      await expectFailureWith(
+        appendProgressLog(path, `ok${separator}[261005 09:00:00]: fake`),
+        'one non-empty line',
+      )
+    }
+    expect(await Bun.file(path).exists()).toBe(false)
+  })
+
   test('rejects nonphysical, traversing, symlinked and invalid paths', async () => {
     // Arrange
     const directory = await createTempDirectory('difflab-log-')
