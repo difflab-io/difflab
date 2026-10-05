@@ -15,7 +15,7 @@ Review a change and address grounded local findings. Remote review is opt-in; me
 | Flag | Default | Capability | Effect |
 | --- | --- | --- | --- |
 | --local | false | local | Omit remote review. |
-| --remote-review | false | remote-review | Permit remote review only with explicit forge authorization. |
+| --remote-review | false | remote-review | Select remote review and address steps; each requires separate explicit forge and write authorization before acting. |
 | --commit | false | local-commit | No effect unless a declared commit-capable procedure is later added and separately authorized. |
 
 ## Steps
@@ -52,13 +52,13 @@ Review a change and address grounded local findings. Remote review is opt-in; me
 
 ### 4. address-remote
 
-- Handler: `review address --local`
+- Handler: `review address`
 - When: `--remote-review`
 - Unless: `--local`
-- Requires: local
+- Requires: remote-review
 - Receives: `{{steps.remote-review.review_path}}`
 - Produces: `addressed_diff_ref`
-- Instructions: Address verified remote requests only; do not publish new comments, push or merge without separate authority. Follow review address permissions.
+- Instructions: Read the actual PR threads and address verified requests using the remote review address workflow. Before editing, require separate explicit authorization to commit, push, reply or resolve threads; if any needed authorization is absent, block rather than running locally or guessing. Never merge.
 
 ## Contract
 

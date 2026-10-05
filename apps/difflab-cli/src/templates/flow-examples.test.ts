@@ -31,6 +31,16 @@ describe('flow example contract fixtures (not an Agent Skill execution)', () => 
     expect(local.some((step) => step.handler === 'review new --local')).toBe(true)
     expect(remote.some((step) => step.handler === 'review new')).toBe(true)
     expect(remote.every((step) => step.handler !== 'review new --local')).toBe(true)
+    if (name === 'autoreview') {
+      expect(remote).toContainEqual(
+        expect.objectContaining({
+          id: 'address-remote',
+          handler: 'review address',
+          requires: 'remote-review',
+        }),
+      )
+      expect(remote.every((step) => step.handler !== 'review address --local')).toBe(true)
+    }
     expect(() => selectSteps(definition, new Set(['--local', '--remote-review']))).toThrow(
       'contradictory',
     )
@@ -140,6 +150,9 @@ describe('flow example contract fixtures (not an Agent Skill execution)', () => 
       selectSteps(definition.replace('### 1. draft-plan', '### 1. ../escape'), new Set()),
     ).toThrow('Invalid step')
     expect(() =>
+      selectSteps(definition.replace('Produces: `plan_path`', 'Produces: `plan/path`'), new Set()),
+    ).toThrow('Invalid output')
+    expect(() =>
       selectSteps(
         definition.replace('Unless: `--local`', 'Unless: `--unknown`'),
         new Set(['--remote-review']),
@@ -183,11 +196,13 @@ function selectSteps(definition: string, flags: Set<string>): Step[] {
       instructions: value('Instructions'),
     }
   })
-  for (const step of steps)
+  for (const step of steps) {
+    if (!/^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/.test(step.produces)) throw new Error('Invalid output')
     for (const condition of [step.when, step.unless]) {
       if (condition !== 'always' && condition !== 'never' && !declared.has(condition))
         throw new Error('Unknown condition')
     }
+  }
   const enabled = (condition: string) =>
     condition === 'always' || (condition !== 'never' && flags.has(condition))
   const selected = steps.filter((step) => enabled(step.when) && !enabled(step.unless))
