@@ -16,6 +16,10 @@ import uiComponentArchitecture from '../../templates/ui-component-architecture.m
 
 import pullRequestDescription from '../../templates/pull-request-description.md' with { type: 'text' }
 
+import flowDefinition from '../../templates/flow-definition.md' with { type: 'text' }
+
+import flowInstance from '../../templates/flow-instance.md' with { type: 'text' }
+
 import planFeature from '../../templates/examples/plan-feature.md' with { type: 'text' }
 
 import planMigration from '../../templates/examples/plan-migration.md' with { type: 'text' }
@@ -50,6 +54,8 @@ export const catalog: TemplateInfo[] = [
   { name: 'planning-intent', description: 'Planning intent for a user to fill in' },
   { name: 'ui-component-architecture', description: 'UI component design and implementation' },
   { name: 'pull-request-description', description: 'Draft pull request description' },
+  { name: 'flow-definition', description: 'Reusable global Agent Skill flow definition' },
+  { name: 'flow-instance', description: 'Frozen repository-local flow run' },
 ]
 
 const contents: Record<string, string> = {
@@ -61,6 +67,8 @@ const contents: Record<string, string> = {
   'planning-intent.md': planningIntent,
   'ui-component-architecture.md': uiComponentArchitecture,
   'pull-request-description.md': pullRequestDescription,
+  'flow-definition.md': flowDefinition,
+  'flow-instance.md': flowInstance,
   'examples/plan-feature.md': planFeature,
   'examples/plan-migration.md': planMigration,
   'examples/design-service.md': designService,

@@ -19,7 +19,7 @@ export const templateTools = [
     'template_list',
     {
       description:
-        'List eight document templates; install any missing defaults and examples in the user templates directory without overwriting local edits.',
+        'List document templates, including flow definitions and instances; install any missing defaults and examples in the user templates directory without overwriting local edits.',
       inputSchema: z.strictObject({}),
       outputSchema: templateListOutput,
       annotations: { openWorldHint: false },
