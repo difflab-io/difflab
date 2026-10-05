@@ -37,12 +37,11 @@ describe('file parent utility', () => {
     try {
       await mkdir(join(home, 'target'))
       await symlink(join(home, 'target'), join(home, 'link'))
-      // Act
-      const traversal = ensureFileParent('../escape.md', home)
-      const symlinkPath = ensureFileParent('link/custom.md', home)
-      // Assert
-      await expect(traversal).rejects.toThrow('parent traversal')
-      await expect(symlinkPath).rejects.toThrow('Symlink paths are not allowed')
+      // Act and assert: attach each rejection handler before starting the next operation.
+      await expect(ensureFileParent('../escape.md', home)).rejects.toThrow('parent traversal')
+      await expect(ensureFileParent('link/custom.md', home)).rejects.toThrow(
+        'Symlink paths are not allowed',
+      )
     } finally {
       await rm(home, { recursive: true, force: true })
     }
