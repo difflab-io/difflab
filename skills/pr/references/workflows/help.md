@@ -14,4 +14,4 @@ Describe these natural-language actions when asked for help or when the intent i
 | Update                    | Edit an identified description or local review artifact without implicit publication.                                          |
 | Merge or land             | Confirm merge, then watch post-merge CI for the actual base SHA. `--autofix` permits at most five safe, authorized fix rounds. |
 
-`publish` does not publish review drafts. To tidy branch commits, use the git skill's squash workflow. For scaffolded `REVIEW.md`, use [Difflab review](../../../difflab-review/SKILL.md). See [provider selection](../providers.md) for GitHub, GitLab, and other forges. Report unsupported operations instead of replacing them with a different state.
+`publish` does not publish review drafts. To tidy branch commits, use the git skill's squash workflow. For scaffolded `REVIEW.md`, use [Difflab review](../../../difflab-review/SKILL.md). See [provider selection](../providers/index.md) for GitHub, GitLab, and other forges. Report unsupported operations instead of replacing them with a different state.

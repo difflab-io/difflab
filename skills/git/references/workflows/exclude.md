@@ -4,4 +4,4 @@ Manage only local Git exclude patterns; do not alter the tracked `.gitignore`. A
 
 When adding, leave an identical entry alone. When removing, delete only the exact entry the user identified; preserve comments and all unrelated patterns. Do not remove the file or any disk content that matches the pattern. An exclude entry does not untrack an already tracked file and is not a safe substitute for cleaning leaked secrets from history. Verify and report whether the entry exists afterward, whether the file is tracked, and the scope of the effect across worktrees.
 
-This is guidance for Git's existing exclude behavior, not a new command or automation. Adapted from Codevoyant's MIT-licensed exclude workflow; see [license](../../LICENSE.md).
+This guidance uses Git's existing local exclude behavior. It does not add a command or automation.

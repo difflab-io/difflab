@@ -15,6 +15,5 @@ bun.lock
 CHANGELOG.md
 RELEASE_NOTES.md
 **/*.template.md
-.codevoyant/
 .worktrees/
 .tmp/

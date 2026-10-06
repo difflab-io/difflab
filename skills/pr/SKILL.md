@@ -1,12 +1,11 @@
 ---
 name: pr
 description: 'Pull and merge request workflows: draft, publish, approve, reject, comment, review, address, update, merge, and help. Use for natural-language PR/MR requests.'
-license: MIT
 ---
 
 # Pull and merge requests
 
-This skill describes agent behavior, not a CLI. Interpret the user's ordinary language, optional PR/MR identifier or URL, and explicit options; ask when the target or intent is ambiguous. Resolve the forge from the selected repository remote and explicit target, not from a hard-coded hostname assumption. Read [provider selection](references/providers.md) and the relevant workflow before acting. Unknown or changing providers require current official documentation and web research, capability and authentication checks, and user confirmation before any non-equivalent action. Never silently substitute another review disposition.
+This skill describes agent behavior, not a CLI. Interpret the user's ordinary language, optional PR/MR identifier or URL, and explicit options; ask when the target or intent is ambiguous. Resolve the forge from the selected repository remote and explicit target, not from a hard-coded hostname assumption. Read [provider selection](references/providers/index.md) and the relevant workflow before acting. Unknown or changing providers require current official documentation and web research, capability and authentication checks, and user confirmation before any non-equivalent action. Never silently substitute another review disposition.
 
 | Intent                                                  | Guidance                                                     |
 | ------------------------------------------------------- | ------------------------------------------------------------ |
@@ -25,4 +24,4 @@ This skill describes agent behavior, not a CLI. Interpret the user's ordinary la
 
 This skill handles forge-facing PR/MR actions. The separate [Difflab review skill](../difflab-review/SKILL.md) owns scaffolded `REVIEW.md` creation and its review/address workflow; do not adopt its artifact format or imply that this skill replaces it. No remote mutation is implicit in reading or local review. Report the target URL, action actually completed, checks, and any blocked or partial step. Never claim that a merge or a published comment was rolled back.
 
-Adapted from the Codevoyant `pr` skill's MIT-licensed Markdown workflow guidance; see [license](LICENSE.md). No Codevoyant scripts, agents, or forge skills are required.
+The workflows use the provider references in this skill. No separate forge skill, script, or agent is required.
