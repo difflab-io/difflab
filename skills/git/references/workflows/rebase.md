@@ -1,6 +1,6 @@
 # Rebase
 
-Rebase the current feature branch onto the requested base, defaulting to the remote's verified default branch (typically origin's main). The default is **local-only**; `--push` permits a guarded remote update after verification. If already on the default or protected branch, offer only a clean fast-forward to its matching remote ref; never rewrite it. If detached, dirty, in an unfinished Git operation, or base selection is ambiguous, stop and ask before proceeding. Fetch origin first, confirm the selected base and its freshness, and report the current worktree and branch.
+Rebase the current feature branch onto an explicitly requested base. Otherwise, first look for a unique open PR/MR whose source repository and branch match this checkout and use its actual target branch. If none matches, use the remote's verified default branch (typically origin's main); if several targets match or the target cannot be verified, ask rather than guessing. The default is **local-only**; `--push` permits a guarded remote update after verification. If already on the default or protected branch, offer only a clean fast-forward to its matching remote ref; never rewrite it. If detached, dirty, in an unfinished Git operation, or base selection is ambiguous, stop and ask before proceeding. Fetch origin first, confirm the selected base and its freshness, and report the current worktree and branch.
 
 ## Capture intent before changing history
 
