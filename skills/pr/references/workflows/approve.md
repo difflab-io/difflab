@@ -1,0 +1,3 @@
+# Approve a PR or MR
+
+Follow [review submission](review-submission.md) with approval as the requested disposition. Publish only the authenticated user's pending inline comments and any overall comment supplied by the user. On GitHub, submit the user's pending review as an approval or create a review approval if none exists. On GitLab, publish the user's pending draft notes and then approve separately; approval is not implied by publishing notes. Check the user's eligibility and approval rules first. If approval fails after notes were published, report that partial result and do not republish them. Do not mark a draft PR/MR ready or merge it as part of approval.

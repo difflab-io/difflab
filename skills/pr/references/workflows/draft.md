@@ -1,0 +1,7 @@
+# Draft a PR or MR
+
+Resolve an explicit source branch or the current branch, target repository, and requested base. Otherwise discover the repository's default branch; do not assume it is main. Confirm that the branch is not detached and that the selected head and base differ. Derive a concise title from the branch and actual change when none is supplied, but do not fabricate a description.
+
+Look for an existing open PR/MR with the same head repository and branch and target base. If one exists, return its URL and state without creating another. If a different-base request exists, ask whether the user intended to use it or change its target; never create a duplicate silently. Check the remote head is pushed, differs from the base, and has a comparison the forge can use. If it is local-only, identical, or the forge rejects a draft, report what is missing and ask before any push or new commit. Never manufacture an empty diff or unrelated change to permit creation.
+
+Create a draft through the selected [provider](../providers/index.md). If the user supplied a body, use it verbatim. Otherwise leave the description empty; do not generate a template, infer a body from commits, or silently reuse a local file. Do not attach an assignee or alter the branch unless requested. Report the URL, title, head and base, and whether the description was supplied or left empty. A failed creation leaves the branch untouched; report the forge's exact constraint.

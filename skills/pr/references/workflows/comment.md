@@ -1,0 +1,3 @@
+# Submit comments without approval
+
+Follow [review submission](review-submission.md) with a neutral comment disposition. Publish only the authenticated user's pending inline comments and the optional user-supplied overall text. On GitHub, submit the pending review as a comment review, or create a general comment review if no draft exists and text was supplied. On GitLab, publish the user's pending draft notes, optionally with the supplied summary, without approval or change-request state. If there are no pending notes and no overall text, do nothing and report that there is nothing to publish. Do not silently change draft/ready state or claim a review disposition that the forge did not record.
