@@ -119,6 +119,8 @@ describe('Difflab MCP over stdio', () => {
         'planning-intent',
         'ui-component-architecture',
         'pull-request-description',
+        'flow-definition',
+        'flow-instance',
       ])
       expect(responseText(scaffolded)).toEqual({
         name: 'spec-driven-plan',
@@ -189,6 +191,33 @@ describe('Difflab MCP over stdio', () => {
         name: 'project_context',
         arguments: { cwd: repositoryRoot },
       })
+      const globalDefinition = await client.callTool({
+        name: 'scaffold',
+        arguments: {
+          name: 'flow-definition',
+          cwd: join(userHome, '.difflab'),
+          path: 'flows',
+          filename: 'sample.md',
+        },
+      })
+      const localInstance = await client.callTool({
+        name: 'scaffold',
+        arguments: {
+          name: 'flow-instance',
+          cwd: repositoryRoot,
+          path: '.difflab/flows/261005-sample',
+          filename: 'FLOW.md',
+        },
+      })
+      const collision = await client.callTool({
+        name: 'scaffold',
+        arguments: {
+          name: 'flow-instance',
+          cwd: repositoryRoot,
+          path: '.difflab/flows/261005-sample',
+          filename: 'FLOW.md',
+        },
+      })
       expect(response.isError).toBeUndefined()
       expect(response.structuredContent).toBeDefined()
       expect(
@@ -196,6 +225,15 @@ describe('Difflab MCP over stdio', () => {
       ).toBe(await realpath(repositoryRoot))
       expect(responseText(response).project.id).toBe(project.id)
       expect(responseText(response).repository.origin).toBe('https://github.com/example/stdio')
+      expect(globalDefinition.isError).toBeUndefined()
+      expect(localInstance.isError).toBeUndefined()
+      expect(collision.isError).toBe(true)
+      expect(await readFile(join(userHome, '.difflab/flows/sample.md'), 'utf8')).toContain(
+        '## Inputs',
+      )
+      expect(
+        await readFile(join(repositoryRoot, '.difflab/flows/261005-sample/FLOW.md'), 'utf8'),
+      ).toContain('## Steps')
     } finally {
       await client.close()
     }

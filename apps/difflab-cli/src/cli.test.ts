@@ -66,7 +66,7 @@ describe('commander CLI', () => {
       { from: 'user' },
     )
 
-    expect(output.filter((line) => / — /.test(line))).toHaveLength(8)
+    expect(output.filter((line) => / — /.test(line))).toHaveLength(10)
     expect(output.at(-1)).toEndWith('docs/nested/custom-plan.md')
     expect(await readFile(join(home, 'docs/nested/custom-plan.md'), 'utf8')).toBe(
       await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8'),

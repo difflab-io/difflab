@@ -46,6 +46,8 @@ describe('TemplateService', () => {
       'planning-intent',
       'ui-component-architecture',
       'pull-request-description',
+      'flow-definition',
+      'flow-instance',
     ])
     expect(await readdir(join(home, '.difflab/templates/examples'))).toHaveLength(10)
     expect(await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8')).toContain(
@@ -72,6 +74,9 @@ describe('TemplateService', () => {
 
     expect(packageContents).not.toContain('templates/spec-driven-plan.md')
     expect(packageContents).toContain('dist/index.js')
+    const built = await readFile(join(packageRoot, 'dist/index.js'), 'utf8')
+    expect(built).toContain('Reusable global Agent Skill flow definition')
+    expect(built).toContain('Definition SHA-256')
   })
 
   test('lists and scaffolds templates from a custom source', async () => {
@@ -151,6 +156,108 @@ describe('TemplateService', () => {
     await expectFailureWith(
       service.scaffoldFromTemplate('spec-driven-plan', '.', '.difflab/plans', 'PLAN.md'),
       'cwd must be an absolute path',
+    )
+  })
+
+  test('scaffolds global definitions and local instances without overwriting customizations', async () => {
+    // Arrange
+    await configureGitRepo()
+    const global = join(home, '.difflab')
+    const store = join(userPaths(home).projects, 'DIFFLAB', 'github.com--example--repo')
+    await mkdir(store, { recursive: true })
+    await symlink(store, join(cwd, '.difflab'))
+    await service.listTemplates()
+    await writeFile(join(global, 'templates/flow-definition.md'), '# Customized flow\n')
+
+    // Act
+    const definition = await service.scaffoldFromTemplate(
+      'flow-definition',
+      global,
+      'flows',
+      'example.md',
+    )
+    const instance = await service.scaffoldFromTemplate(
+      'flow-instance',
+      cwd,
+      '.difflab/flows/261005-example',
+      'FLOW.md',
+    )
+
+    // Assert
+    expect(await readFile(definition, 'utf8')).toBe('# Customized flow\n')
+    expect(instance).toBe(await realpath(join(store, 'flows/261005-example/FLOW.md')))
+    expect(await readFile(instance, 'utf8')).toContain('## Selected flags and permissions')
+    await expectFailureWith(
+      service.scaffoldFromTemplate('flow-definition', global, 'flows', 'example.md'),
+      'already exists',
+    )
+    await expectFailureWith(
+      service.scaffoldFromTemplate(
+        'flow-instance',
+        cwd,
+        '.difflab/flows/261005-example',
+        'FLOW.md',
+      ),
+      'already exists',
+    )
+    await symlink(bundle, join(global, 'outside'))
+    await expectFailureWith(
+      service.scaffoldFromTemplate('flow-definition', global, 'outside', 'escape.md'),
+      'Symlink paths are not allowed',
+    )
+    expect(await readFile(definition, 'utf8')).toBe('# Customized flow\n')
+  })
+
+  test('shares one global definition across distinct initialized repositories', async () => {
+    // Arrange
+    const second = join(directory.path, 'second-repo')
+    await mkdir(second)
+    for (const root of [cwd, second]) {
+      await execFileAsync('git', ['init', '-q'], { cwd: root })
+      await execFileAsync(
+        'git',
+        [
+          'remote',
+          'add',
+          'origin',
+          `https://github.com/example/${root === cwd ? 'repo' : 'second'}.git`,
+        ],
+        { cwd: root },
+      )
+      await writeFile(join(root, 'difflab.yaml'), 'schemaVersion: 1\nproject:\n  id: DIFFLAB\n')
+      const slug = root === cwd ? 'repo' : 'second'
+      const store = join(userPaths(home).projects, 'DIFFLAB', `github.com--example--${slug}`)
+      await mkdir(store, { recursive: true })
+      await symlink(store, join(root, '.difflab'))
+    }
+    const definition = await service.scaffoldFromTemplate(
+      'flow-definition',
+      join(home, '.difflab'),
+      'flows',
+      'shared.md',
+    )
+
+    // Act
+    const first = await service.scaffoldFromTemplate(
+      'flow-instance',
+      cwd,
+      '.difflab/flows/261005-shared',
+      'FLOW.md',
+    )
+    const other = await service.scaffoldFromTemplate(
+      'flow-instance',
+      second,
+      '.difflab/flows/261005-shared',
+      'FLOW.md',
+    )
+
+    // Assert
+    expect(first).not.toBe(other)
+    expect(await readFile(definition, 'utf8')).toContain('## Steps')
+    expect(await readFile(first, 'utf8')).toBe(await readFile(other, 'utf8'))
+    await expectFailureWith(
+      service.scaffoldFromTemplate('flow-definition', join(home, '.difflab'), 'flows', 'shared.md'),
+      'already exists',
     )
   })
 

@@ -1,0 +1,5 @@
+# Flow help
+
+`flow new <name>` creates a reusable definition in `~/.difflab/flows/<name>.md` from a prompt; it does not execute it. `flow go <name>` freezes one selected branch into `.difflab/flows/YYMMDD-<name>/FLOW.md` in the initialized repository, then runs it. An existing run requires an explicit resume choice or distinct run ID. `flow go <name> --local` omits remote steps; `--commit` is only a gate for explicitly commit-capable local steps and never permits push or merge. No flag is blindly forwarded to child skills.
+
+Named inputs bind as individual strings (preserve multi-word quoted values); free-form intent binds `{{input}}`. Inspect and intentionally edit definitions before starting a new run. During a run, the frozen instance and its physical sibling `logs.txt` show state, verified handoffs and progress. On failure, resolve the blocker and resume that exact instance at the first unchecked step. The flow Agent Skill adds no CLI subcommand and does not authorize operations forbidden by the called plan/review skills.

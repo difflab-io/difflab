@@ -28,10 +28,10 @@ Restart Pi after setup. For another supported client, replace `pi` with `cursor`
 
 ## Install the agent skills
 
-A skill is a set of instructions that tells an agent how to use Difflab. Install all four skills for Pi with [`npx skills`](https://skills.sh/):
+A skill is a set of instructions that tells an agent how to use Difflab. Install all five skills for Pi with [`npx skills`](https://skills.sh/):
 
 ```bash
-npx skills add difflab-io/difflab --agent pi --skill difflab-init difflab-todo difflab-plan difflab-review --global --yes
+npx skills add difflab-io/difflab --agent pi --skill difflab-init difflab-todo difflab-plan difflab-review difflab-flow --global --yes
 ```
 
 Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. The plan and review skills need the CLI tools `scaffold` and `log_append`. If either tool is missing, update the CLI when its release includes those tools, then restart Pi.
@@ -59,7 +59,11 @@ Ask your agent in chat. These phrases are skill requests, not `difflab` shell co
 - “Review new --local.” The agent writes local change requests in `REVIEW.md`.
 - “Review new.” The agent runs checks, commits and pushes changes, opens or reuses a draft pull request, and publishes verified inline findings.
 - “Review address.” The agent fixes requested changes, pushes the fix, and replies in each thread. It resolves only small, fully completed requests. It leaves questions, broad refactors, and reopened threads open.
+- “Flow new autospec for CSV export with an optional remote review.” The agent creates a reusable definition, not a run.
+- “Flow go autospec with input 'Export monthly sales' --local.” The agent freezes a local run before executing it.
 
 `--bg` runs a workflow in a background agent. For remote review, it authorizes commits, pushes, draft pull requests, verified inline comments, and eligible thread resolutions without another permission prompt. If a target or permission is unclear, the worker stops and reports the problem. `--local` makes no remote changes and does not commit.
 
-Plans and reviews live under `.difflab/plans/` and `.difflab/reviews/`. They are local project-store files. See [the command-line guide](apps/difflab-cli/README.md) for template and MCP tool details, or browse the [skill instructions](skills/).
+Plans and reviews live under `.difflab/plans/` and `.difflab/reviews/`. They are local project-store files.
+
+A flow definition lives at `~/.difflab/flows/<name>.md` and works from different initialized repositories. Edit it by hand before a new run. A run keeps its own frozen copy at `.difflab/flows/YYMMDD-<name>/FLOW.md` and progress at the sibling physical `logs.txt`. If that path exists, the agent asks you to resume that exact unfinished run or choose another run ID. It never overwrites the file. The agent records results between steps and resumes at the first unchecked step. `--local` removes remote steps before the run starts. `--commit` permits only a declared local commit step when you pass it; it does not allow a push, review publication, or merge. Remote review needs separate permission and must pass the review skill's checks. No flow skill adds a `difflab flow` CLI command. See [the command-line guide](apps/difflab-cli/README.md) for template and MCP tool details, or browse the [skill instructions](skills/).
