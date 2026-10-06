@@ -1,0 +1,17 @@
+# Rebase
+
+Rebase the current feature branch onto the requested base, defaulting to the remote's verified default branch (typically origin's main). The default is **local-only**; `--push` permits a guarded remote update after verification. If already on the default or protected branch, offer only a clean fast-forward to its matching remote ref; never rewrite it. If detached, dirty, in an unfinished Git operation, or base selection is ambiguous, stop and ask before proceeding. Fetch origin first, confirm the selected base and its freshness, and report the current worktree and branch.
+
+## Capture intent before changing history
+
+Record the original branch tip as a recovery ref and the merge base with the selected target. Inspect the complete branch net diff, changed paths and statuses (including additions, deletions, and renames), the branch's file versions at its tip and at the merge base, and the commit series to be replayed. Distinguish commits unique to the branch from upstream changes. Summarize intended behavior and obtain confirmation before rebasing. Do not treat a failed fetch as an up-to-date base.
+
+## Resolve replay conflicts by intent
+
+During a normal rebase conflict, the HEAD or “ours” side reflects the target plus commits already replayed; the “theirs” side reflects the branch commit currently being replayed. This is the reverse of the common expectation that “ours” means the original feature branch. Read both sides in context and compare with the saved intent; integrate the feature change into the new base instead of indiscriminately choosing one side. Explain each resolution. Stage only resolved paths, including a deliberately tracked ignored path if necessary, then continue. Never skip a commit solely to clear a conflict: skipping discards its entire patch. If a commit is genuinely redundant, verify its intent is already present before considering omission and tell the user. Ask for direction when the desired combined behavior is ambiguous. Leave a blocked rebase visible or abort back to the saved tip on the user's instruction; do not silently discard edits.
+
+## Verify and report
+
+After replay, compare the original intent snapshot against the final branch net diff and inspect paths whose changes vanished or changed significantly. An upstream change may make a patch redundant, but verify that case rather than labeling it lost. Check for unmerged files, run configured formatting, lint and tests as appropriate, and review any formatter changes before including them in a commit. Stop before push if verification fails or branch intent is uncertain. Report the old and new tips, target, conflict resolutions, checks, and recovery ref.
+
+When explicitly authorized with `--push`, confirm the branch is not protected, identify its exact remote destination and the previously observed remote tip, and update only that rewritten feature branch with lease protection. A rejected lease means someone else advanced the branch: stop and inspect, never fall back to an unconditional force push. If no remote branch existed, clarify whether publishing a new branch is intended; do not assume a history-rewrite push is necessary. For a successfully pushed branch, inspect its exact commit's CI through [GitHub](../forges/github.md) or [GitLab](../forges/gitlab.md), and report pass, failures/logs, timeout, or missing CI honestly. Never push the base branch as part of this workflow.
