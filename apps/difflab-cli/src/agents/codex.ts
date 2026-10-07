@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { mcpServer, runCommand, setupHome, type AgentAdapter } from './adapter.js'
 import { ConfigurationError } from '../errors.js'
-import { hasErrorCode } from '../extensions/osx.js'
+import { hasErrorCode } from 'utils/osx'
 
 // API -------------------------------------------------------------------------
 export const codexAdapter: AgentAdapter = {

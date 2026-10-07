@@ -1,5 +1,5 @@
 {
-  "name": "difflab-ts",
+  "name": "utils",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,16 @@
     "./gitx": {
       "types": "./src/gitx.ts",
       "import": "./src/gitx.ts"
-    }
+    },
+    "./fsx": "./src/fsx.ts",
+    "./osx": "./src/osx.ts",
+    "./pathx": "./src/pathx.ts",
+    "./processx": "./src/processx.ts",
+    "./testx": "./src/testx.ts",
+    "./zodx": "./src/zodx.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
   },
   "scripts": {
     "test": "bun test",

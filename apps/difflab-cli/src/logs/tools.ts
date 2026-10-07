@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { absolutePath } from '../extensions/zodx.js'
+import { absolutePath } from 'utils/zodx'
 import { defineTool } from '../tools.js'
 import { appendProgressLog } from './store.js'
 

@@ -43,12 +43,12 @@
     "@modelcontextprotocol/sdk": "1.31.0",
     "commander": "15.0.0",
     "yaml": "2.9.1",
-    "zod": "4.6.5",
-    "difflab-ts": "workspace:*"
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
     "difflab-db": "workspace:*",
+    "utils": "workspace:*",
     "prettier": "3.9.8",
     "typescript": "7.0.2"
   }

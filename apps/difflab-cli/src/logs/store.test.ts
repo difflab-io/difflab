@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createTempDirectory, expectFailureWith } from '../extensions/testx.js'
+import { createTempDirectory, expectFailureWith } from 'utils/testx'
 import { appendProgressLog } from './store.js'
 
 // Setup -----------------------------------------------------------------------

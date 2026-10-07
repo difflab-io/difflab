@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { z } from 'zod'
 import { defineTool } from '../tools.js'
-import { resolvePath } from '../extensions/pathx.js'
+import { resolvePath } from 'utils/pathx'
 import { TodoStore } from './store.js'
 
 // Constants -------------------------------------------------------------------

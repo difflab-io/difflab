@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createTempDirectory } from './extensions/testx.js'
+import { createTempDirectory } from 'utils/testx'
 import { TemplateService } from './templates/service.js'
 import { createProgram } from './cli'
 

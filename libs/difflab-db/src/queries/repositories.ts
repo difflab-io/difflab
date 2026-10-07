@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely, Transaction } from 'kysely'
-import { canonicalGitUrl, repositorySlug } from 'difflab-ts/gitx'
+import { canonicalGitUrl, repositorySlug } from 'utils/gitx'
 import type { Repository } from '../entities/repository.js'
 import { validateRepository } from '../entities/repository.js'
 import { DifflabDbError, withDatabaseAccess } from '../registry.js'

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mcpServer, type SetupContext } from './adapter'
 import { agentAdapter, agentNames } from './index'
-import { patchJsonToFile } from '../extensions/fsx'
+import { patchJsonToFile } from 'utils/fsx'
 
 // Setup -----------------------------------------------------------------------
 const homes: string[] = []

@@ -1,7 +1,7 @@
 import { constants } from 'node:fs'
 import { lstat, open, realpath } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, resolve } from 'node:path'
-import { hasErrorCode } from '../extensions/osx.js'
+import { hasErrorCode } from 'utils/osx'
 
 // Types -----------------------------------------------------------------------
 export class ProgressLogError extends Error {}

@@ -6,17 +6,17 @@ Create a plan, implement it and review the resulting diff. Review remotely only 
 
 ## Inputs
 
-| Name | Required | Default | Description |
-| --- | --- | --- | --- |
-| input | yes | — | Feature intent. |
+| Name  | Required | Default | Description     |
+| ----- | -------- | ------- | --------------- |
+| input | yes      | —       | Feature intent. |
 
 ## Flags
 
-| Flag | Default | Capability | Effect |
-| --- | --- | --- | --- |
-| --local | false | local | Omit remote review. |
-| --commit | false | local-commit | Authorize a scoped local commit only in an explicitly commit-capable procedure; none is selected here. |
-| --remote-review | false | remote-review | Permit review new remote mode after explicit forge permission and its own gates. |
+| Flag            | Default | Capability    | Effect                                                                                                 |
+| --------------- | ------- | ------------- | ------------------------------------------------------------------------------------------------------ |
+| --local         | false   | local         | Omit remote review.                                                                                    |
+| --commit        | false   | local-commit  | Authorize a scoped local commit only in an explicitly commit-capable procedure; none is selected here. |
+| --remote-review | false   | remote-review | Permit review new remote mode after explicit forge permission and its own gates.                       |
 
 ## Steps
 

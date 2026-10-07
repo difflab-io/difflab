@@ -45,10 +45,3 @@ export class MissingGlobalConfig extends ProjectSetupError {
     this.name = 'MissingGlobalConfig'
   }
 }
-
-export class CommandExecutionError extends DifflabError {
-  constructor(command: string, message: string, options?: ErrorOptions) {
-    super(`Could not configure ${command}: ${message}`, options)
-    this.name = 'CommandExecutionError'
-  }
-}

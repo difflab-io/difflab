@@ -1,8 +1,8 @@
 import { mkdir, readlink, symlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { RepoStoreError } from '../errors.js'
-import { addPathToGitExcludes } from '../extensions/gitx.js'
-import { lstatOrNull } from '../extensions/fsx.js'
+import { addPathToGitExcludes } from 'utils/gitx'
+import { lstatOrNull } from 'utils/fsx'
 
 // API -------------------------------------------------------------------------
 /** Check that repository store paths are safe without creating or changing anything. */

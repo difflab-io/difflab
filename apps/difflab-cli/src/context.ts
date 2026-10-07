@@ -1,5 +1,5 @@
 import { MigrationError, DifflabDbError } from 'difflab-db'
-import { canonicalGitUrl, discoverGitRepository, type GitRepository } from 'difflab-ts/gitx'
+import { canonicalGitUrl, discoverGitRepository, type GitRepository } from 'utils/gitx'
 import { join } from 'node:path'
 import { MissingGlobalConfig, MissingRepoConfig, RepoStoreError } from './errors.js'
 import { readRepoConfig } from './projects/config.js'

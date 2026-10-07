@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { validateProjectKey } from 'difflab-db'
-import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'difflab-ts/gitx'
+import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
 import { join } from 'node:path'
 import { ProjectSetupError, RepoStoreError } from './errors.js'
 import { createRepoConfig, readRepoConfig } from './projects/config.js'
