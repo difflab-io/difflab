@@ -1,0 +1,7 @@
+# `poc init [name]`
+
+1. Confirm the repository root, GitHub/GitLab `origin`, current branch, and clean worktree. Reject detached HEAD. Accept a safe lowercase name for `poc/<name>`. If already on a PoC branch and no name was given, use that branch. Otherwise ask for a name. Follow `../merge-gate.md` before creating or reusing a branch. If enforcement is not proven, stop.
+2. If already on the named PoC branch, keep its README. Read the full `base_commit` SHA from frontmatter. Make sure that it exists and is an ancestor of HEAD. If it is missing or invalid, ask for the original base. Never substitute today's `origin/main`. If the user names another existing local or remote PoC branch, ask how to recover it; do not recreate or switch silently.
+3. For a new branch, run `git fetch origin main`. Save the full `refs/remotes/origin/main` commit SHA before branching. Create `poc/<name>` at that SHA with `git switch --no-track -c`. Do not branch from local main or HEAD. If creation fails, stop.
+4. Scaffold `poc-readme` to `POC-README.md` with MCP at the checkout root. If that temporary name exists, stop. Fill `base_commit` with the saved SHA. On this PoC branch only, replace `README.md` and remove the temporary file. If replacement fails, keep the branch and report how to recover it. Do not discard dirty work.
+5. Report the branch, base SHA, README path, gate evidence, and changes. Use `git diff <base_commit> HEAD` for a stable comparison. Do not commit or push without separate authorization.

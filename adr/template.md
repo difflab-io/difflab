@@ -1,63 +1,61 @@
-# [short title of solved problem and solution]
+# [Decision: problem and chosen solution]
 
-- Status: [proposed | rejected | accepted | deprecated | … | superseded by [ADR-0005](0005-example.md)] <!-- optional -->
-- Deciders: [list everyone involved in the decision] <!-- optional -->
-- Date: [YYYY-MM-DD when the decision was last updated] <!-- optional -->
-
-Technical Story: [description | ticket/issue URL] <!-- optional -->
+- **Status:** proposed
+- **Deciders:** [people or team]
+- **Date:** [YYYY-MM-DD]
 
 ## Context and Problem Statement
 
-[Describe the context and problem statement, e.g., in free form using two to three sentences. You may want to articulate the problem in form of a question.]
+[What decision is needed, and what happens if we do nothing?]
 
-## Decision Drivers <!-- optional -->
+## Decision Drivers
 
-- [driver 1, e.g., a force, facing concern, …]
-- [driver 2, e.g., a force, facing concern, …]
-- … <!-- numbers of drivers can vary -->
+- [Constraint or quality attribute.]
 
 ## Considered Options
 
-- [option 1]
-- [option 2]
-- [option 3]
-- … <!-- numbers of options can vary -->
+### [Option A]
+
+#### Pros
+
+- [Benefit.]
+
+#### Cons
+
+- [Drawback.]
+
+### [Option B]
+
+#### Pros
+
+- [Benefit.]
+
+#### Cons
+
+- [Drawback.]
 
 ## Decision Outcome
 
-Chosen option: "[option 1]", because [justification. e.g., only option, which meets k.o. criterion decision driver | which resolves force force | … | comes out best (see below)].
+Chosen option: [option], because [reason and evidence].
 
-### Positive Consequences <!-- optional -->
+### Positive Consequences
 
-- [e.g., improvement of quality attribute satisfaction, follow-up decisions required, …]
-- …
+- [Benefit.]
 
-### Negative Consequences <!-- optional -->
+### Negative Consequences
 
-- [e.g., compromising quality attribute, follow-up decisions required, …]
-- …
+- [Cost or follow-up work.]
 
-## Pros and Cons of the Options <!-- optional -->
+## References
 
-### [option 1]
+- [Related decision, issue, or evidence.]
 
-[example | description | pointer to more information | …] <!-- optional -->
+## Appendix
 
-- Good, because [argument a]
-- Good, because [argument b]
-- Bad, because [argument c]
-- … <!-- numbers of pros and cons can vary -->
+### Appendix A
 
-### [option 2]
+Useful background information.
 
-[example | description | pointer to more information | …] <!-- optional -->
+### Appendix B
 
-- Good, because [argument a]
-- Good, because [argument b]
-- Bad, because [argument c]
-- … <!-- numbers of pros and cons can vary -->
-
-## Links <!-- optional -->
-
-- [Link type] [Link to ADR] <!-- example: Refined by [ADR-0005](0005-example.md) -->
-- … <!-- numbers of links can vary -->
+More useful background information.

@@ -28,10 +28,10 @@ Restart Pi after setup. For another supported client, replace `pi` with `cursor`
 
 ## Install the agent skills
 
-A skill is a set of instructions that tells an agent how to use Difflab. Install all five skills for Pi with [`npx skills`](https://skills.sh/):
+A skill is a set of instructions that tells an agent how to use Difflab. Install all eight skills for Pi with [`npx skills`](https://skills.sh/):
 
 ```bash
-npx skills add difflab-io/difflab --agent pi --skill difflab-init difflab-todo difflab-plan difflab-review difflab-flow --global --yes
+npx skills add difflab-io/difflab --agent pi --skill difflab-init difflab-todo difflab-plan difflab-review difflab-flow explore adr poc --global --yes
 ```
 
 Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. The plan and review skills need the CLI tools `scaffold` and `log_append`. If either tool is missing, update the CLI when its release includes those tools, then restart Pi.
@@ -61,9 +61,15 @@ Ask your agent in chat. These phrases are skill requests, not `difflab` shell co
 - “Review address.” The agent fixes requested changes, pushes the fix, and replies in each thread. It resolves only small, fully completed requests. It leaves questions, broad refactors, and reopened threads open.
 - “Flow new autospec for CSV export with an optional remote review.” The agent creates a reusable definition, not a run.
 - “Flow go autospec with input 'Export monthly sales' --local.” The agent freezes a local run before executing it.
+- “Explore new options for caching.” The agent saves research with external sources under `.difflab/explore/`.
+- “Explore update caching with new evidence.” The agent saves the old research before it updates the findings.
+- “ADR init for cache storage.” The agent creates `adr/NNNN-title/ADR.md`, with room for diagrams beside it.
+- “ADR new for cache storage.” The agent fills the record. “ADR update 0001” revises one.
+- “PoC init cache-test” or “PoC new compare cache stores.” The agent uses an isolated `poc/*` branch and records its base commit in the branch README.
+- “PoC freeze.” The agent tags the experiment and asks before it deletes the local and remote branches.
 
 `--bg` runs a workflow in a background agent. For remote review, it authorizes commits, pushes, draft pull requests, verified inline comments, and eligible thread resolutions without another permission prompt. If a target or permission is unclear, the worker stops and reports the problem. `--local` makes no remote changes and does not commit.
 
-Plans and reviews live under `.difflab/plans/` and `.difflab/reviews/`. They are local project-store files.
+Plans, reviews, and explorations live under `.difflab/plans/`, `.difflab/reviews/`, and `.difflab/explore/`. They are local project-store files. ADRs live in numbered directories under the tracked `adr/` directory. Before a PoC begins, the agent must confirm that the forge blocks merges from `poc/*`. A workflow file alone does not provide that protection. If the rule is missing, the agent asks before it changes remote configuration and stops until the rule takes effect.
 
 A flow definition lives at `~/.difflab/flows/<name>.md` and works from different initialized repositories. Edit it by hand before a new run. A run keeps its own frozen copy at `.difflab/flows/YYMMDD-<name>/FLOW.md` and progress at the sibling physical `logs.txt`. If that path exists, the agent asks you to resume that exact unfinished run or choose another run ID. It never overwrites the file. The agent records results between steps and resumes at the first unchecked step. `--local` removes remote steps before the run starts. `--commit` permits only a declared local commit step when you pass it; it does not allow a push, review publication, or merge. Remote review needs separate permission and must pass the review skill's checks. No flow skill adds a `difflab flow` CLI command. See [the command-line guide](apps/difflab-cli/README.md) for template and MCP tool details, or browse the [skill instructions](skills/).

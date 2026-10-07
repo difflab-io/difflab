@@ -20,6 +20,14 @@ import flowDefinition from '../../templates/flow-definition.md' with { type: 'te
 
 import flowInstance from '../../templates/flow-instance.md' with { type: 'text' }
 
+import explorationSummary from '../../templates/exploration-summary.md' with { type: 'text' }
+
+import explorationResearch from '../../templates/exploration-research.md' with { type: 'text' }
+
+import explorationProposal from '../../templates/exploration-proposal.md' with { type: 'text' }
+
+import pocReadme from '../../templates/poc-readme.md' with { type: 'text' }
+
 import planFeature from '../../templates/examples/plan-feature.md' with { type: 'text' }
 
 import planMigration from '../../templates/examples/plan-migration.md' with { type: 'text' }
@@ -56,6 +64,10 @@ export const catalog: TemplateInfo[] = [
   { name: 'pull-request-description', description: 'Draft pull request description' },
   { name: 'flow-definition', description: 'Reusable global Agent Skill flow definition' },
   { name: 'flow-instance', description: 'Frozen repository-local flow run' },
+  { name: 'exploration-summary', description: 'Source-grounded technical exploration summary' },
+  { name: 'exploration-research', description: 'Technical exploration research notes' },
+  { name: 'exploration-proposal', description: 'Optional technical exploration approach' },
+  { name: 'poc-readme', description: 'Disposable proof-of-concept branch README' },
 ]
 
 const contents: Record<string, string> = {
@@ -69,6 +81,10 @@ const contents: Record<string, string> = {
   'pull-request-description.md': pullRequestDescription,
   'flow-definition.md': flowDefinition,
   'flow-instance.md': flowInstance,
+  'exploration-summary.md': explorationSummary,
+  'exploration-research.md': explorationResearch,
+  'exploration-proposal.md': explorationProposal,
+  'poc-readme.md': pocReadme,
   'examples/plan-feature.md': planFeature,
   'examples/plan-migration.md': planMigration,
   'examples/design-service.md': designService,

@@ -16,13 +16,23 @@
 
 ### [Option A]
 
-- Good: [reason.]
-- Bad: [reason.]
+#### Pros
+
+- [Benefit.]
+
+#### Cons
+
+- [Drawback.]
 
 ### [Option B]
 
-- Good: [reason.]
-- Bad: [reason.]
+#### Pros
+
+- [Benefit.]
+
+#### Cons
+
+- [Drawback.]
 
 ## Decision Outcome
 
