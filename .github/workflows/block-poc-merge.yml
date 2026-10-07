@@ -1,0 +1,25 @@
+---
+name: Block PoC merges
+
+'on':
+  # Runs trusted base-branch workflow, not code supplied by the PR.
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+permissions: {}
+
+jobs:
+  block-poc-source:
+    name: Block PoC source branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject PoC head refs
+        env:
+          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          case "$SOURCE_BRANCH" in
+            poc/*)
+              echo 'PoC branches must not be merged. Freeze to a tag.' >&2
+              exit 1
+              ;;
+          esac

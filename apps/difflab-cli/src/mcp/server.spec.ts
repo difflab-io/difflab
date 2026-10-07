@@ -121,6 +121,10 @@ describe('Difflab MCP over stdio', () => {
         'pull-request-description',
         'flow-definition',
         'flow-instance',
+        'exploration-summary',
+        'exploration-research',
+        'exploration-proposal',
+        'poc-readme',
       ])
       expect(responseText(scaffolded)).toEqual({
         name: 'spec-driven-plan',

@@ -1,6 +1,8 @@
+<!-- New records live at adr/NNNN-kebab-title/ADR.md; store static resources alongside ADR.md. Links below are relative to ADR.md. Existing flat records need not be moved. -->
+
 # [short title of solved problem and solution]
 
-- Status: [proposed | rejected | accepted | deprecated | … | superseded by [ADR-0005](0005-example.md)] <!-- optional -->
+- Status: [proposed | rejected | accepted | deprecated | … | superseded by [ADR-0005](../0005-example/ADR.md)] <!-- optional -->
 - Deciders: [list everyone involved in the decision] <!-- optional -->
 - Date: [YYYY-MM-DD when the decision was last updated] <!-- optional -->
 
@@ -59,5 +61,5 @@ Chosen option: "[option 1]", because [justification. e.g., only option, which me
 
 ## Links <!-- optional -->
 
-- [Link type] [Link to ADR] <!-- example: Refined by [ADR-0005](0005-example.md) -->
+- [Link type] [Link to ADR] <!-- example: Refined by [ADR-0005](../0005-example/ADR.md); for a legacy flat target use ../0005-example.md -->
 - … <!-- numbers of links can vary -->

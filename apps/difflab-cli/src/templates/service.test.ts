@@ -37,19 +37,31 @@ beforeEach(async () => {
 describe('TemplateService', () => {
   test('lists and installs every bundled template and example asset', async () => {
     const names = (await service.listTemplates()).map(({ name }) => name)
-    expect(names).toEqual([
-      'spec-driven-plan',
-      'software-architecture-design',
-      'architecture-decision-record',
-      'product-requirements-document',
-      'code-review',
-      'planning-intent',
-      'ui-component-architecture',
-      'pull-request-description',
-      'flow-definition',
-      'flow-instance',
-    ])
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'spec-driven-plan',
+        'software-architecture-design',
+        'architecture-decision-record',
+        'product-requirements-document',
+        'code-review',
+        'planning-intent',
+        'ui-component-architecture',
+        'pull-request-description',
+        'flow-definition',
+        'flow-instance',
+        'exploration-summary',
+        'exploration-research',
+        'exploration-proposal',
+        'poc-readme',
+      ]),
+    )
+    expect(await readFile(join(home, '.difflab/templates/poc-readme.md'), 'utf8')).toContain(
+      'base_commit:',
+    )
     expect(await readdir(join(home, '.difflab/templates/examples'))).toHaveLength(10)
+    for (const name of ['exploration-summary', 'exploration-research', 'exploration-proposal']) {
+      expect(await readFile(join(home, `.difflab/templates/${name}.md`), 'utf8')).toContain('# ')
+    }
     expect(await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8')).toContain(
       '## Intent',
     )
@@ -77,6 +89,7 @@ describe('TemplateService', () => {
     const built = await readFile(join(packageRoot, 'dist/index.js'), 'utf8')
     expect(built).toContain('Reusable global Agent Skill flow definition')
     expect(built).toContain('Definition SHA-256')
+    expect(built).toContain('Source-grounded technical exploration summary')
   })
 
   test('lists and scaffolds templates from a custom source', async () => {
@@ -157,6 +170,53 @@ describe('TemplateService', () => {
       service.scaffoldFromTemplate('spec-driven-plan', '.', '.difflab/plans', 'PLAN.md'),
       'cwd must be an absolute path',
     )
+  })
+
+  test('scaffolds optional exploration artifacts in an initialized store without overwriting', async () => {
+    // Arrange
+    await configureGitRepo()
+    const store = join(userPaths(home).projects, 'DIFFLAB', 'github.com--example--repo')
+    await mkdir(store, { recursive: true })
+    await symlink(store, join(cwd, '.difflab'))
+    const root = '.difflab/explore/embedded-search'
+
+    // Act
+    const summary = await service.scaffoldFromTemplate(
+      'exploration-summary',
+      cwd,
+      root,
+      'SUMMARY.md',
+    )
+    const research = await service.scaffoldFromTemplate(
+      'exploration-research',
+      cwd,
+      `${root}/research`,
+      'ecosystem.md',
+    )
+    const proposal = await service.scaffoldFromTemplate(
+      'exploration-proposal',
+      cwd,
+      `${root}/proposals`,
+      'sqlite.md',
+    )
+
+    // Assert
+    expect(summary).toBe(join(store, 'explore/embedded-search/SUMMARY.md'))
+    expect(await readFile(summary, 'utf8')).toContain('## Evidence and freshness')
+    expect(await readFile(research, 'utf8')).toContain('## Sources fetched')
+    expect(await readFile(proposal, 'utf8')).toContain('## Trade-offs')
+    for (const [name, path, filename, file] of [
+      ['exploration-summary', root, 'SUMMARY.md', summary],
+      ['exploration-research', `${root}/research`, 'ecosystem.md', research],
+      ['exploration-proposal', `${root}/proposals`, 'sqlite.md', proposal],
+    ] as const) {
+      const previous = await readFile(file, 'utf8')
+      await expectFailureWith(
+        service.scaffoldFromTemplate(name, cwd, path, filename),
+        'Destination already exists',
+      )
+      expect(await readFile(file, 'utf8')).toBe(previous)
+    }
   })
 
   test('scaffolds global definitions and local instances without overwriting customizations', async () => {

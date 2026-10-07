@@ -66,11 +66,35 @@ describe('commander CLI', () => {
       { from: 'user' },
     )
 
-    expect(output.filter((line) => / — /.test(line))).toHaveLength(10)
+    expect(output.filter((line) => / — /.test(line)).length).toBeGreaterThanOrEqual(13)
+    expect(output.join('')).toContain('exploration-summary')
     expect(output.at(-1)).toEndWith('docs/nested/custom-plan.md')
     expect(await readFile(join(home, 'docs/nested/custom-plan.md'), 'utf8')).toBe(
       await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8'),
     )
+    await createProgram((message) => output.push(message), '0.1.0', {
+      templateService: service,
+    }).parseAsync(
+      ['templates', 'scaffold', 'exploration-research', 'research', 'ecosystem.md', '--cwd', home],
+      { from: 'user' },
+    )
+    expect(await readFile(join(home, 'research/ecosystem.md'), 'utf8')).toContain(
+      '## Sources fetched',
+    )
+    await expect(
+      createProgram(() => {}, '0.1.0', { templateService: service }).parseAsync(
+        [
+          'templates',
+          'scaffold',
+          'exploration-research',
+          'research',
+          'ecosystem.md',
+          '--cwd',
+          home,
+        ],
+        { from: 'user' },
+      ),
+    ).rejects.toThrow('Destination already exists')
     await expect(
       createProgram(() => {}, '0.1.0', { templateService: service }).parseAsync(
         [
