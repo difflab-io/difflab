@@ -1,21 +1,19 @@
 ---
-name: difflab-poc
-description: Run isolated, disposable proof-of-concept experiments on poc/* branches; initialize, build, and freeze them as tags.
-compatibility: Requires Git, a GitHub/GitLab-compatible forge with enforced merge prevention, and Difflab MCP scaffold.
+name: poc
+description: Create isolated proof-of-concept branches and freeze them as tags.
+compatibility: Requires Git, Difflab MCP scaffold, and an enforced forge merge gate.
 ---
 
-# Difflab PoC
+# PoC
 
-Interpret `poc init [name]`, `poc new [name] [experiment]`, and `poc freeze` as Agent Skill workflows, not CLI subcommands. A short explicit name takes precedence over a derived branch slug: `poc init auth` names the branch; `poc new auth` retains that name and asks what to test; `poc new auth: compare two login flows` names the branch and supplies the experiment. Read the corresponding `references/workflows/*.md` before acting. If intent, branch name, or target is unclear, ask; never guess a destructive target.
+Use `poc init [name]`, `poc new [name] [experiment]`, or `poc freeze`. These are skill requests, not CLI commands. `poc new auth` keeps the name and asks what to test. `poc new auth: compare two login flows` supplies both. Read the selected workflow before acting.
 
-PoC branches are disposable experiments, not production work. Never merge them into production or open a production PR from them. Confirm the absolute repository root, `origin/main`, current branch, worktree status, and forge before changing anything. `init` and `new` must first verify effective source-branch merge prevention as described in `references/merge-gate.md`. When absent, ask whether the user authorizes configuring it, then **stop** until the remote policy is effective; a checked-in workflow is not a sufficient gate. Do not modify remote policy without explicit authorization.
+A PoC is an experiment, not production work. Never merge it or open a production PR from it. Before `init` or `new`, follow `references/merge-gate.md`. If the merge gate is not proven active, stop and ask before changing remote rules. Confirm the repository, `origin/main`, branch, and clean worktree.
 
-Use `scaffold({name:"poc-readme",cwd:<absolute checkout root>,path:".",filename:"POC-README.md"})` on a newly created PoC branch, fill it, then replace `README.md` and remove the temporary file. The template cannot scaffold over the existing README. This replacement is limited to the isolated PoC branch; do not discard dirty work. On reuse, retain the existing README and its original `base_commit`. Require a full SHA of the branch point in YAML frontmatter; never recompute it from today's main. The stable diff is `git diff <base_commit> HEAD`.
+On a new PoC branch, scaffold `poc-readme` as `POC-README.md`, fill it, then replace the branch's `README.md`. Keep its full original `base_commit` in frontmatter. On reuse, never change that value. Compare with `git diff <base_commit> HEAD`.
 
-## Workflows
+- `init`: `references/workflows/init.md`
+- `new`: `references/workflows/new.md`
+- `freeze`: `references/workflows/freeze.md`
 
-- `init`: `references/workflows/init.md` — create/reuse branch and initialize README.
-- `new`: `references/workflows/new.md` — initialize as needed, then run minimal requested experiments.
-- `freeze`: `references/workflows/freeze.md` — tag the tip and safely remove local and remote branches.
-
-A PoC may deliberately delete application files for a from-scratch sandbox, but only when the user explicitly requests that scope, after the branch and clean-tree safety checks. No generic cleanup or force-push; do not auto-commit/push without separate authorization except the tag push expressly required by an approved `freeze`. Remote deletion requires an explicit confirmation. Report the branch, base SHA, readme, verification, tag, and any recovery steps.
+Remove broad code only when the user requests a from-scratch experiment. Never discard dirty work. Do not commit or push without separate authorization, except the tag push in `freeze`. Ask before deleting the remote branch. Report the branch, base SHA, checks, tag, and recovery steps.

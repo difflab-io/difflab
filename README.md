@@ -31,7 +31,7 @@ Restart Pi after setup. For another supported client, replace `pi` with `cursor`
 A skill is a set of instructions that tells an agent how to use Difflab. Install all eight skills for Pi with [`npx skills`](https://skills.sh/):
 
 ```bash
-npx skills add difflab-io/difflab --agent pi --skill difflab-init difflab-todo difflab-plan difflab-review difflab-flow difflab-explore difflab-adr difflab-poc --global --yes
+npx skills add difflab-io/difflab --agent pi --skill difflab-init difflab-todo difflab-plan difflab-review difflab-flow explore adr poc --global --yes
 ```
 
 Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. The plan and review skills need the CLI tools `scaffold` and `log_append`. If either tool is missing, update the CLI when its release includes those tools, then restart Pi.
