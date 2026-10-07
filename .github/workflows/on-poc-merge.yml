@@ -1,5 +1,5 @@
 ---
-name: Block PoC merges
+name: On PoC Merge
 
 'on':
   # Runs trusted base-branch workflow, not code supplied by the PR.

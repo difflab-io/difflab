@@ -19,15 +19,40 @@ test('the PoC template records its branch point and learnings', async () => {
   expect(template).toContain('git diff <base_commit> HEAD')
 })
 
+test('a named PoC new request keeps its name and asks for the experiment', async () => {
+  // Arrange
+  const workflow = await readFile(
+    join(
+      import.meta.dir,
+      '..',
+      '..',
+      '..',
+      '..',
+      'skills',
+      'difflab-poc',
+      'references',
+      'workflows',
+      'new.md',
+    ),
+    'utf8',
+  )
+
+  // Assert
+  expect(workflow).toContain('poc new auth')
+  expect(workflow).toContain('before running `init`')
+  expect(workflow).toContain('explicit safe name')
+})
+
 test('the PoC merge check evaluates the PR source ref on all targets', async () => {
   // Arrange
   const workflow = await readFile(
-    join(import.meta.dir, '..', '..', '..', '..', '.github', 'workflows', 'block-poc-merge.yml'),
+    join(import.meta.dir, '..', '..', '..', '..', '.github', 'workflows', 'on-poc-merge.yml'),
     'utf8',
   )
 
   // Act
   const parsed = YAML.parse(workflow) as {
+    name: string
     on: { pull_request_target: { types: string[]; branches?: string[] } }
     jobs: {
       'block-poc-source': {
@@ -45,8 +70,10 @@ test('the PoC merge check evaluates the PR source ref on all targets', async () 
     }).status
 
   // Assert
+  expect(parsed.name).toBe('On PoC Merge')
   expect(parsed.on.pull_request_target.branches).toBeUndefined()
   expect(workflow).not.toContain('actions/checkout')
+  expect(parsed.on.pull_request_target).toBeDefined()
   expect(job.name).toBe('Block PoC source branch')
   expect(step.env.SOURCE_BRANCH).toContain('github.event.pull_request.head.ref')
   expect(runForBranch('poc/experiment')).toBe(1)

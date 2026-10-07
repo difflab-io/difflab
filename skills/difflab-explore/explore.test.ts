@@ -24,6 +24,9 @@ test('new only scaffolds research and optionally proposals', async () => {
   // Assert
   expect(skill).toContain('.difflab/explore/<slug>')
   expect(skill).not.toContain('agents/')
+  expect(workflow).toContain('explore new auth: compare authentication libraries')
+  expect(workflow).toContain('explore new auth`')
+  expect(workflow).toContain('multiword request without a `name:` separator')
   expect(workflow).toContain('research-only')
   expect(workflow).toContain('scaffold')
   expect(summary).toContain('## Evidence and freshness')

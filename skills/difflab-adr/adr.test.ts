@@ -40,6 +40,8 @@ describe('ADR skill contract', () => {
     expect(init).toContain('9999')
     expect(init).toContain('legacy flat')
     expect(init).toContain('incomplete')
+    expect(init).toContain('adr init auth')
+    expect(init).toContain('supplied name')
     expect(init).toContain('same decision')
   })
 
@@ -53,6 +55,8 @@ describe('ADR skill contract', () => {
     expect(init).toContain('Leave all placeholders')
     expect(init).toContain('README index remains unchanged')
     expect(init).toContain('filename:"ADR.md"')
+    expect(author).toContain('adr new auth')
+    expect(author).toContain('before creating or filling a record')
     expect(author).toContain('Reuse a clearly matching, still-placeholder scaffold')
     expect(author).toContain('legacy flat scaffold')
     expect(author).toContain('resources')
@@ -63,7 +67,7 @@ describe('ADR skill contract', () => {
     expect(update).toContain('Keep existing legacy ADRs at their current paths')
   })
 
-  test('keeps bundled and repository templates aligned on core MADR headings', async () => {
+  test('keeps the repository ADR template identical to the bundled scaffold', async () => {
     // Arrange
     const bundled = await readFile(
       join(root, 'apps/difflab-cli/templates/architecture-decision-record.md'),
@@ -73,21 +77,13 @@ describe('ADR skill contract', () => {
     const author = await read('references/workflows/new.md')
 
     // Assert
-    for (const heading of [
-      'Context and Problem Statement',
-      'Decision Drivers',
-      'Considered Options',
-      'Decision Outcome',
-      'Positive Consequences',
-      'Negative Consequences',
-    ]) {
-      expect(bundled).toContain(heading)
-      expect(repository).toContain(heading)
-    }
+    expect(repository).toBe(bundled)
+    const options = bundled.split('## Considered Options\n')[1]?.split('## Decision Outcome\n')[0]
+    expect(options).toBeDefined()
+    expect(options?.match(/#### Pros\n\n- /g)).toHaveLength(2)
+    expect(options?.match(/#### Cons\n\n- /g)).toHaveLength(2)
     expect(author).toContain('architecture-decision-record')
     expect(author).toContain('Mermaid')
-    expect(repository).toContain('../0005-example/ADR.md')
-    expect(repository).toContain('../0005-example.md')
   })
 
   test('specifies linked numeric index entries and truthful status', async () => {

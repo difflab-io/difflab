@@ -6,7 +6,7 @@ compatibility: Requires Git, a GitHub/GitLab-compatible forge with enforced merg
 
 # Difflab PoC
 
-Interpret `poc init [name]`, `poc new [request]`, and `poc freeze` as Agent Skill workflows, not CLI subcommands. Read the corresponding `references/workflows/*.md` before acting. If intent, branch name, or target is unclear, ask; never guess a destructive target.
+Interpret `poc init [name]`, `poc new [name] [experiment]`, and `poc freeze` as Agent Skill workflows, not CLI subcommands. A short explicit name takes precedence over a derived branch slug: `poc init auth` names the branch; `poc new auth` retains that name and asks what to test; `poc new auth: compare two login flows` names the branch and supplies the experiment. Read the corresponding `references/workflows/*.md` before acting. If intent, branch name, or target is unclear, ask; never guess a destructive target.
 
 PoC branches are disposable experiments, not production work. Never merge them into production or open a production PR from them. Confirm the absolute repository root, `origin/main`, current branch, worktree status, and forge before changing anything. `init` and `new` must first verify effective source-branch merge prevention as described in `references/merge-gate.md`. When absent, ask whether the user authorizes configuring it, then **stop** until the remote policy is effective; a checked-in workflow is not a sufficient gate. Do not modify remote policy without explicit authorization.
 
