@@ -1,15 +1,21 @@
 import { execFileSync } from 'node:child_process'
-import { CommandExecutionError } from '../errors.js'
 
 // Types -----------------------------------------------------------------------
 export type CommandRunner = (command: string, args: string[], cwd: string) => void
+
+export class CommandExecutionError extends Error {
+  constructor(command: string, message: string, options?: ErrorOptions) {
+    super(`Could not execute ${command}: ${message}`, options)
+    this.name = 'CommandExecutionError'
+  }
+}
 
 // API -------------------------------------------------------------------------
 /**
  * Run `command` with `args` from `cwd` and translate execution failures to
  * CommandExecutionError while preserving the native error as `cause`.
  *
- * The translation gives callers one semantic failure type for setup commands;
+ * The translation gives callers one semantic failure type for commands;
  * the cause remains available for exit status, errno, and other native details.
  */
 export function runCommand(command: string, args: string[], cwd: string): void {

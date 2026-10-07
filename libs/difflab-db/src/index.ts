@@ -33,7 +33,7 @@ export async function createDifflabDb(
 
 export type { Project, Repository }
 export { ProjectConflictError, validateProjectKey } from './queries/projects.js'
-export { canonicalGitUrl, repositorySlug } from 'difflab-ts/gitx'
+export { canonicalGitUrl, repositorySlug } from 'utils/gitx'
 export { DifflabDbError } from './registry.js'
 export { MigrationError } from './migrations.js'
 export { projectSchema, validateProject } from './entities/project.js'

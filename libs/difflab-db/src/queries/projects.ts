@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { sql, type Kysely } from 'kysely'
-import { canonicalGitUrl, repositorySlug } from 'difflab-ts/gitx'
+import { canonicalGitUrl, repositorySlug } from 'utils/gitx'
 import { validateProject } from '../entities/project.js'
 import type { Project } from '../entities/project.js'
 import { validateRepository } from '../entities/repository.js'

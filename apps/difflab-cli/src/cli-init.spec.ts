@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createProgram } from './cli.js'
 import { readProjectContext } from './context.js'
-import { discoverGitRepository } from './extensions/gitx.js'
+import { discoverGitRepository } from 'utils/gitx'
 import { createUserStore, userPaths } from './store/user-store.js'
 import { TemplateService } from './templates/service.js'
 

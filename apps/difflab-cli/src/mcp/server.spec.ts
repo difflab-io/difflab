@@ -5,7 +5,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { mkdir, readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createProgram } from '../cli.js'
-import { createTempDirectory } from '../extensions/testx'
+import { createTempDirectory } from 'utils/testx'
 import { createUserStore } from '../store/user-store.js'
 
 // Setup -----------------------------------------------------------------------

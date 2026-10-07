@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { CommandExecutionError } from '../errors'
-import { runCommand } from './processx'
+import { CommandExecutionError, runCommand } from './processx.js'
 
 // Tests -----------------------------------------------------------------------
 describe('command execution utilities', () => {

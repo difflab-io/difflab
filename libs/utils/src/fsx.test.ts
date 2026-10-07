@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ensurePathDirsExist, patchJsonToFile, readJsonFile } from './fsx'
+import { ensurePathDirsExist, patchJsonToFile, readJsonFile } from './fsx.js'
 
 // Tests -----------------------------------------------------------------------
 describe('file parent utility', () => {

@@ -6,17 +6,17 @@ Review a change and address grounded local findings. Remote review is opt-in; me
 
 ## Inputs
 
-| Name | Required | Default | Description |
-| --- | --- | --- | --- |
-| input | yes | — | Change or diff to review. |
+| Name  | Required | Default | Description               |
+| ----- | -------- | ------- | ------------------------- |
+| input | yes      | —       | Change or diff to review. |
 
 ## Flags
 
-| Flag | Default | Capability | Effect |
-| --- | --- | --- | --- |
-| --local | false | local | Omit remote review. |
-| --remote-review | false | remote-review | Select remote review and address steps; each requires separate explicit forge and write authorization before acting. |
-| --commit | false | local-commit | No effect unless a declared commit-capable procedure is later added and separately authorized. |
+| Flag            | Default | Capability    | Effect                                                                                                               |
+| --------------- | ------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| --local         | false   | local         | Omit remote review.                                                                                                  |
+| --remote-review | false   | remote-review | Select remote review and address steps; each requires separate explicit forge and write authorization before acting. |
+| --commit        | false   | local-commit  | No effect unless a declared commit-capable procedure is later added and separately authorized.                       |
 
 ## Steps
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createTempDirectory } from '../extensions/testx'
+import { createTempDirectory } from 'utils/testx'
 
 // Setup -----------------------------------------------------------------------
 const cleanups: (() => Promise<void>)[] = []

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createTempDirectory, expectFailureWith } from '../extensions/testx'
+import { createTempDirectory, expectFailureWith } from 'utils/testx'
 import { JsonFileStoreReadError } from '../stores/json-file-store.js'
 import { TodoStore } from './store'
 

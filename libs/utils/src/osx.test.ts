@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { hasErrorCode } from './osx'
+import { hasErrorCode } from './osx.js'
 
 // Tests -----------------------------------------------------------------------
 describe('OS error utilities', () => {

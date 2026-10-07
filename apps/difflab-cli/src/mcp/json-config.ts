@@ -5,7 +5,7 @@ import {
   type SetupContext,
 } from '../agents/adapter.js'
 import { ConfigurationError } from '../errors.js'
-import { isObject, patchJsonToFile, readJsonFile, type JsonObject } from '../extensions/fsx.js'
+import { isObject, patchJsonToFile, readJsonFile, type JsonObject } from 'utils/fsx'
 
 // API -------------------------------------------------------------------------
 export async function readJsonConfig(file: string): Promise<JsonObject> {

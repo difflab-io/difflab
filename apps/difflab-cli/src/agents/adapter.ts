@@ -1,6 +1,5 @@
-import { resolveHomeDirectory } from '../extensions/osx.js'
-import type { CommandRunner } from '../extensions/processx.js'
-import { runCommand } from '../extensions/processx.js'
+import { resolveHomeDirectory } from 'utils/osx'
+import { runCommand, type CommandRunner } from 'utils/processx'
 
 // Constants -------------------------------------------------------------------
 export const mcpServer = {
