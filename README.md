@@ -76,8 +76,8 @@ A flow definition lives at `~/.difflab/flows/<name>.md` and works from different
 
 ### PoC merge policy
 
-PoC branches are experiments: freeze them as tags instead of merging them. The PoC and PR skills enforce this agent policy; users remain responsible for manual merges. No PoC-specific GitHub permissions, branch protections, or blocking Actions are required.
+PoC branches are experiments: freeze them as tags instead of merging them. The PoC workflow directs experiments to freeze; review-only PRs are allowed, and the PR skill has no PoC-specific interventions. Users remain responsible for merge decisions. No PoC-specific GitHub permissions, branch protections, or blocking Actions are required.
 
 When upgrading from the former merge gate, remove only the required status check `Block PoC source branch` from any production-branch protection or active ruleset before removing its workflow. Keep unrelated required checks and protections.
 
-After upgrading, reinstall the changed skills through the same skill installation command and reload your client. Existing project-store templates are preserved as user-owned copies; compare `.difflab/templates/poc-readme.md` with the updated packaged template and apply its setup/tasks and code-map sections explicitly. The PoC skill requires these sections even when scaffolding an older template.
+After upgrading, reinstall the changed skills through the same skill installation command and reload your client. Existing user-wide templates are preserved as user-owned copies; compare `~/.difflab/templates/poc-readme.md` with the updated packaged template and apply its setup/tasks and code-map sections explicitly. The PoC skill requires these sections even when scaffolding an older template.
