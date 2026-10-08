@@ -34,7 +34,7 @@ A skill is a set of instructions that tells an agent how to use Difflab. Install
 npx skills add difflab-io/difflab --agent pi --skill difflab-init difflab-todo difflab-plan difflab-review difflab-flow explore adr poc --global --yes
 ```
 
-Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. The plan and review skills need the CLI tools `scaffold` and `log_append`. If either tool is missing, update the CLI when its release includes those tools, then restart Pi.
+Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. Planning init/new uses MCP `scaffold` when available and falls back to `difflab templates scaffold` when needed. Execution and review use MCP tools including `log_append`; if these are missing, update the CLI and register the selected client, then restart or reload it.
 
 ## Set up a repository
 
@@ -70,6 +70,14 @@ Ask your agent in chat. These phrases are skill requests, not `difflab` shell co
 
 `--bg` runs a workflow in a background agent. For remote review, it authorizes commits, pushes, draft pull requests, verified inline comments, and eligible thread resolutions without another permission prompt. If a target or permission is unclear, the worker stops and reports the problem. `--local` makes no remote changes and does not commit.
 
-Plans, reviews, and explorations live under `.difflab/plans/`, `.difflab/reviews/`, and `.difflab/explore/`. They are local project-store files. ADRs live in numbered directories under the tracked `adr/` directory. Before a PoC begins, the agent must confirm that the forge blocks merges from `poc/*`. A workflow file alone does not provide that protection. If the rule is missing, the agent asks before it changes remote configuration and stops until the rule takes effect.
+Plans, reviews, and explorations live under `.difflab/plans/`, `.difflab/reviews/`, and `.difflab/explore/`. They are local project-store files. ADRs live in numbered directories under the tracked `adr/` directory. PoC branches replace the root README with the experiment README and provide mise tasks for build, tests, and each prototype. The skills require focused modules, simple code, and minimal examples; no forge merge gate is needed.
 
 A flow definition lives at `~/.difflab/flows/<name>.md` and works from different initialized repositories. Edit it by hand before a new run. A run keeps its own frozen copy at `.difflab/flows/YYMMDD-<name>/FLOW.md` and progress at the sibling physical `logs.txt`. If that path exists, the agent asks you to resume that exact unfinished run or choose another run ID. It never overwrites the file. The agent records results between steps and resumes at the first unchecked step. `--local` removes remote steps before the run starts. `--commit` permits only a declared local commit step when you pass it; it does not allow a push, review publication, or merge. Remote review needs separate permission and must pass the review skill's checks. No flow skill adds a `difflab flow` CLI command. See [the command-line guide](apps/difflab-cli/README.md) for template and MCP tool details, or browse the [skill instructions](skills/).
+
+### PoC merge policy
+
+PoC branches are experiments: freeze them as tags instead of merging them. The PoC and PR skills enforce this agent policy; users remain responsible for manual merges. No PoC-specific GitHub permissions, branch protections, or blocking Actions are required.
+
+When upgrading from the former merge gate, remove only the required status check `Block PoC source branch` from any production-branch protection or active ruleset before removing its workflow. Keep unrelated required checks and protections.
+
+After upgrading, reinstall the changed skills through the same skill installation command and reload your client. Existing project-store templates are preserved as user-owned copies; compare `.difflab/templates/poc-readme.md` with the updated packaged template and apply its setup/tasks and code-map sections explicitly. The PoC skill requires these sections even when scaffolding an older template.

@@ -5,6 +5,8 @@ description: 'Pull and merge request workflows: draft, publish, approve, reject,
 
 # Pull and merge requests
 
+PoC source branches (`poc/*`) must not become production PRs/MRs or be merged through this skill. Inspect the selected source branch from forge metadata, including fork heads, before a remote action; never infer it from the local checkout alone. Refuse merge, auto-merge, and merge-queue enrollment for these heads and direct the user to `poc freeze`. This policy does not require PoC-specific branch protection or blocking CI; users are responsible for manual merges. Ordinary repository rules still apply.
+
 This skill describes agent behavior, not a CLI. Interpret the user's ordinary language, optional PR/MR identifier or URL, and explicit options; ask when the target or intent is ambiguous. Resolve the forge from the selected repository remote and explicit target, not from a hard-coded hostname assumption. Read [provider selection](references/providers/index.md) and the relevant workflow before acting. Unknown or changing providers require current official documentation and web research, capability and authentication checks, and user confirmation before any non-equivalent action. Never silently substitute another review disposition.
 
 | Intent                                                  | Guidance                                                     |

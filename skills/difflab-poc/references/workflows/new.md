@@ -1,7 +1,9 @@
 # `poc new [name] [experiment]`
 
+Read [PoC code standards](../poc-code-standards.md) before acting.
+
 1. Require a clear experiment. `poc new auth` keeps the name but asks what to test before running `init`. `poc new auth: compare two login flows` uses `poc/auth`. A multiword request without `name:` is the experiment, not a first-word name. Ask before a radical refactor or broad deletion; never infer permission to remove the application.
-2. Run `init` first. On an existing PoC branch, confirm the gate, clean tree, original `base_commit`, and matching intent. Keep its README. For a new branch, prefer the supplied safe name; otherwise derive one from the experiment. Stop if `init` stops. Never work on main or another feature branch.
+2. Run `init` first. On an existing PoC branch, confirm the clean tree, original `base_commit`, and matching intent. Keep its README. For a new branch, prefer the supplied safe name; otherwise derive one from the experiment. Stop if `init` stops. Never work on main or another feature branch.
 3. Build the smallest runnable experiment. Keep code readable: use focused modules and functions with clear APIs. Prefer those simple boundaries over design patterns or layers that hide how the PoC works. Compare alternatives when requested. For a from-scratch sandbox, confirm the files to remove and check the branch again before deletion.
 4. Update the PoC README with purpose, approaches, run steps, actual results, learnings, and unknowns. Keep its original `base_commit` unchanged. Do not claim that an unrun check passed.
-5. Run focused checks. Report the branch, base SHA, changed files, results, and skipped checks. Suggest `poc freeze` when done. Do not merge, release, force-push, or commit without separate authorization.
+5. Validate the standards completion checklist: inspect the root PoC README and immutable base, module boundaries, minimal examples, and discoverable mise tasks. Execute applicable build/test tasks and every prototype run task, recording actual results and skipped checks. Repair missing deliverables before declaring completion. Report the branch, base SHA, changed files, results, and skipped checks. Suggest `poc freeze` when done. Do not merge, release, force-push, or commit without separate authorization.

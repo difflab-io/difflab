@@ -8,6 +8,8 @@ Use natural language; rigid parser syntax is optional. Examples:
 - “Go ahead with the cache plan” -> validate readiness and execute in the foreground.
 - “Go ahead in the background” -> validate and delegate a native background worker.
 
+For missing setup or MCP tools, follow [setup and tool recovery](../setup.md): preserve working MCP paths, offer client registration/reload when needed, and use CLI scaffolding when available.
+
 Safety rules: confirm the checkout and initialized `.difflab` store, infer `YYMMDD-{slug}` only when safe, ask about collisions or ambiguous plans, preserve template headings, and never silently overwrite. Planning does not execute implementation. `go` may update live checkboxes and append progress/failure messages to the sibling physical `logs.txt`; it does not commit.
 
-Dry-run request: show the intended artifact paths and MCP calls without writing files or delegating a worker.
+Dry-run request: show the intended artifact paths and proposed MCP or CLI calls (including setup) without writing files or delegating a worker.

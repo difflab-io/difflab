@@ -1,5 +1,7 @@
 # Draft a PR or MR
 
+Reject production PRs/MRs from `poc/*` source branches and direct the user to `poc freeze`. Check the selected source; for an existing PR/MR use actual forge head metadata, including fork heads.
+
 Resolve an explicit source branch or the current branch, target repository, and requested base. Otherwise discover the repository's default branch; do not assume it is main. Confirm that the branch is not detached and that the selected head and base differ. Derive a concise title from the branch and actual change when none is supplied, but do not fabricate a description.
 
 Look for an existing open PR/MR with the same head repository and branch and target base. If one exists, return its URL and state without creating another. If a different-base request exists, ask whether the user intended to use it or change its target; never create a duplicate silently. Check the remote head is pushed, differs from the base, and has a comparison the forge can use. If it is local-only, identical, or the forge rejects a draft, report what is missing and ask before any push or new commit. Never manufacture an empty diff or unrelated change to permit creation.

@@ -10,6 +10,22 @@ base_commit: '{{full SHA of origin/main at branch creation}}'
 
 {{Question to answer and the smallest useful success criterion.}}
 
+## Setup and tasks
+
+{{Tool versions, dependency installation, environment inputs, and required services.}}
+
+| Task             | Command                   | Purpose                                           | Observed result              |
+| ---------------- | ------------------------- | ------------------------------------------------- | ---------------------------- |
+| Build            | `mise run {{build-task}}` | {{Build the experiment}}                          | {{Actual result or pending}} |
+| Test             | `mise run {{test-task}}`  | {{Validate the experimental behavior}}            | {{Actual result or pending}} |
+| Run {{approach}} | `mise run {{run-task}}`   | {{Run this prototype; repeat for every approach}} | {{Actual result or pending}} |
+
+{{Explain any genuinely inapplicable build/test task and its alternative validation. Identify unrun checks explicitly.}}
+
+## Code map
+
+{{Focused submodules, their responsibilities and small public APIs, entrypoints, and minimal examples. Keep the experiment direct and avoid speculative abstractions or giant implementation files.}}
+
 ## Alternatives
 
 - {{Alternative or variation to compare, if any.}}

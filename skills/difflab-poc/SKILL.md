@@ -1,14 +1,14 @@
 ---
 name: poc
 description: Create isolated proof-of-concept branches and freeze them as tags.
-compatibility: Requires Git, Difflab MCP scaffold, and an enforced forge merge gate.
+compatibility: Requires Git and Difflab MCP scaffold or CLI scaffolding.
 ---
 
 # PoC
 
-Use `poc init [name]`, `poc new [name] [experiment]`, or `poc freeze`. These are skill requests, not CLI commands. `poc new auth` keeps the name and asks what to test. `poc new auth: compare two login flows` supplies both. Read the selected workflow before acting.
+Use `poc init [name]`, `poc new [name] [experiment]`, or `poc freeze`. These are skill requests, not CLI commands. `poc new auth` keeps the name and asks what to test. `poc new auth: compare two login flows` supplies both. Read the selected workflow before acting. For init/new, also read [PoC code standards](references/poc-code-standards.md); freeze validates its completion checklist.
 
-A PoC is an experiment, not production work. Never merge it or open a production PR from it. Before `init` or `new`, follow `references/merge-gate.md`. If the merge gate is not proven active, stop and ask before changing remote rules. Confirm the repository, `origin/main`, branch, and clean worktree.
+A PoC is an experiment, not production work. Never merge it or open a production PR from it. This is a skill policy: users remain responsible for not manually merging PoC branches. Do not require or configure PoC-specific branch protection, permissions, or blocking CI. Confirm the repository, `origin/main`, branch, and clean worktree.
 
 On a new PoC branch, scaffold `poc-readme` as `POC-README.md`, fill it, then replace the branch's `README.md`. Keep its full original `base_commit` in frontmatter. On reuse, never change that value. Compare with `git diff <base_commit> HEAD`.
 
