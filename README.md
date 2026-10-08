@@ -24,14 +24,14 @@ Connect the MCP server to Pi:
 difflab mcp setup --client pi
 ```
 
-Restart Pi after setup. For another supported client, replace `pi` with `cursor`, `codex`, `claude-code`, or `claude-desktop`. Setup changes the selected client's MCP configuration. It does not create a project or a plan. The `difflab-setup` skill owns CLI installation, MCP registration, and repository setup recovery; `difflab-init` remains a compatibility entrypoint.
+Restart Pi after setup. For another supported client, replace `pi` with `cursor`, `codex`, `claude-code`, or `claude-desktop`. Setup changes the selected client's MCP configuration. It does not create a project or a plan. The `difflab-doctor` skill reports CLI, MCP, and repository health; `doctor --fix` applies scoped repairs. The `difflab-init` skill creates projects and initializes repositories.
 
 ## Install the agent skills
 
 A skill is a set of instructions that tells an agent how to use Difflab. Install the Difflab skills for Pi with [`npx skills`](https://skills.sh/):
 
 ```bash
-npx skills add difflab-io/difflab --agent pi --skill difflab-setup difflab-init difflab-todo difflab-plan difflab-review difflab-flow explore adr poc --global --yes
+npx skills add difflab-io/difflab --agent pi --skill difflab-doctor difflab-init difflab-todo difflab-plan difflab-review difflab-flow explore adr poc --global --yes
 ```
 
 Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. Planning init/new uses MCP `scaffold` when available and falls back to `difflab templates scaffold` when needed. Execution and review use MCP tools including `log_append`; if these are missing, update the CLI and register the selected client, then restart or reload it.
