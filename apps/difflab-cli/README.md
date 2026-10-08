@@ -31,7 +31,7 @@ Initialization requires a GitHub HTTPS or SSH origin and never creates a Git rep
 
 If initialization is interrupted, retry `difflab init <PROJECT_KEY>`; matching partial links and database rows can be reused, but conflicting paths require manual inspection. Do not delete the shared database to repair a repository link.
 
-The `project_context({ cwd })` MCP tool inspects initialized repositories without creating files or applying migrations. If it reports missing or inconsistent setup, invoke `skills/difflab-doctor/SKILL.md` to diagnose the issue; request `doctor --fix` for scoped repairs. Use `difflab-init` for project creation and repository initialization. Existing `todo_*` MCP tools remain available.
+The `project_context({ cwd })` MCP tool inspects initialized repositories without creating files or applying migrations. Existing `todo_*` MCP tools remain available.
 
 ## MCP setup
 

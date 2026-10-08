@@ -17,3 +17,5 @@ On a new PoC branch, scaffold `poc-readme` as `POC-README.md`, fill it, then rep
 - `freeze`: `references/workflows/freeze.md`
 
 Remove broad code only when the user requests a from-scratch experiment. Never discard dirty work. Do not commit or push without separate authorization, except the tag push in `freeze`. Ask before deleting the remote branch. Report the branch, base SHA, checks, tag, and recovery steps.
+
+If anything goes wrong, especially missing tools or setup issues, invoke [difflab doctor](../difflab-doctor/SKILL.md) to diagnose it and `difflab doctor --fix` to fix it.

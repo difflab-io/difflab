@@ -13,3 +13,5 @@ Confirm the absolute repository root and its `.difflab` project-store link. Keep
 Use `explore new [name] [question]` or `explore update <name> [feedback]`. A short name wins over an inferred slug. `explore new auth` keeps the name but asks for a question before scaffolding. `explore new auth: compare authentication libraries` provides both. Use safe lowercase slugs; reject traversal, symlinks, and collisions. Ask when the target is unclear.
 
 Read `references/research-standards.md` and the selected `references/workflows/new.md` or `update.md`. Report the paths, evidence limits, and revision number. Do not commit or push without separate authorization.
+
+If anything goes wrong, especially missing tools or setup issues, invoke [difflab doctor](../difflab-doctor/SKILL.md) to diagnose it and `difflab doctor --fix` to fix it.

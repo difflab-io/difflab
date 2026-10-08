@@ -24,7 +24,7 @@ Connect the MCP server to Pi:
 difflab mcp setup --client pi
 ```
 
-Restart Pi after setup. For another supported client, replace `pi` with `cursor`, `codex`, `claude-code`, or `claude-desktop`. Setup changes the selected client's MCP configuration. It does not create a project or a plan. The `difflab-doctor` skill reports CLI, MCP, and repository health; `doctor --fix` applies scoped repairs. The `difflab-init` skill creates projects and initializes repositories.
+Restart Pi after setup. For another supported client, replace `pi` with `cursor`, `codex`, `claude-code`, or `claude-desktop`. Setup changes the selected client's MCP configuration. It does not create a project or a plan.
 
 ## Install the agent skills
 
