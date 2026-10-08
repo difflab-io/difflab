@@ -18,6 +18,12 @@ Break code into focused submodules with small, controlled public APIs. Each modu
 
 Use the smallest examples and fixtures that demonstrate the behavior. Keep necessary alternative-specific code local; avoid duplication that obscures comparisons. Comments should explain an experimental choice or limitation, not repeat the code. Do not pad the prototype with generated filler, unused options, or unrelated refactors.
 
+## Use established tools for supporting code
+
+Write custom code for the behavior being prototyped or compared. For supporting work, use standard tools, runtime APIs, and established libraries instead of rebuilding common functionality. Prefer tools and libraries already available in the repository; add a focused dependency when it reduces total code and makes the experiment easier to understand. Keeping dependencies few does not justify a larger homemade implementation.
+
+For example, if manual argument parsing would exceed 10 lines, use a standard argument parser. Use established utility libraries when they meaningfully shorten common collection, path, filesystem, or formatting operations without hiding the experiment's flow. Avoid custom parsers, test harnesses, or utility frameworks unless that behavior is itself the subject of the experiment.
+
 ## Make the branch runnable
 
 Replace the root `README.md` with the filled `poc-readme` template on every new PoC branch. Preserve the full original `base_commit` on reuse. The README must explain setup, the question, each approach, the module layout, commands, results, limitations, and the follow-up decision.
@@ -28,5 +34,5 @@ An initialized but unimplemented PoC may leave results pending. Before reporting
 
 - Verify the root README is the PoC README and the original base SHA is valid.
 - List the mise tasks and execute applicable build/test tasks and every prototype run task. Record observed results and explicitly identify checks that could not run.
-- Inspect module responsibilities, public APIs, file sizes, examples, and dependencies against these standards. Repair missing deliverables without discarding existing work or rewriting the base SHA.
+- Inspect module responsibilities, public APIs, file sizes, examples, and dependencies against these standards. Check that supporting code uses established tools where they simplify it. Repair missing deliverables without discarding existing work or rewriting the base SHA.
 - Record evidence-based learnings and unknowns. Do not label an unrun check successful or a scaffolded experiment complete.
