@@ -24,3 +24,5 @@ When the tools are available:
 - Use `todo_remove` with `cwd`, `path`, and a task `id` to permanently delete it. Confirm the user's intent if unclear.
 
 Use IDs returned by the tools, not task positions. If a call reports a missing file, use `todo_init` only when the user wants a new list; do not silently create a different list. If it reports invalid JSON, report the error rather than overwriting the user's data. Do not edit the JSON directly while the MCP server is in use. Concurrent writes to the same path are not yet coordinated.
+
+If anything goes wrong, especially missing tools or setup issues, invoke [difflab doctor](../difflab-doctor/SKILL.md) to diagnose it and `difflab doctor --fix` to fix it.
