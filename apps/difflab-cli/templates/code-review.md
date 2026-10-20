@@ -10,31 +10,35 @@
 
 ## Readability
 
-[Can a new reader follow the flow, names, and error paths? Is code readable for and understandable for an average mide-level developer at a glance?]
+[Do names and code structure show what happens? Compare names with behavior, side effects, and callers. Follow language conventions and established codebase patterns. Flag misleading names and flows that are hard to follow.]
 
 ## Semantic Organization
 
-[Are responsibilities, boundaries, and public APIs arranged by meaning? Are modules semantically meaningful? Is code in applications and libraries well sliced by concerns?]
+[Do modules have clear roles and useful public APIs? Identify mixed responsibilities and unclear ownership. Refactor or simplify at the scope needed to make the change understandable, including across files. Keep unrelated work out of scope.]
 
 ## Maintainability
 
-[Is the code DRY? Is the code over-engineered beyond required scope? Are well trusted / industry-standard libraries and frameworks used for standard tasks? Are domain specific conventions approprate for the codebase being followed? Is basic linting, formatting and static analysis hygiene present?]
+[Does the change follow established codebase patterns and applicable AGENTS.md rules? Check new fields, types, helpers, and dependencies against existing code and callers. Reuse suitable code and remove needless complexity.]
 
 ## Reliability/Testing
 
-[Behavior, edge cases, test coverage, and evidence from executed checks. Adhere to repo testing standards if specified in AGENTS.md or docs. Otherwise, generally prioritize e2e coverage and test readability and organization.]
+[Prioritize end-to-end application behavior, then module behavior through public APIs, then focused unit behavior with public APIs first. Name missing observable contracts or regressions; do not demand coverage of every function or a percentage. Check semantic grouping, clear Arrange/Act/Assert blocks, fixtures, and existing shared helpers. Flag walls of repeated setup or interleaved actions/assertions that hide the behavior. Report executed checks and limits honestly.]
+
+## Repository Guidance
+
+[List root/applicable nested AGENTS.md paths and material deviations in changed files. Cite actual rules, including code/test organization and helper placement where prescribed. If none applies or guidance could not be read, say so. Keep this assessment brief.]
 
 ## Performance
 
-[Cost, allocations, I/O, scaling, and measured or expected impact. State SKIPPED with reasons for non-perf bugfixes, minor refactors, and non-performance critical applications.]
+[Report material regressions with evidence. Avoid nitpicks and minor optimizations. Deepen the audit for an explicit performance focus. Otherwise mark a deeper audit SKIPPED with a short reason.]
 
 ## Security
 
-[Evaluate authentication and autorization, permissions, secrets, dependencies, input validation, proper error handling, and trust boundaries. State SKIPPED if skipped with reason, for example for chores, simple scripting, pure cosmetic UI work, documentation, etc.]
+[Report clear security defects, including exposed secrets or broken authorization/trust boundaries. Deepen the audit for an explicit security focus; avoid unrelated hardening requests. State SKIPPED with a short reason when a deeper audit is not warranted.]
 
 ## Change Requests
 
-Track actionable inline requests with one entry per request. End each generated request and response with its own model attribution quote; preserve human text unchanged.
+Use short comments in simple English. State the problem and its effect directly. Phrase recommendations as suggestions with “Let's”, “I suggest”, or “I recommend”, usually in one to three sentences total. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
 
 ### [file:line — request]
 
@@ -49,13 +53,13 @@ Track actionable inline requests with one entry per request. End each generated 
 
 ## Findings
 
-| Severity                 | Location    | Evidence and impact        | Required change or question |
-| ------------------------ | ----------- | -------------------------- | --------------------------- |
-| [blocking/consider/note] | [file:line] | [reproducible observation] | [concrete action]           |
+| Severity | Location | Evidence and impact | Required change or question |
+| --- | --- | --- | --- |
+| [blocking/consider/note] | [file:line] | [reproducible observation] | [concrete action] |
 
 ## Overall Assessment
 
-[Recommendation and reasons; distinguish findings from preferences.]
+[Recommendation and reasons; distinguish material findings from preferences. A clean review may have no change requests. Keep section assessments concise.]
 
 ## Verification and Limits
 

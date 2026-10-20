@@ -17,3 +17,6 @@ RELEASE_NOTES.md
 **/*.template.md
 .worktrees/
 .tmp/
+# Reference examples retain source code/tables; prose uses soft wraps per AGENTS.md.
+skills/difflab-plan/references/examples/plan-sources-before.md
+skills/difflab-plan/references/examples/plan-sources-after.md

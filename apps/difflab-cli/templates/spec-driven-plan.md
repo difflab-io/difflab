@@ -17,23 +17,33 @@
 
 ### Big Ideas
 
-[Describe the intended behavior and the main architectural choices.]
+[Show changed component relationships with a component diagram, new processes with flowcharts, and new file-based artifacts with trees or suitable visuals. Use Mermaid and fenced text where useful. Keep decisions, responsibilities, invariants, and important failure behavior beside the relevant visual. Draw only the affected parts; keep enough detail to execute without the original chat.]
 
 ### Infrastructure Changes
 
-[Any infra changes. Optional. Only include if there's actual infra being handled in repo.]
+[Actual hosting, services, deployment, networking, or managed-resource changes. New source modules belong in Repo Changes. Write N/A. if no infrastructure changes.]
 
 ### Interfaces
 
-[CLI commands, API endpoint, data contracts, db entities, modules, apps, libs, project tasks added, changed or removed. Summary of how a user's interaction with the app/lib/cli/sdk/etc. will change as a result.]
+[Use compact commands, signatures, code, or pseudocode to show changed public interactions and contracts, including important failure results. Keep implementation actions in the phases.]
 
 ### Consequences
 
-[Trade-offs, risks, compatibility, and what is deferred.]
+#### Repo Changes
+
+[Start with a selected file tree: + new, ~ changed, - removed, * largest edits. Include new modules and meaningful structural changes. Use real inspected paths; label proposed files. State when nothing is removed.]
+
+#### Testing
+
+[Show a nested outline of end-to-end and integration test scenarios, grouped by feature and behavior. Name the entry point, input/action, and expected result for each scenario. Reuse existing fixtures and suites. Match the scenarios to requirements and phase checks.]
+
+#### Trade-offs
+
+[Risks, compatibility, and what is deferred.]
 
 ## Phases
 
-[Instructions broken down granularly, specifying modules/classes/methods/files to be added/updated/removed, and relevant technical work done with terse reasoning. Terse for human readers, sufficiently detailed for delegating implementation to less capable language models i.e. a fool proof guide for a junior developer.]
+[Ordered tasks with file/module targets and enough detail to act. Keep decisions and contracts in the design. Specify the exact application behavior for end-to-end tests and the public module behavior for integration tests. Require clear Arrange/Act/Assert blocks. Use relevant checks and existing helpers. Keep conditional commit and CI gates when expected, including for plan go --commit. Follow the execution workflow's commit/push permissions.]
 
 ### Phase 1: [Outcome]
 
@@ -42,8 +52,9 @@
 - [ ] [Task C]
 - [ ] [Task D]
 - [ ] Validation
-  - [ ] Lint, format, etc.
-  - [ ] Commit, CI green (if expected)
+  - [ ] [Observable application/module contract and the existing or proposed check.]
+  - [ ] [Relevant format, lint, or build checks.]
+  - [ ] [Commit and confirm CI is green, if expected and authorized.]
 
 ### Phase 2: [Outcome]
 
@@ -52,8 +63,9 @@
 - [ ] [Task C]
 - [ ] [Task D]
 - [ ] Validation
-  - [ ] Lint, format, etc.
-  - [ ] Commit, CI green (if expected)
+  - [ ] [Observable application/module contract and the existing or proposed check.]
+  - [ ] [Relevant format, lint, or build checks.]
+  - [ ] [Commit and confirm CI is green, if expected and authorized.]
 
 ### Phase 3: [Outcome]
 
@@ -62,8 +74,9 @@
 - [ ] [Task C]
 - [ ] [Task D]
 - [ ] Validation
-  - [ ] Lint, format, etc.
-  - [ ] Commit, CI green (if expected)
+  - [ ] [Observable application/module contract and the existing or proposed check.]
+  - [ ] [Relevant format, lint, or build checks.]
+  - [ ] [Commit and confirm CI is green, if expected and authorized.]
 
 ## References
 

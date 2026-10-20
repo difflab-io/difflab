@@ -1,5 +1,9 @@
 # Repository Guidance
 
+## Markdown
+
+Use soft wraps for Markdown prose. Keep each paragraph on one source line and let the editor wrap it for display. Keep line breaks that define code blocks, diagrams, file trees, tables, lists, and other Markdown structure.
+
 ## TypeScript files
 
 After imports, use these sections in order when they apply:
@@ -11,15 +15,9 @@ After imports, use these sections in order when they apply:
 // Helpers ---------------------------------------------------------------------
 ```
 
-Keep divider comments 80 columns wide. Organize code in modules with controlled,
-thin API surfaces that expose only the operations callers need. Put generic
-filesystem, process, OS, and other reusable utilities in `src/extensions`, with
-domain-neutral names such as `fsx`, `osx`, `processx`, and `pathx`.
+Keep divider comments 80 columns wide. Organize code in modules with controlled, thin API surfaces that expose only the operations callers need. Put generic filesystem, process, OS, and other reusable utilities in `src/extensions`, with domain-neutral names such as `fsx`, `osx`, `processx`, and `pathx`.
 
-Use semantic exceptions for failure cases that callers need to catch and
-handle. Define application-level exceptions in `src/errors.ts` and
-module-specific exceptions in the relevant module. In a module, place module-scoped
-error classes in the Types section; app-scoped errors remain in `src/errors.ts`.
+Use semantic exceptions for failure cases that callers need to catch and handle. Define application-level exceptions in `src/errors.ts` and module-specific exceptions in the relevant module. In a module, place module-scoped error classes in the Types section; app-scoped errors remain in `src/errors.ts`.
 
 ## Tests
 
@@ -39,11 +37,8 @@ afterEach(/* ... */)
 // Helpers ---------------------------------------------------------------------
 ```
 
-Keep each test readable with Arrange, Act, and Assert steps. Keep helpers used
-only by one test file at the bottom of that file. Put generic test utilities in
-`src/extensions` so multiple test files can reuse them.
+Keep each test readable with Arrange, Act, and Assert steps. Keep helpers used only by one test file at the bottom of that file. Put generic test utilities in `src/extensions` so multiple test files can reuse them.
 
 ## Persistence
 
-Put persistence abstractions such as `JsonFileStore` in `src/stores`; keep
-store-specific error classes in the same module as their store.
+Put persistence abstractions such as `JsonFileStore` in `src/stores`; keep store-specific error classes in the same module as their store.

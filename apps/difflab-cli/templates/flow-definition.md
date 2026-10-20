@@ -12,11 +12,11 @@
 
 ## Flags
 
-| Flag            | Default | Capability    | Effect                                                                             |
-| --------------- | ------- | ------------- | ---------------------------------------------------------------------------------- |
-| --local         | false   | local         | Omit steps with `unless: --local`; never forward to every skill.                   |
-| --commit        | false   | local-commit  | Permit only explicitly commit-capable selected steps to make scoped local commits. |
-| --remote-review | false   | remote-review | Opt in to remote review with independent forge authorization.                      |
+| Flag | Default | Capability | Effect |
+| --- | --- | --- | --- |
+| --local | false | local | Omit steps with `unless: --local`; never forward to every skill. |
+| --commit | false | local-commit | Permit only explicitly commit-capable selected steps to make scoped local commits. |
+| --remote-review | false | remote-review | Opt in to remote review with independent forge authorization. |
 
 ## Steps
 

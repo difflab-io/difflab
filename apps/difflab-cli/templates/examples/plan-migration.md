@@ -20,17 +20,77 @@ Readers should retain access to historical activity while the team changes stora
 
 Write to both stores temporarily, backfill older records with stable IDs, compare counts and ordering, then switch readers behind a reversible flag. Keep the legacy reader authoritative until the new store is verified.
 
+```mermaid
+flowchart LR
+  Writer["Activity writer"] --> Old["Legacy store"]
+  Writer -->|"new dual write"| New["New store"]
+  Old --> Backfill["Resumable backfill"] --> New
+  Reader["Public history reader"] --> Flag{"Read flag"}
+  Flag -->|"default / rollback"| Old
+  Flag -->|"after parity check"| New
+```
+
+Stable IDs make retries safe. Track failed writes so comparison cannot silently treat missing data as a successful migration.
+
+```mermaid
+flowchart TD
+  Provision["Provision store and credentials"] --> Dual["Enable dual writes"]
+  Dual --> Backfill["Backfill in restartable batches"]
+  Backfill --> Compare{"IDs, order,<br/>and cursors match?"}
+  Compare -->|"no"| Repair["Report and repair; keep old reader"] --> Backfill
+  Compare -->|"yes"| Switch["Switch read flag; keep dual writes"]
+  Switch --> Rollback["Rollback: select old reader<br/>without losing new writes"]
+```
+
 ### Infrastructure Changes
 
 Provision the new activity store and credentials before dual writes. Retain the legacy store and its capacity until the rollback window closes; monitor write failures for each store separately.
 
 ### Interfaces
 
-`listActivity(projectId, cursor)` preserves ordering and cursor behavior during cutover. `src/activity/writer.ts` owns dual writes, `src/activity/backfill.ts` copies historical records, and `src/activity/reader.ts` selects the store behind the feature flag.
+```text
+writeActivity(event)                 -> stable ID; retry failed destination writes
+backfillActivity(projectId, cursor)  -> checkpoint + discrepancy report
+listActivity(projectId, cursor)      -> same records, order, and cursor contract
+readSource = legacy | new            # reversible; legacy remains default
+```
 
 ### Consequences
 
-Dual writes increase latency and create a risk of partial failure. Record discrepancies and retry failed writes instead of hiding them. Removing the legacy store is outside this plan.
+#### Repo Changes
+
+Illustrative paths: `+` new, `~` changed, `*` largest edits. No files are removed.
+
+```text
+infra/
+└── activity-store.tf            +   store, credentials, write-failure metrics
+src/
+└── activity/
+    ├── writer.ts                ~ * dual writes and retries
+    ├── backfill.ts              + * resumable batches and comparison
+    ├── reader.ts                ~   reversible read source
+    ├── migration.spec.ts        +   public API parity and restart scenarios
+    └── history.spec.ts          ~   application history across cutover/rollback
+```
+
+#### Testing
+
+```text
+end-to-end/
+└── activity history
+    ├── write and page history across cutover -> same records and cursors
+    └── write after cutover, then roll back -> no lost events
+integration/
+└── activity storage
+    ├── retry a failed destination -> one logical event in each store
+    └── interrupt and resume backfill -> same IDs and order; no duplicates
+```
+
+Use `src/activity/history.spec.ts` for application scenarios and `src/activity/migration.spec.ts` for public storage APIs with real test stores.
+
+#### Trade-offs
+
+Dual writes increase latency and allow partial failure. Record discrepancies and retry failed writes instead of hiding them. Removing the legacy store is outside this plan.
 
 ## Phases
 
@@ -38,28 +98,29 @@ Dual writes increase latency and create a risk of partial failure. Record discre
 
 - [ ] Provision the new store and credentials; add write-failure metrics for both stores.
 - [ ] Make `src/activity/writer.ts` write idempotently to both stores with stable activity IDs while retaining the legacy reader.
-- [ ] Test partial-write retries and duplicate events in `src/activity/writer.test.ts`.
+- [ ] Exercise `writeActivity` against both test stores in `src/activity/migration.spec.ts`: retry a failed destination and verify one logical event in each store.
 - [ ] Validation
-  - [ ] Run writer tests, lint, and format checks; confirm write-failure metrics are visible.
-  - [ ] Commit this phase and confirm CI is green.
+  - [ ] Run public writer contract scenarios; confirm write-failure metrics are visible.
+  - [ ] Run relevant lint and format checks.
 
 ### Phase 2: Backfill and compare
 
 - [ ] Add resumable, idempotent batches in `src/activity/backfill.ts` without replacing newer dual-written records.
 - [ ] Compare record IDs, counts, and ordering per project; report mismatches before any reader switch.
-- [ ] Add backfill restart and parity tests in `src/activity/backfill.test.ts`.
+- [ ] Extend `migration.spec.ts` through `backfillActivity` and `listActivity`: interrupt and resume a batch, then verify IDs, ordering, and cursors match without duplicate or lost events.
 - [ ] Validation
-  - [ ] Run backfill and writer tests, lint, and format checks; review mismatch reports.
-  - [ ] Commit this phase and confirm CI is green.
+  - [ ] Run module public-API scenarios and review mismatch reports. Keep fixtures shared and Arrange/Act/Assert visible.
+  - [ ] Run relevant lint and format checks.
 
 ### Phase 3: Switch reads with rollback
 
 - [ ] Route `listActivity(projectId, cursor)` through a reversible flag in `src/activity/reader.ts` and preserve cursor compatibility.
-- [ ] Test new-store reads, cursor boundaries, and rollback to the legacy reader in `src/activity/reader.spec.ts`.
+- [ ] Extend application scenarios in `src/activity/history.spec.ts`: write and read paged history, switch stores, write again, and roll back. Assert the same visible history without lost events; do not assert private helper calls.
 - [ ] Keep dual writes and monitor parity through the rollback window.
 - [ ] Validation
-  - [ ] Run unit and integration tests, lint, and format checks; verify flag rollback.
-  - [ ] Commit this phase and confirm CI is green.
+  - [ ] Run the end-to-end cutover/rollback scenarios, then the storage integration scenarios listed above.
+  - [ ] Run relevant lint and format checks. This example grants no commit or push permission.
+  - [ ] If execution authorizes commits and expects CI, commit the changes and confirm CI is green for that commit.
 
 ## References
 
