@@ -17,3 +17,6 @@ RELEASE_NOTES.md
 **/*.template.md
 .worktrees/
 .tmp/
+# User-supplied reference examples must retain their verbatim formatting.
+skills/difflab-plan/references/examples/plan-sources-before.md
+skills/difflab-plan/references/examples/plan-sources-after.md
