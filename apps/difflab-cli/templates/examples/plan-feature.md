@@ -71,6 +71,21 @@ src/
     └── invitations.spec.ts    +   application request scenarios
 ```
 
+#### Testing
+
+```text
+end-to-end/
+└── invitation acceptance
+    ├── owner sends invite -> recipient accepts -> membership appears
+    └── wrong recipient, expired, or used token -> rejection; state unchanged
+integration/
+└── invitation service
+    ├── failed transaction -> membership and token changes roll back
+    └── email failure -> saved invitation stays pending for retry
+```
+
+Use request scenarios in `src/http/invitations.spec.ts` and service scenarios in `src/invitations/service.spec.ts`. Reuse fixtures with a real test store.
+
 #### Trade-offs
 
 Email delivery can fail after persistence. Use existing queue retries and keep the invitation pending. Resend, cancellation, and bulk invitations are deferred.
@@ -92,8 +107,9 @@ Email delivery can fail after persistence. Use existing queue retries and keep t
 - [ ] Queue delivery after persistence, retry transient mail failures, and expose the pending state to owners.
 - [ ] In `src/http/invitations.spec.ts`, send an owner invitation, accept as its recipient, and read back membership. Verify wrong-recipient, expired, and used-token requests leave state unchanged. Verify an email failure keeps the saved invitation pending.
 - [ ] Validation
-  - [ ] Run application scenarios first, then service contracts. Add focused public-API unit cases only if a distinct behavior remains unverified.
+  - [ ] Run the end-to-end acceptance/rejection scenarios, then the service integration scenarios listed above.
   - [ ] Run relevant lint and format checks. This example grants no commit or push permission.
+  - [ ] If execution authorizes commits and expects CI, commit the changes and confirm CI is green for that commit.
 
 ## References
 

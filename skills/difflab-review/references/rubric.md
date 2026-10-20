@@ -4,7 +4,7 @@ Read this rubric before generating findings in `review new`. Start with the actu
 
 ## Read repository guidance
 
-Read the root and applicable nested `AGENTS.md` files. Check the changed code against their actual rules: naming, file sections, module boundaries, exceptions, test placement, helper scope, and persistence location where prescribed. Inspect referenced conventions when relevant. Do not substitute generic style preferences.
+Read the root and applicable nested `AGENTS.md` files. Follow language conventions, established codebase patterns, and explicit repository rules. Inspect nearby code for naming, module roles, errors, test layout, and shared helpers. Distinguish a real convention from a personal preference.
 
 Record applicable guidance paths in a short `Repository Guidance` section. Identify concrete deviations, or say none were found within the inspected scope. If no guidance exists, say so. If guidance cannot be read, record the limit rather than claiming compliance. Add the section once to old/custom review documents without changing human content or removing existing headings.
 
@@ -12,15 +12,15 @@ Record applicable guidance paths in a short `Repository Guidance` section. Ident
 
 Inspect each area below. Report only material findings; do not write an essay or invent a finding for every row.
 
-| Area             | Inspect                                                                                                             | Report when                                                                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Names            | Function, variable, and type names against actual behavior, side effects, results, and callers.                     | A name misstates or hides what the code does. Show the mismatch.                                                                                     |
-| Module roles     | Responsibilities, imports, dependency direction, exports, and existing module boundaries.                           | Unrelated concerns are mixed, a role is unclear, or callers must know unnecessary internals. Name the concerns and a small sensible boundary change. |
-| Scope and reuse  | New fields, types, wrappers, helpers, dependencies, and unrelated edits against existing concepts and real callers. | A concept duplicates suitable existing state/behavior or adds unjustified complexity. Show the existing alternative or the missing use.              |
-| Test structure   | Semantic groups, names, setup, fixtures, shared helpers, action, and assertions.                                    | A reader cannot readily identify the scenario, operation, or result, or repeated setup obscures them.                                                |
-| Repository rules | Applicable guidance against changed files.                                                                          | A concrete rule is violated. Cite the guidance path and the offending code.                                                                          |
+| Area | Inspect | Report when |
+| --- | --- | --- |
+| Names | Names and code structure against behavior, side effects, callers, and language conventions. | Names or structure hide what happens. Show the mismatch. |
+| Module roles | Responsibilities, imports, exports, and established module patterns. | Concerns are mixed or roles are unclear. Name the needed simplification or refactor, including across files. |
+| Scope and reuse | New fields, types, wrappers, helpers, dependencies, and unrelated edits against existing concepts and real callers. | A concept duplicates suitable existing state/behavior or adds unjustified complexity. Show the existing alternative or the missing use. |
+| Test structure | Semantic groups, names, setup, fixtures, shared helpers, action, and assertions. | A reader cannot readily identify the scenario, operation, or result, or repeated setup obscures them. |
+| Repository rules | Applicable guidance against changed files. | A concrete rule is violated. Cite the guidance path and the offending code. |
 
-Comprehension findings do not require a runtime bug. A misleading name, mixed responsibility, redundant field, or unreadable test can warrant a change. Explain the specific reader burden; do not treat personal taste as a defect. Avoid broad refactors when a rename, reuse, or local boundary fix will do.
+Comprehension findings do not require a runtime bug. Name the part that is hard to follow and explain its effect. Choose the scope that fixes the problem. If generated code mixes concerns or adds needless layers, request a refactor or simplification now. A multi-file fix is valid when the evidence calls for it. Keep unrelated work out of scope.
 
 ## Review tests from the outside in
 
@@ -49,10 +49,12 @@ Before emitting a finding, establish:
 
 ```text
 changed location -> concrete evidence -> comprehension / rule / behavior impact
-                 -> smallest useful remedy or focused question
+                 -> needed change or focused question
 ```
 
-Consolidate repeated instances with the same cause. Use the existing severity/status format; a readability problem is not automatically blocking. Distinguish a preference from a required change. A clean review may have no change requests. Avoid optional-nit lists that ask the author to do work without an identified benefit.
+Use simple English. State the problem, its effect, and the needed change, usually in one to three short sentences. Put the file and line in the comment location rather than repeating a long code summary. Add a short snippet only when it clarifies the fix. Do not hand the author a wall of text.
+
+Group repeated instances of one cause. Use the existing severity/status format. A readability problem is not automatically blocking. A clean review can have no change requests. Avoid nitpicks and minor optimizations, even when a deeper audit is requested. Report a material issue only when evidence supports it.
 
 Omit speculative edge cases, hypothetical scale problems, cosmetic preferences, and requests for unrelated hardening. Normal reviews still catch clear correctness defects, exposed secrets, authorization failures, and material performance regressions. An explicit security or performance focus warrants a deeper audit of the requested area, with grounded evidence rather than invented risks. Mark deeper audits `SKIPPED` with a short reason when not warranted; do not claim an audit or executed check that did not happen.
 
@@ -62,9 +64,10 @@ Keep the existing readability, organization, maintainability, and testing sectio
 
 These examples are illustrative, not user-supplied artifacts or observations about the current repository:
 
-- `loadSettings` writes missing defaults: point to the write and explain why a query-like name misleads callers. Request a name that describes the effect or reuse an existing read-only API.
-- An HTTP handler allocates storage paths and serializes records despite an existing store API: cite the mixed transport/persistence roles and reuse the store rather than designing a new framework.
-- A request adds `isComplete` beside an existing equivalent status field: show the duplication and ask to derive/reuse the existing state unless a caller needs a distinct meaning.
-- A test has fifty lines of repeated setup with actions mixed into assertions: identify the hidden scenario and request a fixture plus distinct Arrange/Act/Assert blocks.
-- A suite covers every helper but never verifies saved output through the module's public API: request the missing output contract, not still more helper tests.
-- A clean public-API test already exercises a private helper: emit no request for separate helper coverage. Omit speculative clock skew or hypothetical allocation concerns unless the diff or requested focus provides concrete evidence.
+- “`loadSettings` also saves defaults. Rename it to show that it writes.”
+- “This handler formats paths and writes records. Move that work into the existing store.”
+- “`isComplete` duplicates `status`. Derive it from the existing field.”
+- “Repeated setup hides this test's action. Use the fixture and separate Arrange, Act, and Assert.”
+- “These helper tests do not prove that the report is saved. Add an integration scenario through the public API.”
+
+If a public-API test already covers a private helper, do not request a duplicate test. The plan skill lists exact end-to-end/integration scenarios under `Consequences → Testing`. Review tests with the broader priority above. Do not copy lower-level coverage advice into generated plans.

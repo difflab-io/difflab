@@ -4,15 +4,15 @@ Read this guide for `plan new` and `plan update`. Inspect the relevant code and 
 
 ## Give each section one job
 
-| Section                | Contents                                                                                                                                        |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Intent                 | Who needs the outcome and why.                                                                                                                  |
-| Requirements           | Observable behavior, constraints, and explicit non-goals.                                                                                       |
-| Big Ideas              | Changed components, processes, and artifacts; decisions and important invariants beside their visuals.                                          |
+| Section | Contents |
+| --- | --- |
+| Intent | Who needs the outcome and why. |
+| Requirements | Observable behavior, constraints, and explicit non-goals. |
+| Big Ideas | Changed components, processes, and artifacts; decisions and important invariants beside their visuals. |
 | Infrastructure Changes | Actual hosting, services, deployment, networking, or managed resources. Write `N/A.` if none change. New source modules belong in Repo Changes. |
-| Interfaces             | Short commands, signatures, code, or pseudocode showing interactions and contracts, including important failure results.                        |
-| Consequences           | Start with `Repo Changes` and its file tree. Follow with trade-offs, compatibility, and deferred work.                                          |
-| Phases                 | Ordered, bounded actions with file/module targets and relevant checks. Refer to design contracts rather than repeating them.                    |
+| Interfaces | Short commands, signatures, code, or pseudocode showing interactions and contracts, including important failure results. |
+| Consequences | Start with `Repo Changes` and its file tree. Add `Testing` with nested end-to-end/integration scenarios, then trade-offs and compatibility. |
+| Phases | Ordered, bounded actions with file/module targets and relevant checks. Refer to design contracts rather than repeating them. |
 
 Keep the design sufficient to explain what will change and why. Adding diagrams must not move all useful design detail into a giant implementation checklist. Tasks still need enough local detail to act without the original chat.
 
@@ -30,27 +30,36 @@ Start `Consequences` with this shape:
 
 + new  ~ changed  - removed  * largest edits
 src/
-├── feature/service.ts   ~ * owns feature policy
-└── feature/store.ts     +   owns persistence
+└── feature/
+    ├── service.ts   ~ * owns feature policy
+    └── store.ts     +   owns persistence
 ```
 
-Use inspected paths for existing files and label proposed paths as new. Include removed files and the largest edits; state when nothing is removed. A selected tree is enough if it covers the meaningful structural changes. Check that diagrams, interfaces, tree, and phases agree.
+Group shared path prefixes under parent directories. Do not repeat `feature/` on sibling lines. Use inspected paths for existing files and label proposed paths as new. Include removed files and the largest edits. State when nothing is removed. A selected tree is enough to show meaningful structural changes. Make sure that diagrams, interfaces, the tree, and phases agree.
 
-## Validate behavior from the outside in
+## Specify the behavior to test
 
-Choose checks in this priority order:
+Plans specify end-to-end and integration behavior only. Name the application entry point or public module API, the action, and the expected result. For example, an expired invitation must return a rejection and leave membership unchanged.
 
-1. End-to-end application behavior: a user, CLI, or API scenario and its observable result.
-2. Module behavior through its public APIs, exercising meaningful collaboration.
-3. Focused unit behavior, again prioritizing public APIs.
+Add a `Testing` subsection under `Consequences`. Group scenarios by feature and behavior:
 
-Name the contract or regression each proposed test validates. Assert results, saved state, visible effects, and meaningful failures. Reuse suitable existing tests. Add unit cases only for distinct behavioral evidence that broader checks do not provide. Do not require a test per function, coverage quotas, exports of private helpers for tests, or assertions about private call sequences. An internal algorithm may warrant a focused test when its distinct behavioral risk cannot reasonably be isolated through the public API.
+```text
+end-to-end/
+└── invitation acceptance
+    ├── valid request -> membership appears
+    └── expired request -> rejection; membership unchanged
+integration/
+└── invitation service
+    └── save fails -> membership and token changes roll back together
+```
 
-This priority does not require all three test layers for every change. Avoid mocks that replace the collaboration being tested. Require clear Arrange, Act, and Assert blocks in multi-step tests, with labels or the language's equivalent. Group related scenarios; use fixtures and existing shared helpers to keep setup readable without hiding the action or expected result. Follow repository rules for test placement and helper scope.
+Map scenarios to requirements and phase checks. Reuse existing suites and fixtures. Keep Arrange/Act/Assert visible. Assert results, saved state, and visible effects rather than private calls. Do not list every function or chase coverage percentages. Leave smaller test details to implementation and review.
+
+Keep commit and green-CI checks when the user expects them, including `plan go --commit`. Use the execution workflow's permissions. If remote CI needs an unauthorized push, report the unmet gate rather than marking it complete.
 
 ## Fill old or customized documents
 
-Apply these rules even if the installed template predates them. Add missing subsections to the generated document; keep existing headings and human content. Never rewrite the user's installed template. On update, save the required revision first, then revise design, visuals, interfaces, and tasks together. Preserve phase structure and completed checkboxes unless the user's requested scope change requires a specific task change; do not silently reset or claim completion.
+Listing or scaffolding templates installs missing files. It does not refresh existing copies. Apply this guide even when an installed template is older. Add missing subsections to the generated document and keep human content. Do not overwrite installed customizations. On update, save the revision first, then revise design, visuals, interfaces, and tasks together. Preserve phase structure and completed checkboxes unless the requested scope changes a task.
 
 Before saving, check that every requirement has a design home and an implementation/check path. A human should be able to audit the change; an agent should be able to execute it without guessing the key contracts. Leave new implementation tasks unchecked.
 
@@ -61,4 +70,4 @@ Read these long examples on demand when judging structure and detail:
 - [Original plan](examples/plan-sources-before.md): supplied verbatim by the user; illustrates the prose-heavy result.
 - [Desired plan](examples/plan-sources-after.md): supplied verbatim by the user; illustrates visual design, compact interfaces, and usable phases.
 
-These are format references, not tasks or instructions to modify a wiki. Their feature scopes differ; do not infer that shortening a plan permits dropping requirements. Keep their bodies unchanged. The bundled `plan-feature.md` and `plan-migration.md` examples show shorter plans with and without actual infrastructure changes.
+These are format references, not instructions to modify a wiki. Their scopes differ, so shortening a plan does not permit dropping requirements. Preserve their wording and code. Use soft wraps for prose. Historical test commands do not set the scope of new plans. The bundled `plan-feature.md` and `plan-migration.md` examples show current test outlines and plans with and without infrastructure changes.

@@ -14,11 +14,11 @@ base_commit: '{{full SHA of origin/main at branch creation}}'
 
 {{Tool versions, dependency installation, environment inputs, and required services.}}
 
-| Task             | Command                   | Purpose                                           | Observed result              |
-| ---------------- | ------------------------- | ------------------------------------------------- | ---------------------------- |
-| Build            | `mise run {{build-task}}` | {{Build the experiment}}                          | {{Actual result or pending}} |
-| Test             | `mise run {{test-task}}`  | {{Validate the experimental behavior}}            | {{Actual result or pending}} |
-| Run {{approach}} | `mise run {{run-task}}`   | {{Run this prototype; repeat for every approach}} | {{Actual result or pending}} |
+| Task | Command | Purpose | Observed result |
+| --- | --- | --- | --- |
+| Build | `mise run {{build-task}}` | {{Build the experiment}} | {{Actual result or pending}} |
+| Test | `mise run {{test-task}}` | {{Validate the experimental behavior}} | {{Actual result or pending}} |
+| Run {{approach}} | `mise run {{run-task}}` | {{Run this prototype; repeat for every approach}} | {{Actual result or pending}} |
 
 {{Explain any genuinely inapplicable build/test task and its alternative validation. Identify unrun checks explicitly.}}
 

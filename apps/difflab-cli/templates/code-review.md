@@ -10,15 +10,15 @@
 
 ## Readability
 
-[Compare function, variable, and type names with actual behavior, side effects, results, and callers. Can a mid-level developer identify the main flow and error paths? Report concrete mismatches and reader burden, not personal naming preferences.]
+[Do names and code structure show what happens? Compare names with behavior, side effects, and callers. Follow language conventions and established codebase patterns. Flag misleading names and flows that are hard to follow.]
 
 ## Semantic Organization
 
-[Do modules have clear roles, coherent responsibilities, and thin public APIs? Identify mixed concerns, unclear ownership, or dependencies that expose unnecessary internals. Name a small useful boundary change rather than proposing an unrelated refactor.]
+[Do modules have clear roles and useful public APIs? Identify mixed responsibilities and unclear ownership. Refactor or simplify at the scope needed to make the change understandable, including across files. Keep unrelated work out of scope.]
 
 ## Maintainability
 
-[Check added fields, types, wrappers, helpers, dependencies, and unrelated edits against existing concepts and callers. Are additions justified, or could suitable existing state/APIs/helpers be reused? Identify concrete duplication or complexity; do not add abstraction for its own sake.]
+[Does the change follow established codebase patterns and applicable AGENTS.md rules? Check new fields, types, helpers, and dependencies against existing code and callers. Reuse suitable code and remove needless complexity.]
 
 ## Reliability/Testing
 
@@ -30,7 +30,7 @@
 
 ## Performance
 
-[Report concrete material regressions. Deepen the audit when performance is an explicit focus; omit speculative scale/allocation concerns. Otherwise state SKIPPED with a short reason when a deeper audit is not warranted.]
+[Report material regressions with evidence. Avoid nitpicks and minor optimizations. Deepen the audit for an explicit performance focus. Otherwise mark a deeper audit SKIPPED with a short reason.]
 
 ## Security
 
@@ -38,7 +38,7 @@
 
 ## Change Requests
 
-Track grounded actionable requests: location, evidence, comprehension/rule/behavior impact, and a small remedy. Consolidate repeated instances of the same cause. Omit speculative edge cases and cosmetic preferences; do not invent findings to fill sections. End each generated request and response with its own model attribution quote; preserve human text unchanged.
+Use short comments in simple English. State the problem, its effect, and the needed change, usually in one to three sentences. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
 
 ### [file:line — request]
 
@@ -53,9 +53,9 @@ Track grounded actionable requests: location, evidence, comprehension/rule/behav
 
 ## Findings
 
-| Severity                 | Location    | Evidence and impact        | Required change or question |
-| ------------------------ | ----------- | -------------------------- | --------------------------- |
-| [blocking/consider/note] | [file:line] | [reproducible observation] | [concrete action]           |
+| Severity | Location | Evidence and impact | Required change or question |
+| --- | --- | --- | --- |
+| [blocking/consider/note] | [file:line] | [reproducible observation] | [concrete action] |
 
 ## Overall Assessment
 

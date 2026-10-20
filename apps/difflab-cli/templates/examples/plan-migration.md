@@ -62,14 +62,31 @@ readSource = legacy | new            # reversible; legacy remains default
 Illustrative paths: `+` new, `~` changed, `*` largest edits. No files are removed.
 
 ```text
-infra/activity-store.tf          +   store, credentials, write-failure metrics
-src/activity/
-├── writer.ts                    ~ * dual writes and retries
-├── backfill.ts                  + * resumable batches and comparison
-├── reader.ts                    ~   reversible read source
-├── migration.spec.ts            +   public API parity and restart scenarios
-└── history.spec.ts              ~   application history across cutover/rollback
+infra/
+└── activity-store.tf            +   store, credentials, write-failure metrics
+src/
+└── activity/
+    ├── writer.ts                ~ * dual writes and retries
+    ├── backfill.ts              + * resumable batches and comparison
+    ├── reader.ts                ~   reversible read source
+    ├── migration.spec.ts        +   public API parity and restart scenarios
+    └── history.spec.ts          ~   application history across cutover/rollback
 ```
+
+#### Testing
+
+```text
+end-to-end/
+└── activity history
+    ├── write and page history across cutover -> same records and cursors
+    └── write after cutover, then roll back -> no lost events
+integration/
+└── activity storage
+    ├── retry a failed destination -> one logical event in each store
+    └── interrupt and resume backfill -> same IDs and order; no duplicates
+```
+
+Use `src/activity/history.spec.ts` for application scenarios and `src/activity/migration.spec.ts` for public storage APIs with real test stores.
 
 #### Trade-offs
 
@@ -101,8 +118,9 @@ Dual writes increase latency and allow partial failure. Record discrepancies and
 - [ ] Extend application scenarios in `src/activity/history.spec.ts`: write and read paged history, switch stores, write again, and roll back. Assert the same visible history without lost events; do not assert private helper calls.
 - [ ] Keep dual writes and monitor parity through the rollback window.
 - [ ] Validation
-  - [ ] Run application cutover/rollback scenarios first, then module contracts. Add focused public-API unit checks only for distinct logic not already verified.
+  - [ ] Run the end-to-end cutover/rollback scenarios, then the storage integration scenarios listed above.
   - [ ] Run relevant lint and format checks. This example grants no commit or push permission.
+  - [ ] If execution authorizes commits and expects CI, commit the changes and confirm CI is green for that commit.
 
 ## References
 

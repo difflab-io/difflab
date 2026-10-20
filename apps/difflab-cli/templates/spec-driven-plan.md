@@ -33,13 +33,17 @@
 
 [Start with a selected file tree: + new, ~ changed, - removed, * largest edits. Include new modules and meaningful structural changes. Use real inspected paths; label proposed files. State when nothing is removed.]
 
+#### Testing
+
+[Show a nested outline of end-to-end and integration test scenarios, grouped by feature and behavior. Name the entry point, input/action, and expected result for each scenario. Reuse existing fixtures and suites. Match the scenarios to requirements and phase checks.]
+
 #### Trade-offs
 
 [Risks, compatibility, and what is deferred.]
 
 ## Phases
 
-[Ordered, bounded tasks with file/module targets and enough local detail to act. Keep decisions and contracts in the design; do not move all design prose into a giant checklist. Validate application behavior first, module public APIs next, then focused unit behavior with public APIs first. Require readable Arrange/Act/Assert structure. Do not require coverage of every function or coverage percentages. Use only relevant checks and existing helpers; commits/pushes require separate authorization.]
+[Ordered tasks with file/module targets and enough detail to act. Keep decisions and contracts in the design. Specify the exact application behavior for end-to-end tests and the public module behavior for integration tests. Require clear Arrange/Act/Assert blocks. Use relevant checks and existing helpers. Keep conditional commit and CI gates when expected, including for plan go --commit. Follow the execution workflow's commit/push permissions.]
 
 ### Phase 1: [Outcome]
 
@@ -50,6 +54,7 @@
 - [ ] Validation
   - [ ] [Observable application/module contract and the existing or proposed check.]
   - [ ] [Relevant format, lint, or build checks.]
+  - [ ] [Commit and confirm CI is green, if expected and authorized.]
 
 ### Phase 2: [Outcome]
 
@@ -60,6 +65,7 @@
 - [ ] Validation
   - [ ] [Observable application/module contract and the existing or proposed check.]
   - [ ] [Relevant format, lint, or build checks.]
+  - [ ] [Commit and confirm CI is green, if expected and authorized.]
 
 ### Phase 3: [Outcome]
 
@@ -70,6 +76,7 @@
 - [ ] Validation
   - [ ] [Observable application/module contract and the existing or proposed check.]
   - [ ] [Relevant format, lint, or build checks.]
+  - [ ] [Commit and confirm CI is green, if expected and authorized.]
 
 ## References
 
