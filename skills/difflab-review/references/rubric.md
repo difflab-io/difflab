@@ -54,6 +54,8 @@ changed location -> concrete evidence -> comprehension / rule / behavior impact
 
 Use simple English. State the problem, its effect, and the needed change, usually in one to three short sentences. Put the file and line in the comment location rather than repeating a long code summary. Add a short snippet only when it clarifies the fix. Do not hand the author a wall of text.
 
+Phrase recommendations as suggestions, not commands. Start the recommendation with “Let's”, “I suggest”, or “I recommend”. State the problem directly and keep its severity clear.
+
 Group repeated instances of one cause. Use the existing severity/status format. A readability problem is not automatically blocking. A clean review can have no change requests. Avoid nitpicks and minor optimizations, even when a deeper audit is requested. Report a material issue only when evidence supports it.
 
 Omit speculative edge cases, hypothetical scale problems, cosmetic preferences, and requests for unrelated hardening. Normal reviews still catch clear correctness defects, exposed secrets, authorization failures, and material performance regressions. An explicit security or performance focus warrants a deeper audit of the requested area, with grounded evidence rather than invented risks. Mark deeper audits `SKIPPED` with a short reason when not warranted; do not claim an audit or executed check that did not happen.
@@ -64,10 +66,10 @@ Keep the existing readability, organization, maintainability, and testing sectio
 
 These examples are illustrative, not user-supplied artifacts or observations about the current repository:
 
-- “`loadSettings` also saves defaults. Rename it to show that it writes.”
-- “This handler formats paths and writes records. Move that work into the existing store.”
-- “`isComplete` duplicates `status`. Derive it from the existing field.”
-- “Repeated setup hides this test's action. Use the fixture and separate Arrange, Act, and Assert.”
-- “These helper tests do not prove that the report is saved. Add an integration scenario through the public API.”
+- “`loadSettings` also saves defaults. I suggest a name that shows the write.”
+- “This handler formats paths and writes records. Let's move that work into the existing store.”
+- “`isComplete` duplicates `status`. I recommend deriving it from the existing field.”
+- “Repeated setup hides this test's action. I suggest the fixture and separate Arrange, Act, and Assert blocks.”
+- “These helper tests do not prove that the report is saved. Let's add an integration scenario through the public API.”
 
 If a public-API test already covers a private helper, do not request a duplicate test. The plan skill lists exact end-to-end/integration scenarios under `Consequences → Testing`. Review tests with the broader priority above. Do not copy lower-level coverage advice into generated plans.

@@ -26,6 +26,8 @@ Keep the design sufficient to explain what will change and why. Adding diagrams 
 Start `Consequences` with this shape:
 
 ```text
+### Consequences
+
 #### Repo Changes
 
 + new  ~ changed  - removed  * largest edits
@@ -33,17 +35,9 @@ src/
 └── feature/
     ├── service.ts   ~ * owns feature policy
     └── store.ts     +   owns persistence
-```
 
-Group shared path prefixes under parent directories. Do not repeat `feature/` on sibling lines. Use inspected paths for existing files and label proposed paths as new. Include removed files and the largest edits. State when nothing is removed. A selected tree is enough to show meaningful structural changes. Make sure that diagrams, interfaces, the tree, and phases agree.
+#### Testing
 
-## Specify the behavior to test
-
-Plans specify end-to-end and integration behavior only. Name the application entry point or public module API, the action, and the expected result. For example, an expired invitation must return a rejection and leave membership unchanged.
-
-Add a `Testing` subsection under `Consequences`. Group scenarios by feature and behavior:
-
-```text
 end-to-end/
 └── invitation acceptance
     ├── valid request -> membership appears
@@ -52,6 +46,14 @@ integration/
 └── invitation service
     └── save fails -> membership and token changes roll back together
 ```
+
+Group shared path prefixes under parent directories. Do not repeat `feature/` on sibling lines. Use inspected paths for existing files and label proposed paths as new. Include removed files and the largest edits. State when nothing is removed. A selected tree is enough to show meaningful structural changes. Make sure that diagrams, interfaces, the tree, and phases agree.
+
+## Specify the behavior to test
+
+Plans specify end-to-end and integration behavior only. Name the application entry point or public module API, the action, and the expected result. For example, an expired invitation must return a rejection and leave membership unchanged.
+
+Add a `Testing` subsection under `Consequences`, as shown in the example above. Group scenarios by feature and behavior.
 
 Map scenarios to requirements and phase checks. Reuse existing suites and fixtures. Keep Arrange/Act/Assert visible. Assert results, saved state, and visible effects rather than private calls. Do not list every function or chase coverage percentages. Leave smaller test details to implementation and review.
 
@@ -67,7 +69,7 @@ Before saving, check that every requirement has a design home and an implementat
 
 Read these long examples on demand when judging structure and detail:
 
-- [Original plan](examples/plan-sources-before.md): supplied verbatim by the user; illustrates the prose-heavy result.
-- [Desired plan](examples/plan-sources-after.md): supplied verbatim by the user; illustrates visual design, compact interfaces, and usable phases.
+- [Original plan](examples/plan-sources-before.md): the user's historical example, with its wording preserved. It illustrates the prose-heavy result.
+- [Desired plan](examples/plan-sources-after.md): based on the user's desired output and updated for current feedback. It includes the nested Testing section.
 
-These are format references, not instructions to modify a wiki. Their scopes differ, so shortening a plan does not permit dropping requirements. Preserve their wording and code. Use soft wraps for prose. Historical test commands do not set the scope of new plans. The bundled `plan-feature.md` and `plan-migration.md` examples show current test outlines and plans with and without infrastructure changes.
+These are format references, not instructions to modify a wiki. Their scopes differ, so shortening a plan does not permit dropping requirements. Keep the original as historical evidence. Apply new authoring rules to the desired example and bundled `plan-feature.md` and `plan-migration.md` examples. Use soft wraps for prose. Historical test commands do not set the scope of new plans.

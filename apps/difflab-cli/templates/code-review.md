@@ -38,7 +38,7 @@
 
 ## Change Requests
 
-Use short comments in simple English. State the problem, its effect, and the needed change, usually in one to three sentences. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
+Use short comments in simple English. State the problem and its effect directly. Phrase recommendations as suggestions with “Let's”, “I suggest”, or “I recommend”, usually in one to three sentences total. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
 
 ### [file:line — request]
 

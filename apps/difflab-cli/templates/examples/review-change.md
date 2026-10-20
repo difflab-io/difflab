@@ -12,7 +12,7 @@ The change adds an acceptance path. Helper tests do not establish that the reque
 
 ## Readability
 
-`loadInvitation` consumes the token and creates membership. Rename it to `acceptInvitation` so callers can see the write.
+`loadInvitation` consumes the token and creates membership. I suggest `acceptInvitation` so callers can see the write.
 
 ## Semantic Organization
 
@@ -24,9 +24,9 @@ The change follows the existing store pattern and reuses invitation status.
 
 ## Reliability/Testing
 
-Helper tests do not prove that acceptance saves membership. Add application scenarios for acceptance and rejection, then read membership back.
+Helper tests do not prove that acceptance saves membership. Let's add application scenarios for acceptance and rejection, then read membership back.
 
-Repeated setup and nested assertions hide the scenario in `service.spec.ts:18`. Use a fixture and separate blocks:
+Repeated setup and nested assertions hide the scenario in `service.spec.ts:18`. I suggest a fixture and separate blocks:
 
 ```ts
 describe('acceptInvitation', () => {
@@ -44,11 +44,11 @@ describe('acceptInvitation', () => {
 })
 ```
 
-The fixture creates a real test store. Keep the action and assertions visible. Reuse shared setup without adding a fixture framework.
+The fixture creates a real test store. I recommend keeping the action and assertions visible and reusing shared setup.
 
 ## Repository Guidance
 
-The fictional `AGENTS.md` requires Arrange/Act/Assert blocks and local helpers at the bottom. Fix the mixed steps in `service.spec.ts:18`.
+The fictional `AGENTS.md` requires Arrange/Act/Assert blocks and local helpers at the bottom. I suggest separating the mixed steps in `service.spec.ts:18`.
 
 ## Performance
 
@@ -63,14 +63,14 @@ SKIPPED: no concrete security defect is shown; an exhaustive security audit is o
 ### src/invitations/service.ts:42 — Name the state-changing operation
 
 - **Status:** open
-- **Request:** `loadInvitation` also writes membership. Rename it to `acceptInvitation` and update callers.
+- **Request:** `loadInvitation` also writes membership. I suggest renaming it to `acceptInvitation` and updating callers.
 
 > Generated via [actual model name from runtime]
 
 ### src/invitations/service.spec.ts:18 — Expose the scenario and test its public result
 
 - **Status:** open
-- **Request:** Use the fixture and Arrange/Act/Assert blocks above. Add acceptance/rejection scenarios that check saved membership, not just helpers.
+- **Request:** I suggest the fixture and Arrange/Act/Assert blocks above. Let's add acceptance/rejection scenarios that check saved membership, not just helpers.
 
 > Generated via [actual model name from runtime]
 
@@ -78,12 +78,12 @@ SKIPPED: no concrete security defect is shown; an exhaustive security audit is o
 
 | Severity | Location | Evidence and impact | Required change or question |
 | --- | --- | --- | --- |
-| consider | `src/invitations/service.ts:42` | A query-like name hides token consumption and membership creation. | Rename the acceptance operation and callers. |
-| consider | `src/invitations/service.spec.ts:18` | Repeated setup hides the action; helper coverage does not establish saved membership or rejection behavior. | Use readable blocks and fixtures; verify the public/application contract. |
+| consider | `src/invitations/service.ts:42` | A query-like name hides token consumption and membership creation. | I suggest renaming the operation and callers. |
+| consider | `src/invitations/service.spec.ts:18` | Repeated setup hides the action; helper coverage does not establish saved membership or rejection behavior. | I suggest clear blocks, a fixture, and a public/application scenario. |
 
 ## Overall Assessment
 
-Address the misleading API and the missing acceptance/rejection contract. No private-helper coverage or speculative clock-skew request is needed.
+I recommend clearer API naming and acceptance/rejection scenarios. No private-helper coverage or speculative clock-skew request is needed.
 
 ## Verification and Limits
 

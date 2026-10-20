@@ -186,6 +186,30 @@ wiki/api-docs/{cli,core}.md                      ~
 
 The metadata tree lives outside the repository. Phase 3 also changes eleven local article titles.
 
+#### Testing
+
+```text
+end-to-end/
+├── source capture
+│   ├── create draft from raw inputs -> article, records, and indexes agree
+│   └── update draft -> both evidence events and shared links remain
+├── dream maintenance
+│   ├── improve, merge, or deprecate -> exact change links to original evidence
+│   └── dry run -> proposal only; articles and metadata stay unchanged
+└── wiki navigation
+    ├── fresh load -> every folder starts collapsed
+    └── expand nested folders -> labels and article links work
+integration/
+├── metadata public APIs
+│   ├── nested MD/MDX and index/README targets -> exact mirrored paths
+│   ├── setup and reindex retries -> records and human notes stay intact
+│   └── content save followed by metadata failure -> saved path and repair step
+└── title update API
+    └── title-only or combined update -> path and untouched bytes preserved
+```
+
+Use temporary homes and real content roots for capture and metadata scenarios. Compare saved evidence and article bytes through public APIs. Use the rendered app for navigation scenarios.
+
 #### Trade-offs
 
 - Back up the metadata tree separately from repository wiki content.
@@ -257,7 +281,7 @@ Execute the phases in order. Keep implementation choices small and use existing 
 - [ ] Validation
   - [ ] Test title-only and combined updates with extra frontmatter fields. Make sure that paths and untouched content stay intact.
   - [ ] Inspect the rendered sidebar for useful titles, collapsed folders, and working nested navigation.
-  - [ ] Run the relevant `mise run test:unit`, `test:e2e`, `lint`, `format:check`, and `build` tasks. Report any failures with their scope.
+  - [ ] Run the relevant existing integration checks and `mise run test:e2e`, `lint`, `format:check`, and `build` tasks. Report any failures with their scope.
 
 ## References
 
