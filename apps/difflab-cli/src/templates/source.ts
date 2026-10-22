@@ -8,6 +8,8 @@ import architectureDecisionRecord from '../../templates/architecture-decision-re
 
 import productRequirementsDocument from '../../templates/product-requirements-document.md' with { type: 'text' }
 
+import agents from '../../templates/agents.md' with { type: 'text' }
+
 import codeReview from '../../templates/code-review.md' with { type: 'text' }
 
 import planningIntent from '../../templates/planning-intent.md' with { type: 'text' }
@@ -48,33 +50,14 @@ import componentNavigation from '../../templates/examples/component-navigation.m
 
 import pullRequestFeature from '../../templates/examples/pull-request-feature.md' with { type: 'text' }
 
-export type TemplateInfo = {
-  name: string
-  description: string
-}
-
-export const catalog: TemplateInfo[] = [
-  { name: 'spec-driven-plan', description: 'Spec-driven implementation plan' },
-  { name: 'software-architecture-design', description: 'Software architecture design' },
-  { name: 'architecture-decision-record', description: 'Architecture decision record' },
-  { name: 'product-requirements-document', description: 'Product requirements document' },
-  { name: 'code-review', description: 'Thorough code review' },
-  { name: 'planning-intent', description: 'Planning intent for a user to fill in' },
-  { name: 'ui-component-architecture', description: 'UI component design and implementation' },
-  { name: 'pull-request-description', description: 'Draft pull request description' },
-  { name: 'flow-definition', description: 'Reusable global Agent Skill flow definition' },
-  { name: 'flow-instance', description: 'Frozen repository-local flow run' },
-  { name: 'exploration-summary', description: 'Source-grounded technical exploration summary' },
-  { name: 'exploration-research', description: 'Technical exploration research notes' },
-  { name: 'exploration-proposal', description: 'Optional technical exploration approach' },
-  { name: 'poc-readme', description: 'Disposable proof-of-concept branch README' },
-]
+// Constants -------------------------------------------------------------------
 
 const contents: Record<string, string> = {
   'spec-driven-plan.md': specDrivenPlan,
   'software-architecture-design.md': softwareArchitectureDesign,
   'architecture-decision-record.md': architectureDecisionRecord,
   'product-requirements-document.md': productRequirementsDocument,
+  'agents.md': agents,
   'code-review.md': codeReview,
   'planning-intent.md': planningIntent,
   'ui-component-architecture.md': uiComponentArchitecture,
@@ -97,11 +80,38 @@ const contents: Record<string, string> = {
   'examples/pull-request-feature.md': pullRequestFeature,
 }
 
+// Types -----------------------------------------------------------------------
+
+export type TemplateInfo = {
+  name: string
+  description: string
+}
+
 export type TemplateSource = {
   catalog: readonly TemplateInfo[]
   assets: readonly string[]
   read(asset: string): Promise<string>
 }
+
+// API -------------------------------------------------------------------------
+
+export const catalog: TemplateInfo[] = [
+  { name: 'spec-driven-plan', description: 'Spec-driven implementation plan' },
+  { name: 'software-architecture-design', description: 'Software architecture design' },
+  { name: 'architecture-decision-record', description: 'Architecture decision record' },
+  { name: 'product-requirements-document', description: 'Product requirements document' },
+  { name: 'agents', description: 'Concise repository rules for AGENTS.md' },
+  { name: 'code-review', description: 'Thorough code review' },
+  { name: 'planning-intent', description: 'Planning intent for a user to fill in' },
+  { name: 'ui-component-architecture', description: 'UI component design and implementation' },
+  { name: 'pull-request-description', description: 'Draft pull request description' },
+  { name: 'flow-definition', description: 'Reusable global Agent Skill flow definition' },
+  { name: 'flow-instance', description: 'Frozen repository-local flow run' },
+  { name: 'exploration-summary', description: 'Source-grounded technical exploration summary' },
+  { name: 'exploration-research', description: 'Technical exploration research notes' },
+  { name: 'exploration-proposal', description: 'Optional technical exploration approach' },
+  { name: 'poc-readme', description: 'Disposable proof-of-concept branch README' },
+]
 
 export const embeddedSource: TemplateSource = {
   catalog,

@@ -43,6 +43,7 @@ describe('TemplateService', () => {
         'software-architecture-design',
         'architecture-decision-record',
         'product-requirements-document',
+        'agents',
         'code-review',
         'planning-intent',
         'ui-component-architecture',
