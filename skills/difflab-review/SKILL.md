@@ -16,7 +16,7 @@ Confirm the current checkout's absolute repository root before acting. Use the r
 - `address [--local] [--bg] [inline requests]`: follow `references/workflows/address.md`.
 - Help or an unclear review request: follow `references/workflows/help.md`.
 
-Read the selected workflow before acting. Reviews must be grounded in an actual diff. The bundled `code-review` template includes `## Change Requests`; if a legacy or customized copy lacks it, add that section once without deleting or rewriting human content. Keep human comments intact.
+Read the selected workflow before acting. For `address`, apply [repository rule capture](references/agents-guidance.md) to save explicit user rules in `AGENTS.md` immediately, including inferred candidate rules marked `[Proposed]`. Ask before rewriting existing guidance to match the template; adapt its current structure if permission is declined. Reviews must be grounded in an actual diff. The bundled `code-review` template includes `## Change Requests`; if a legacy or customized copy lacks it, add that section once without deleting or rewriting human content. Keep human comments intact.
 
 For `new`, read [the review rubric](references/rubric.md). Follow language conventions, codebase patterns, and applicable `AGENTS.md` rules. Names and organization must show what the code does. Request refactors at the scope needed to fix unclear code. Prioritize application behavior, then module public APIs, then focused unit behavior. Apply the rubric with old/custom templates too. Keep findings short and use simple English. Phrase recommendations with “Let's”, “I suggest”, or “I recommend”. Omit nitpicks and minor optimizations. An explicit focus deepens that area.
 
