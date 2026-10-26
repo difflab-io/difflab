@@ -7,6 +7,7 @@ import { TemplateService } from './service.js'
 const templateInfo = z.object({
   name: z.string(),
   description: z.string(),
+  asset: z.string().optional(),
 })
 const templateListOutput = z.object({ result: z.array(templateInfo) })
 const scaffoldOutput = z.object({

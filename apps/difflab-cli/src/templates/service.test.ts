@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process'
 import { cp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import { join } from 'node:path'
+import { parse, stringify } from 'yaml'
 import { createTempDirectory, expectFailureWith } from 'utils/testx'
 import { userPaths } from '../store/user-store.js'
 import { TemplateService, UnknownTemplateError } from './service.js'
@@ -45,6 +46,7 @@ describe('TemplateService', () => {
         'product-requirements-document',
         'agents',
         'code-review',
+        'code-review-rubric',
         'planning-intent',
         'ui-component-architecture',
         'pull-request-description',
@@ -86,11 +88,13 @@ describe('TemplateService', () => {
     const packageContents = JSON.parse(stdout)[0].files.map(({ path }: { path: string }) => path)
 
     expect(packageContents).not.toContain('templates/spec-driven-plan.md')
+    expect(packageContents).not.toContain('templates/code-review-rubric.yaml')
     expect(packageContents).toContain('dist/index.js')
     const built = await readFile(join(packageRoot, 'dist/index.js'), 'utf8')
     expect(built).toContain('Reusable global Agent Skill flow definition')
     expect(built).toContain('Definition SHA-256')
     expect(built).toContain('Source-grounded technical exploration summary')
+    expect(built).toContain('maintainability.complexity')
   })
 
   test('lists and scaffolds templates from a custom source', async () => {
@@ -138,6 +142,57 @@ describe('TemplateService', () => {
     expect(await readFile(join(home, '.difflab/templates/spec-driven-plan.md'), 'utf8')).toBe(
       '# My customized plan\n',
     )
+  })
+
+  test('scaffoldFromTemplate preserves customized YAML rubrics and refuses project-store overwrites', async () => {
+    // Arrange
+    await configureGitRepo()
+    const store = join(userPaths(home).projects, 'DIFFLAB', 'github.com--example--repo')
+    await mkdir(store, { recursive: true })
+    await symlink(store, join(cwd, '.difflab'))
+    const catalog = await service.listTemplates()
+    const installed = join(home, '.difflab/templates/code-review-rubric.yaml')
+    const rubric = parse(await readFile(installed, 'utf8'))
+    rubric.worker_defaults = { model: 'opus', reasoning_effort: 'low' }
+    rubric.sections[0].worker = { reasoning_effort: 'high' }
+    rubric.sections[0].criteria[0].issue = 'Project-specific intent requirement.'
+    const customized = stringify(rubric)
+    await writeFile(installed, customized)
+
+    // Act
+    const report = await service.scaffoldFromTemplate(
+      'code-review',
+      cwd,
+      '.difflab/reviews/261026-example',
+      'REVIEW.md',
+    )
+    const file = await service.scaffoldFromTemplate(
+      'code-review-rubric',
+      cwd,
+      '.difflab/reviews/261026-example',
+      'rubric.yaml',
+    )
+    await service.listTemplates()
+
+    // Assert
+    expect(await readFile(report, 'utf8')).toContain('## Overall Assessment')
+    expect(catalog).toContainEqual(
+      expect.objectContaining({ name: 'code-review-rubric', asset: 'code-review-rubric.yaml' }),
+    )
+    expect(file).toBe(await realpath(join(store, 'reviews/261026-example/rubric.yaml')))
+    expect(await readFile(file, 'utf8')).toBe(customized)
+    expect(await readFile(installed, 'utf8')).toBe(customized)
+    expect(parse(await readFile(file, 'utf8')).sections[0].criteria[0].results).toEqual([])
+    await expectFailureWith(
+      service.scaffoldFromTemplate(
+        'code-review-rubric',
+        cwd,
+        '.difflab/reviews/261026-example',
+        'rubric.yaml',
+      ),
+      'Destination already exists',
+    )
+    expect(await readFile(file, 'utf8')).toBe(customized)
   })
 
   test('scaffolds inside an initialized project symlink without following other symlinks', async () => {

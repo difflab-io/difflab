@@ -1,75 +1,53 @@
-# Review for behavior and comprehension
+# Code review rubric
 
-Read this rubric before generating findings in `review new`. Start with the actual diff, its intent, and enough surrounding code to understand the change. Apply it in local and remote mode, including background reviews. It does not grant additional write permissions.
+Scaffold `code-review-rubric` as `rubric.yaml` beside `REVIEW.md`. The YAML defines issues, scopes, and severity defaults. This guide explains the evidence to record. Follow [review new](workflows/new.md) for worker settings, inspection, results, and publication.
 
-## Read repository guidance
+## Intent Delivery
 
-Read the root and applicable nested `AGENTS.md` files. Follow language conventions, established codebase patterns, and explicit repository rules. Inspect nearby code for naming, module roles, errors, test layout, and shared helpers. Distinguish a real convention from a personal preference.
+- `intent.objective`: Flag missing or incorrect required behavior. Cite the requirement and the mismatch.
+- `intent.scope`: Flag unrelated changes. Explain why the stated intent does not require them.
 
-Record applicable guidance paths in a short `Repository Guidance` section. Identify concrete deviations, or say none were found within the inspected scope. If no guidance exists, say so. If guidance cannot be read, record the limit rather than claiming compliance. Add the section once to old/custom review documents without changing human content or removing existing headings.
+## Readability
 
-## Make comprehensibility a required pass
+- `readability.function-names`: Flag names that misrepresent behavior or break project conventions. Show the mismatch and suggest a clearer name.
+- `readability.structure`: Flag flows that hide what happens. Identify the confusing part and suggest a simpler flow.
 
-Inspect each area below. Report only material findings; do not write an essay or invent a finding for every row.
+## Semantic Organization
 
-| Area | Inspect | Report when |
-| --- | --- | --- |
-| Names | Names and code structure against behavior, side effects, callers, and language conventions. | Names or structure hide what happens. Show the mismatch. |
-| Module roles | Responsibilities, imports, exports, and established module patterns. | Concerns are mixed or roles are unclear. Name the needed simplification or refactor, including across files. |
-| Scope and reuse | New fields, types, wrappers, helpers, dependencies, and unrelated edits against existing concepts and real callers. | A concept duplicates suitable existing state/behavior or adds unjustified complexity. Show the existing alternative or the missing use. |
-| Test structure | Semantic groups, names, setup, fixtures, shared helpers, action, and assertions. | A reader cannot readily identify the scenario, operation, or result, or repeated setup obscures them. |
-| Repository rules | Applicable guidance against changed files. | A concrete rule is violated. Cite the guidance path and the offending code. |
+- `organization.roles`: Flag mixed responsibilities or unclear module roles. Identify the responsibilities and the refactor that clarifies ownership.
+- `organization.architecture`: Flag code that breaks the established architecture. Cite the pattern and the role that owns the behavior.
+- `organization.api-ergonomics`: Flag public types unrelated to the module role or APIs that are hard to discover and use. Show the confusing caller experience and suggest a clearer interface.
+- `organization.new-files`: Flag files without a justified module boundary. Name the existing module that owns the behavior. One or two functions alone do not justify a finding.
+- `organization.file-structure`: Flag file layouts that break project rules. Cite the required section order or declaration placement.
 
-Comprehension findings do not require a runtime bug. Name the part that is hard to follow and explain its effect. Choose the scope that fixes the problem. If generated code mixes concerns or adds needless layers, request a refactor or simplification now. A multi-file fix is valid when the evidence calls for it. Keep unrelated work out of scope.
+## Maintainability
 
-## Review tests from the outside in
+- `maintainability.concepts`: Flag abstractions without a useful caller or purpose. Identify the unnecessary concept and a simpler alternative.
+- `maintainability.complexity`: Flag unjustified growth in decision paths. Compare changed functions before and after the change. Explain why the added decisions are unnecessary.
+- `maintainability.utilities`: Flag duplication or inline work that obscures a function. Show existing behavior to reuse or a useful utility to extract. Justify its module placement.
+- `maintainability.packages`: Flag custom code that recreates suitable package functionality. Identify the package API and explain why it fits the project.
 
-Prioritize evidence in this order:
+## Reliability/Testing
 
-1. End-to-end application behavior: does a real user/CLI/API scenario produce its expected visible result?
-2. Module behavior through public APIs: do meaningful collaborators uphold the module's contract?
-3. Focused unit behavior, again prioritizing public APIs: what distinct logic still needs local evidence?
+- `testing.correctness`: Flag incorrect behavior. Record the triggering case, changed location, and wrong result.
+- `testing.application`: Flag required behavior without test evidence. Name the missing scenario and useful test boundary.
+- `testing.relevance`: Flag tests that only confirm dependency behavior. Show which repository behavior the assertions fail to establish. Meaningful integration tests can use real dependencies.
+- `testing.names`: Flag names that omit the tested function or functionality, or its expected behavior. Suggest a name that includes both, regardless of grouping style.
+- `testing.arrange-act-assert`: Flag grouping or interleaved setup, actions, and assertions that hide the scenario. Suggest clear groups or separate Arrange, Act, and Assert blocks.
+- `testing.fixtures`: Flag setup that hides behavior or recreates shared helpers. Identify the repetition, existing helper, or placement rule.
 
-Assess outcomes, saved state, visible effects, and meaningful failure behavior. High line/function coverage is not a substitute for application or module contracts. A missing-test request must name the unverified behavior or regression and the useful boundary to exercise.
+## Documentation
 
-Do not demand a test for each function, coverage percentages, exported private helpers, private call sequences, or duplicate unit cases for behavior already established through public APIs. Test an internal algorithm directly only when its distinct behavioral risk cannot reasonably be isolated publicly. Avoid mocks that replace the collaboration or result being tested. The priority order does not require adding three test layers to every change.
+- `documentation.conciseness`: Flag walls of text or complex language. Identify what is hard to understand and suggest shorter, simple-English wording.
+- `documentation.redundancy`: Flag text that repeats code or existing documentation without useful context. Identify the repetition and what the reader actually needs.
+- `documentation.visuals`: Flag long explanations that a diagram would make clearer. Identify the structure, flow, or relationship to show.
 
-Tests must be readable code:
+## Performance
 
-- Group related scenarios with the repository's normal constructs, such as `describe`, rather than a flat list of unrelated cases. Avoid forced nesting.
-- Separate Arrange, Act, and Assert into visible blocks. Use `// Arrange`, `// Act`, and `// Assert` in multi-step tests, or the language's equivalent. Labels alone do not fix interleaved setup and assertions.
-- Use concise behavior names. Keep the action and expected result visible; extract repetitive setup into suitable fixtures.
-- Inspect existing shared test helpers before accepting newly recreated generic utilities. Follow repository rules for shared versus single-file helpers. Do not introduce a fixture framework or hide the behavior just to remove a few repeated lines.
+- `performance.regressions`: Flag material regressions. Cite the changed path and evidence of its cost.
 
-For example, many tests of `isExpired` do not establish that accepting an expired invitation leaves membership unchanged. That scenario belongs at the application or module public API. An untested private date helper is not itself a finding.
+## Security
 
-## Keep findings useful
+This section is optional. Run it only when explicitly requested. Report clear security defects found in other sections too.
 
-Before emitting a finding, establish:
-
-```text
-changed location -> concrete evidence -> comprehension / rule / behavior impact
-                 -> needed change or focused question
-```
-
-Use simple English. State the problem, its effect, and the needed change, usually in one to three short sentences. Put the file and line in the comment location rather than repeating a long code summary. Add a short snippet only when it clarifies the fix. Do not hand the author a wall of text.
-
-Phrase recommendations as suggestions, not commands. Start the recommendation with “Let's”, “I suggest”, or “I recommend”. State the problem directly and keep its severity clear.
-
-Group repeated instances of one cause. Use the existing severity/status format. A readability problem is not automatically blocking. A clean review can have no change requests. Avoid nitpicks and minor optimizations, even when a deeper audit is requested. Report a material issue only when evidence supports it.
-
-Omit speculative edge cases, hypothetical scale problems, cosmetic preferences, and requests for unrelated hardening. Normal reviews still catch clear correctness defects, exposed secrets, authorization failures, and material performance regressions. An explicit security or performance focus warrants a deeper audit of the requested area, with grounded evidence rather than invented risks. Mark deeper audits `SKIPPED` with a short reason when not warranted; do not claim an audit or executed check that did not happen.
-
-Keep the existing readability, organization, maintainability, and testing sections concise. Put actionable requests in the required local/remote destination with accurate line mappings and model attribution. Preserve human comments. Review permissions, thread handling, and publication rules remain in their workflows.
-
-## Authored examples
-
-These examples are illustrative, not user-supplied artifacts or observations about the current repository:
-
-- “`loadSettings` also saves defaults. I suggest a name that shows the write.”
-- “This handler formats paths and writes records. Let's move that work into the existing store.”
-- “`isComplete` duplicates `status`. I recommend deriving it from the existing field.”
-- “Repeated setup hides this test's action. I suggest the fixture and separate Arrange, Act, and Assert blocks.”
-- “These helper tests do not prove that the report is saved. Let's add an integration scenario through the public API.”
-
-If a public-API test already covers a private helper, do not request a duplicate test. The plan skill lists exact end-to-end/integration scenarios under `Consequences → Testing`. Review tests with the broader priority above. Do not copy lower-level coverage advice into generated plans.
+- `security.defects`: Flag exposed secrets or broken authorization or trust boundaries. Cite the changed location and concrete exposure.

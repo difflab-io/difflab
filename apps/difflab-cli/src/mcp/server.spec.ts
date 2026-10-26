@@ -117,6 +117,7 @@ describe('Difflab MCP over stdio', () => {
         'product-requirements-document',
         'agents',
         'code-review',
+        'code-review-rubric',
         'planning-intent',
         'ui-component-architecture',
         'pull-request-description',
