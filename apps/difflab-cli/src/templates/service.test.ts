@@ -45,6 +45,7 @@ describe('TemplateService', () => {
         'product-requirements-document',
         'agents',
         'code-review',
+        'code-review-rubric',
         'planning-intent',
         'ui-component-architecture',
         'pull-request-description',
@@ -86,11 +87,13 @@ describe('TemplateService', () => {
     const packageContents = JSON.parse(stdout)[0].files.map(({ path }: { path: string }) => path)
 
     expect(packageContents).not.toContain('templates/spec-driven-plan.md')
+    expect(packageContents).not.toContain('templates/code-review-rubric.yaml')
     expect(packageContents).toContain('dist/index.js')
     const built = await readFile(join(packageRoot, 'dist/index.js'), 'utf8')
     expect(built).toContain('Reusable global Agent Skill flow definition')
     expect(built).toContain('Definition SHA-256')
     expect(built).toContain('Source-grounded technical exploration summary')
+    expect(built).toContain('maintainability.complexity')
   })
 
   test('lists and scaffolds templates from a custom source', async () => {

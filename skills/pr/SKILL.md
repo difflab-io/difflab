@@ -24,4 +24,6 @@ This skill describes agent behavior, not a CLI. Interpret the user's ordinary la
 
 This skill handles forge-facing PR/MR actions. The separate [Difflab review skill](../difflab-review/SKILL.md) owns scaffolded `REVIEW.md` creation and its review/address workflow; do not adopt its artifact format or imply that this skill replaces it. No remote mutation is implicit in reading or local review. Report the target URL, action actually completed, checks, and any blocked or partial step. Never claim that a merge or a published comment was rolled back.
 
+Generated review feedback must contain material, evidence-backed issues only. Do not add nits, cosmetic preferences, trivial optimizations, or speculative hardening requests. A clean review can have no findings. Do not invent feedback to fill a review. Preserve user-supplied comments verbatim rather than silently filtering them.
+
 The workflows use the provider references in this skill. No separate forge skill, script, or agent is required.

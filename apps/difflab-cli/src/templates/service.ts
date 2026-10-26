@@ -40,7 +40,8 @@ export class TemplateService {
     path: string,
     filename: string,
   ): Promise<string> {
-    if (!this.source.catalog.some((item) => item.name === name)) {
+    const template = this.source.catalog.find((item) => item.name === name)
+    if (!template) {
       throw new UnknownTemplateError(`Unknown template: ${name}`)
     }
     if (!path.trim() || isAbsolute(path)) {
@@ -50,8 +51,11 @@ export class TemplateService {
       throw new TemplateError('filename must be a single non-empty file name')
     }
     await this.installMissing()
-    const installed = await resolvePath(this.home, join('.difflab', 'templates', `${name}.md`))
-    const contents = await readMarkdown(installed)
+    const installed = await resolvePath(
+      this.home,
+      join('.difflab', 'templates', template.asset ?? `${name}.md`),
+    )
+    const contents = await readTemplate(installed)
     const destination = path.startsWith('.difflab/')
       ? await this.projectDestination(cwd, path.slice('.difflab/'.length), filename)
       : await ensurePathDirsExist(join(path, filename), cwd)
@@ -92,7 +96,7 @@ export class TemplateService {
         if ((await lstat(destination)).isSymbolicLink()) {
           throw new TemplateSourceError(`Installed template asset is a symlink: ${destination}`)
         }
-        await readMarkdown(destination)
+        await readTemplate(destination)
       } catch (error) {
         if (!hasErrorCode(error, 'ENOENT')) throw error
         const content = await readSource(this.source, asset)
@@ -101,7 +105,7 @@ export class TemplateService {
         } catch (writeError) {
           if (!hasErrorCode(writeError, 'EEXIST')) throw writeError
           // Another process installed it first; verify it on the next pass.
-          await readMarkdown(destination)
+          await readTemplate(destination)
         }
       }
     }
@@ -120,7 +124,7 @@ async function readSource(source: TemplateSource, asset: string): Promise<string
   }
 }
 
-async function readMarkdown(path: string): Promise<string> {
+async function readTemplate(path: string): Promise<string> {
   let handle
   try {
     handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)

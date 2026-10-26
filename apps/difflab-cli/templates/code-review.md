@@ -4,6 +4,8 @@
 - **Intent:** [stated objective and source]
 - **Reviewer:** [name]
 
+[Apply root and applicable nested AGENTS.md rules throughout every section. Repository rules take precedence over generic rubric conventions. Cite violations under the relevant section.]
+
 ## Intent Delivery
 
 [Does the change actually deliver the intended behavior? What is missing or outside scope?]
@@ -24,21 +26,17 @@
 
 [Prioritize end-to-end application behavior, then module behavior through public APIs, then focused unit behavior with public APIs first. Name missing observable contracts or regressions; do not demand coverage of every function or a percentage. Check semantic grouping, clear Arrange/Act/Assert blocks, fixtures, and existing shared helpers. Flag walls of repeated setup or interleaved actions/assertions that hide the behavior. Report executed checks and limits honestly.]
 
-## Repository Guidance
-
-[List root/applicable nested AGENTS.md paths and material deviations in changed files. Cite actual rules, including code/test organization and helper placement where prescribed. If none applies or guidance could not be read, say so. Keep this assessment brief.]
-
 ## Performance
 
 [Report material regressions with evidence. Avoid nitpicks and minor optimizations. Deepen the audit for an explicit performance focus. Otherwise mark a deeper audit SKIPPED with a short reason.]
 
 ## Security
 
-[Report clear security defects, including exposed secrets or broken authorization/trust boundaries. Deepen the audit for an explicit security focus; avoid unrelated hardening requests. State SKIPPED with a short reason when a deeper audit is not warranted.]
+[Optional: run this dimension only when explicitly requested, including a security focus. Otherwise state that it was not selected. Report clear security defects discovered by other dimensions without claiming a security audit. Avoid unrelated hardening requests.]
 
 ## Change Requests
 
-Use short comments in simple English. State the problem and its effect directly. Phrase recommendations as suggestions with “Let's”, “I suggest”, or “I recommend”, usually in one to three sentences total. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
+Every generated comment and reply must use simple English and be as short as possible. Include a suggested change when a concrete fix is available. State the issue and its effect directly. Phrase recommendations with “Let's”, “I suggest”, or “I recommend”. Include a short snippet or suggested patch only when it clarifies the fix. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit repeated context, nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
 
 ### [file:line — request]
 
@@ -64,4 +62,5 @@ Use short comments in simple English. State the problem and its effect directly.
 ## Verification and Limits
 
 - **Checks run:** [command and result.]
-- **Not verified:** [environment, path, or behavior not checked.]
+- **Not verified:** [environment, path, behavior, or applicable repository guidance that could not be checked.]
+- **Rubric:** [path to the copied YAML rubric with completed criterion results. Disclose missing, pending, skipped, or stale results.]

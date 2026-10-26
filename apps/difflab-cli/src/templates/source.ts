@@ -1,4 +1,4 @@
-// Bun bundles these text imports; TypeScript cannot resolve markdown modules.
+// Bun bundles these text imports; TypeScript uses the text module declarations.
 
 import specDrivenPlan from '../../templates/spec-driven-plan.md' with { type: 'text' }
 
@@ -11,6 +11,8 @@ import productRequirementsDocument from '../../templates/product-requirements-do
 import agents from '../../templates/agents.md' with { type: 'text' }
 
 import codeReview from '../../templates/code-review.md' with { type: 'text' }
+
+import codeReviewRubric from '../../templates/code-review-rubric.yaml' with { type: 'text' }
 
 import planningIntent from '../../templates/planning-intent.md' with { type: 'text' }
 
@@ -59,6 +61,7 @@ const contents: Record<string, string> = {
   'product-requirements-document.md': productRequirementsDocument,
   'agents.md': agents,
   'code-review.md': codeReview,
+  'code-review-rubric.yaml': codeReviewRubric,
   'planning-intent.md': planningIntent,
   'ui-component-architecture.md': uiComponentArchitecture,
   'pull-request-description.md': pullRequestDescription,
@@ -85,6 +88,7 @@ const contents: Record<string, string> = {
 export type TemplateInfo = {
   name: string
   description: string
+  asset?: string
 }
 
 export type TemplateSource = {
@@ -102,6 +106,11 @@ export const catalog: TemplateInfo[] = [
   { name: 'product-requirements-document', description: 'Product requirements document' },
   { name: 'agents', description: 'Concise repository rules for AGENTS.md' },
   { name: 'code-review', description: 'Thorough code review' },
+  {
+    name: 'code-review-rubric',
+    description: 'YAML code review criteria and per-file results',
+    asset: 'code-review-rubric.yaml',
+  },
   { name: 'planning-intent', description: 'Planning intent for a user to fill in' },
   { name: 'ui-component-architecture', description: 'UI component design and implementation' },
   { name: 'pull-request-description', description: 'Draft pull request description' },
