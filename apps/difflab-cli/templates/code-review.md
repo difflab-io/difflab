@@ -16,7 +16,7 @@
 
 ## Semantic Organization
 
-[Do modules have clear roles and useful public APIs? Identify mixed responsibilities and unclear ownership. Refactor or simplify at the scope needed to make the change understandable, including across files. Keep unrelated work out of scope.]
+[Do modules have clear roles and useful public APIs? Are exported types meaningful for the module role? Are methods and classes easy to discover and use? Identify mixed responsibilities and unclear ownership. Refactor or simplify at the scope needed to make the change understandable, including across files. Keep unrelated work out of scope.]
 
 ## Maintainability
 
@@ -24,7 +24,11 @@
 
 ## Reliability/Testing
 
-[Prioritize end-to-end application behavior, then module behavior through public APIs, then focused unit behavior with public APIs first. Name missing observable contracts or regressions; do not demand coverage of every function or a percentage. Check semantic grouping, clear Arrange/Act/Assert blocks, fixtures, and existing shared helpers. Flag walls of repeated setup or interleaved actions/assertions that hide the behavior. Report executed checks and limits honestly.]
+[Prioritize end-to-end application behavior, then module behavior through public APIs, then focused unit behavior with public APIs first. Flag tests that only verify external dependencies rather than the repository's source behavior or integration contract. Require test names to identify the function or functionality tested and its expected behavior, regardless of grouping style. Name missing observable contracts or regressions; do not demand coverage of every function or a percentage. Check semantic grouping, clear Arrange/Act/Assert blocks, fixtures, and existing shared helpers. Flag walls of repeated setup or interleaved actions/assertions that hide the behavior. Report executed checks and limits honestly.]
+
+## Documentation
+
+[Flag walls of text, complex language, and text that only restates the implementation. Require concise, simple-English explanations. Prefer diagrams when they clarify structures, flows, or relationships better than long prose.]
 
 ## Performance
 

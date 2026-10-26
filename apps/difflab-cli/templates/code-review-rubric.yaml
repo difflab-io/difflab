@@ -1,4 +1,7 @@
 version: 1
+worker_defaults:
+  model: sol
+  reasoning_effort: medium
 review:
   base_revision: null
   head_revision: null
@@ -43,6 +46,12 @@ sections:
         scope: review
         default_severity: consider
         issue: Files or classes break the established architecture or module patterns.
+        results: []
+      - id: organization.api-ergonomics
+        scope: applicable-file
+        applies_when: Added or modified public APIs, exported types, methods, or classes.
+        default_severity: consider
+        issue: Public APIs expose types unrelated to the module role or are hard to discover and use.
         results: []
       - id: organization.new-files
         scope: applicable-file
@@ -94,12 +103,26 @@ sections:
         default_severity: consider
         issue: Required behavior or a meaningful regression lacks test evidence.
         results: []
+      - id: testing.relevance
+        scope: applicable-file
+        applies_when: Added or modified test files.
+        default_severity: consider
+        issue: >-
+          A test verifies external dependency behavior without establishing behavior of the repository's own source code.
+        results: []
+      - id: testing.names
+        scope: applicable-file
+        applies_when: Added or modified test files.
+        default_severity: consider
+        issue: >-
+          A test name does not identify the function or functionality tested and its expected behavior.
+        results: []
       - id: testing.arrange-act-assert
         scope: applicable-file
         applies_when: Added or modified test files.
         default_severity: consider
         issue: >-
-          Test grouping, names, or interleaved setup, actions, and assertions hide the scenario or expected result.
+          Test grouping or interleaved setup, actions, and assertions hide the scenario or expected result.
         results: []
       - id: testing.fixtures
         scope: applicable-file
@@ -107,6 +130,26 @@ sections:
         default_severity: consider
         issue: >-
           Repeated setup, unsuitable fixtures, or recreated shared utilities obscure tests or duplicate existing helpers.
+        results: []
+  - title: Documentation
+    criteria:
+      - id: documentation.conciseness
+        scope: applicable-file
+        applies_when: Added or modified documentation, including documentation comments.
+        default_severity: consider
+        issue: Long, dense, or complex text makes documentation hard to understand.
+        results: []
+      - id: documentation.redundancy
+        scope: applicable-file
+        applies_when: Added or modified documentation, including documentation comments.
+        default_severity: consider
+        issue: Documentation repeats the implementation or other text without adding useful context.
+        results: []
+      - id: documentation.visuals
+        scope: applicable-file
+        applies_when: Added or modified documentation that explains structures, flows, or relationships.
+        default_severity: consider
+        issue: A long textual explanation obscures information that a diagram would make clearer.
         results: []
   - title: Performance
     criteria:
@@ -123,3 +166,5 @@ sections:
         default_severity: blocking
         issue: The change exposes secrets or breaks authorization or a trust boundary.
         results: []
+    worker:
+      reasoning_effort: high

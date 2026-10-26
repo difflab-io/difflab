@@ -49,9 +49,11 @@
 
 ## Delegate each rubric section
 
-The lead reviewer must create one distinct native subagent per enabled section that contains criteria in the scaffolded YAML. The bundled rubric requires six sections: Intent Delivery, Readability, Semantic Organization, Maintainability, Reliability/Testing, and Performance. Security has `optional: true`. Enable it only when the user explicitly requests a security review or security focus. Derive assignments from the actual template, including customized sections. Enable other optional sections only when explicitly requested. Record unselected sections in `review.exclusions` with the reason. Leave their results empty and mark them as not selected in `REVIEW.md`. An unselected optional section is not incomplete work and needs no worker. The lead writes report-only sections such as Findings and Overall Assessment. Do not substitute role-playing or a single worker covering several enabled sections.
+The lead reviewer must create one distinct native subagent per enabled section that contains criteria in the scaffolded YAML. The bundled rubric requires seven sections: Intent Delivery, Readability, Semantic Organization, Maintainability, Reliability/Testing, Documentation, and Performance. Security has `optional: true`. Enable it only when the user explicitly requests a security review or security focus. Derive assignments from the actual template, including customized sections. Enable other optional sections only when explicitly requested. Record unselected sections in `review.exclusions` with the reason. Leave their results empty and mark them as not selected in `REVIEW.md`. An unselected optional section is not incomplete work and needs no worker. The lead writes report-only sections such as Findings and Overall Assessment. Do not substitute role-playing or a single worker covering several enabled sections.
 
-Request an available Opus or Sol model with medium reasoning effort for section workers. If Security is selected, request high reasoning effort for its worker. Use actual model identifiers and reasoning controls exposed by the runtime. Do not invent identifiers or treat a prompt saying “think hard” as a configured reasoning setting. Use a higher-tier model only when the user explicitly requests it. If the required model, reasoning control, or native delegation is unavailable, report the blocker before proceeding. Do not silently change the model policy or claim that the required settings were used.
+Read optional worker settings from the copied template. `worker_defaults` sets defaults for all sections. A section's `worker` mapping overrides individual fields. Both mappings accept `model` and `reasoning_effort`. Resolve each field in this order: explicit user settings, section `worker`, `worker_defaults`, then workflow defaults. Without template settings, use an available Opus or Sol model at medium reasoning effort. Selected Security defaults to high reasoning effort.
+
+Resolve `opus` and `sol` to actual available model identifiers. Use the runtime's reasoning controls. Do not invent identifiers or treat a prompt saying “think hard” as a configured reasoning setting. A template cannot authorize a higher-tier model without an explicit user request. If required settings or native delegation are unavailable, report the blocker. Do not silently substitute settings or claim settings that were not applied.
 
 Run workers concurrently within the runtime's available slots. If slots are limited, run distinct workers in batches or sequentially. Do not drop enabled sections to fit the concurrency limit. In `--bg`, the background lead coordinates these workers. If nested delegation is unavailable, report that limitation instead of skipping the requirement.
 
@@ -136,6 +138,8 @@ Public APIs are the operations available to callers. Follow the architecture the
 
 Request the scope needed to fix the problem, including changes across files. Keep unrelated work out of scope.
 
+Public APIs must make sense for the module's role. Export semantically meaningful types. Methods and classes must be easy to discover and use. Show concrete caller confusion before requesting an API change.
+
 ### Maintainability
 
 Cyclomatic complexity counts independent paths through code. If no measurement was run, describe added decisions without claiming a measured score.
@@ -148,6 +152,10 @@ Do not recommend a dependency solely because a package exists. Establish that it
 
 Prioritize application behavior, then module public APIs, then focused unit behavior. High line or function coverage does not establish application or module contracts.
 
+Tests must establish behavior of the repository's own source code. Trace assertions to that behavior. Flag tests that merely confirm external dependency behavior. Tests can use real dependencies when they establish the repository's own integration contract. Do not replace meaningful integration tests with mocks solely because they use dependencies.
+
+Every test name must identify the function or functionality under test and its expected behavior. Apply this rule regardless of behavior-driven grouping or any other test organization. Grouping style does not excuse a name that hides the subject or expected result.
+
 Do not demand a test per function, a coverage percentage, exported private helpers, or tests of private call sequences. Do not duplicate behavior already established through public APIs.
 
 Test an internal algorithm directly only when its distinct behavioral risk cannot reasonably be isolated through public APIs. Avoid mocks that replace the interaction or result being tested.
@@ -157,3 +165,7 @@ This priority order does not require three test layers for every change. Use exp
 Do not introduce a fixture framework or hide behavior just to remove a few repeated lines. Tests of `isExpired` do not prove that accepting an expired invitation leaves membership unchanged.
 
 The plan skill lists exact end-to-end/integration scenarios under `Consequences → Testing`. Do not copy lower-level coverage advice into generated plans.
+
+### Documentation
+
+Use simple English and short explanations. Flag walls of text and documentation that merely restates code. Keep context that explains intent, constraints, or use. Prefer diagrams when they explain structures, flows, or relationships more clearly than long prose. Do not require a diagram when a short explanation is clearer.

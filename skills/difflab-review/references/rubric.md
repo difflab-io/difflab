@@ -1,44 +1,53 @@
 # Code review rubric
 
-The installed `code-review-rubric` YAML template defines the criteria used for a review. Scaffold it as `rubric.yaml` beside `REVIEW.md`. This guide explains the evidence for each default criterion. Follow [review new](workflows/new.md) for inspection, file and function tags, severity, and result instructions. If an installed template is customized, assess its criteria too.
+Scaffold `code-review-rubric` as `rubric.yaml` beside `REVIEW.md`. The YAML defines issues, scopes, and severity defaults. This guide explains the evidence to record. Follow [review new](workflows/new.md) for worker settings, inspection, results, and publication.
 
 ## Intent Delivery
 
-- `intent.objective` (blocking, review): Flag when the change contradicts its stated intent or omits required behavior. Evidence: Identify the stated requirement and the contradictory or missing behavior.
-- `intent.scope` (consider, review): Flag when the change includes work outside its stated scope. Evidence: Identify the unrelated change and explain why the stated intent does not require it.
+- `intent.objective`: Flag missing or incorrect required behavior. Cite the requirement and the mismatch.
+- `intent.scope`: Flag unrelated changes. Explain why the stated intent does not require them.
 
 ## Readability
 
-- `readability.function-names` (consider, file): Flag when function or other names misrepresent behavior, hide side effects, or break established naming conventions. Evidence: Show the mismatch with actual behavior or the project convention. Suggest a name that reflects what the code does.
-- `readability.structure` (consider, file): Flag when the changed flow is materially hard to follow. Evidence: Identify the confusing flow and the simplification that makes its behavior clear.
+- `readability.function-names`: Flag names that misrepresent behavior or break project conventions. Show the mismatch and suggest a clearer name.
+- `readability.structure`: Flag flows that hide what happens. Identify the confusing part and suggest a simpler flow.
 
 ## Semantic Organization
 
-- `organization.roles` (consider, file): Flag when a module mixes responsibilities or its imports, exports, or public API obscure its role. Evidence: Identify the mixed or unclear responsibilities and the simplification or refactor that clarifies ownership.
-- `organization.architecture` (consider, review): Flag when files or classes break the established architecture or module patterns. Evidence: Cite the project pattern and identify the architectural role that owns the misplaced behavior.
-- `organization.new-files` (consider, applicable-file): Flag when a new file lacks a justified module boundary or contains functions that belong in an existing module. Evidence: Identify the responsibility that warrants a separate file, or name the existing module that owns it. Inspect files with only one or two functions. Function count alone is not a defect. Applies to: Added source files that introduce a module or submodule. A rename alone does not qualify.
-- `organization.file-structure` (consider, file): Flag when a file breaks the project-prescribed structure or declaration order. Evidence: Cite the required section order, declaration groups, or public/private placement and the offending code.
+- `organization.roles`: Flag mixed responsibilities or unclear module roles. Identify the responsibilities and the refactor that clarifies ownership.
+- `organization.architecture`: Flag code that breaks the established architecture. Cite the pattern and the role that owns the behavior.
+- `organization.api-ergonomics`: Flag public types unrelated to the module role or APIs that are hard to discover and use. Show the confusing caller experience and suggest a clearer interface.
+- `organization.new-files`: Flag files without a justified module boundary. Name the existing module that owns the behavior. One or two functions alone do not justify a finding.
+- `organization.file-structure`: Flag file layouts that break project rules. Cite the required section order or declaration placement.
 
 ## Maintainability
 
-- `maintainability.concepts` (consider, review): Flag when new fields, types, wrappers, helpers, dependencies, or layers lack a justified use and add needless complexity. Evidence: Identify the missing use or unnecessary abstraction and the simpler implementation or existing concept.
-- `maintainability.complexity` (consider, applicable-file): Flag when cyclomatic complexity grows without justification from the required behavior. Evidence: Compare changed functions before and after the PR. Identify added decision points and question whether they are necessary. Applies to: Files with added or changed executable functions. For new functions, assess whether the introduced decision paths are justified.
-- `maintainability.utilities` (consider, review): Flag when duplicated state or behavior, or inline work, makes a function harder to read or maintain. Evidence: Show suitable existing state or behavior to reuse, or the self-contained utility to extract. Explain how extraction improves readability or reuse and justify its module placement.
-- `maintainability.packages` (consider, review): Flag when custom code recreates functionality that an established, widely used package suitably provides. Evidence: Identify a suitable package API and the custom behavior it replaces. Explain why it fits the project and its dependencies.
+- `maintainability.concepts`: Flag abstractions without a useful caller or purpose. Identify the unnecessary concept and a simpler alternative.
+- `maintainability.complexity`: Flag unjustified growth in decision paths. Compare changed functions before and after the change. Explain why the added decisions are unnecessary.
+- `maintainability.utilities`: Flag duplication or inline work that obscures a function. Show existing behavior to reuse or a useful utility to extract. Justify its module placement.
+- `maintainability.packages`: Flag custom code that recreates suitable package functionality. Identify the package API and explain why it fits the project.
 
 ## Reliability/Testing
 
-- `testing.correctness` (blocking, file): Flag when the changed code produces incorrect behavior. Evidence: Show the changed location, triggering scenario, and incorrect observable result.
-- `testing.application` (consider, review): Flag when required behavior or a meaningful regression lacks test evidence. Evidence: Name the unverified behavior and useful test boundary. Prioritize real user, CLI, or API scenarios, then module public APIs, then distinct remaining unit behavior.
-- `testing.arrange-act-assert` (consider, applicable-file): Flag when test grouping, names, or interleaved setup, actions, and assertions hide the scenario or expected result. Evidence: Identify the obscured scenario, action, or result. Suggest semantic grouping, concise behavior names, or separate Arrange, Act, and Assert blocks. Applies to: Added or modified test files.
-- `testing.fixtures` (consider, applicable-file): Flag when repeated setup, unsuitable fixtures, or recreated shared utilities obscure tests or duplicate existing helpers. Evidence: Identify the repetition or hidden behavior, existing shared helper, or helper-placement rule. Suggest suitable fixtures or reuse. Applies to: Added or modified tests, fixtures, test setup, or test utility files.
+- `testing.correctness`: Flag incorrect behavior. Record the triggering case, changed location, and wrong result.
+- `testing.application`: Flag required behavior without test evidence. Name the missing scenario and useful test boundary.
+- `testing.relevance`: Flag tests that only confirm dependency behavior. Show which repository behavior the assertions fail to establish. Meaningful integration tests can use real dependencies.
+- `testing.names`: Flag names that omit the tested function or functionality, or its expected behavior. Suggest a name that includes both, regardless of grouping style.
+- `testing.arrange-act-assert`: Flag grouping or interleaved setup, actions, and assertions that hide the scenario. Suggest clear groups or separate Arrange, Act, and Assert blocks.
+- `testing.fixtures`: Flag setup that hides behavior or recreates shared helpers. Identify the repetition, existing helper, or placement rule.
+
+## Documentation
+
+- `documentation.conciseness`: Flag walls of text or complex language. Identify what is hard to understand and suggest shorter, simple-English wording.
+- `documentation.redundancy`: Flag text that repeats code or existing documentation without useful context. Identify the repetition and what the reader actually needs.
+- `documentation.visuals`: Flag long explanations that a diagram would make clearer. Identify the structure, flow, or relationship to show.
 
 ## Performance
 
-- `performance.regressions` (consider, review): Flag when the change causes a material performance regression. Evidence: Show the changed path and concrete evidence of its performance impact.
+- `performance.regressions`: Flag material regressions. Cite the changed path and evidence of its cost.
 
 ## Security
 
-This dimension is optional and runs only when explicitly requested. Other dimensions still report clear security defects that they discover.
+This section is optional. Run it only when explicitly requested. Report clear security defects found in other sections too.
 
-- `security.defects` (blocking, review): Flag when the change exposes secrets or breaks authorization or a trust boundary. Evidence: Show the changed location and concrete evidence of the exposure or broken boundary.
+- `security.defects`: Flag exposed secrets or broken authorization or trust boundaries. Cite the changed location and concrete exposure.
