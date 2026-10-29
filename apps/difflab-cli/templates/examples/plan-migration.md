@@ -18,8 +18,6 @@ Readers should retain access to historical activity while the team changes stora
 
 ### Big Ideas
 
-Write to both stores temporarily, backfill older records with stable IDs, compare counts and ordering, then switch readers behind a reversible flag. Keep the legacy reader authoritative until the new store is verified.
-
 ```mermaid
 flowchart LR
   Writer["Activity writer"] --> Old["Legacy store"]
@@ -59,28 +57,28 @@ readSource = legacy | new            # reversible; legacy remains default
 
 #### Repo Changes
 
-Illustrative paths: `+` new, `~` changed, `*` largest edits. No files are removed.
+Illustrative paths: `[M]` modified, `[A]` added, `[D]` deleted. No files are removed. `writer.ts` and `backfill.ts` contain the largest edits.
 
 ```text
 infra/
-└── activity-store.tf            +   store, credentials, write-failure metrics
+└── [A] activity-store.tf            store, credentials, write-failure metrics
 src/
 └── activity/
-    ├── writer.ts                ~ * dual writes and retries
-    ├── backfill.ts              + * resumable batches and comparison
-    ├── reader.ts                ~   reversible read source
-    ├── migration.spec.ts        +   public API parity and restart scenarios
-    └── history.spec.ts          ~   application history across cutover/rollback
+    ├── [M] writer.ts                dual writes and retries
+    ├── [A] backfill.ts              resumable batches and comparison
+    ├── [M] reader.ts                reversible read source
+    ├── [A] migration.spec.ts        public API parity and restart scenarios
+    └── [M] history.spec.ts          application history across cutover/rollback
 ```
 
 #### Testing
 
 ```text
-end-to-end/
+Application behavior (hypothetical existing suite)
 └── activity history
     ├── write and page history across cutover -> same records and cursors
     └── write after cutover, then roll back -> no lost events
-integration/
+Public module behavior (hypothetical existing suite)
 └── activity storage
     ├── retry a failed destination -> one logical event in each store
     └── interrupt and resume backfill -> same IDs and order; no duplicates
@@ -118,7 +116,7 @@ Dual writes increase latency and allow partial failure. Record discrepancies and
 - [ ] Extend application scenarios in `src/activity/history.spec.ts`: write and read paged history, switch stores, write again, and roll back. Assert the same visible history without lost events; do not assert private helper calls.
 - [ ] Keep dual writes and monitor parity through the rollback window.
 - [ ] Validation
-  - [ ] Run the end-to-end cutover/rollback scenarios, then the storage integration scenarios listed above.
+  - [ ] Run the application cutover/rollback scenarios, then the storage integration scenarios listed above.
   - [ ] Run relevant lint and format checks. This example grants no commit or push permission.
   - [ ] If execution authorizes commits and expects CI, commit the changes and confirm CI is green for that commit.
 

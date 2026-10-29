@@ -7,3 +7,9 @@ A pending pull request review belongs to one account and can contain draft inlin
 Ready transition changes only the pull request draft state and leaves review drafts intact. Use the merge method permitted by branch rules; do not assume a squash commit or subject is valid for a release pipeline. After merging, identify the actual base branch and resulting base SHA. Match post-merge workflow runs to both that SHA and base ref and to the relevant trigger; pull-request validation often tests a synthetic pre-merge commit, not the merged base commit. Inspect check conclusions and failing-run logs. A run for an older base SHA does not establish the merged commit's status. See [merge](../workflows/merge.md).
 
 Official references: [review submission](https://docs.github.com/en/rest/pulls/reviews), [pull requests](https://docs.github.com/en/rest/pulls/pulls), and [workflow runs](https://docs.github.com/en/rest/actions/workflow-runs). Recheck current behavior if the installed tooling or API response differs.
+
+## Native squash merge
+
+For an explicit `--squash`, check repository and branch rules, then request `merge_method: "squash"` through `PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge`. Include the verified expected head as `sha`. The supported CLI equivalent is `gh pr merge <target> --squash --match-head-commit <sha>` without branch deletion. Never use an admin bypass or regular-merge fallback.
+
+Read the merge result and PR state after success. A queued or accepted operation is not proof of a completed merge. Use the resulting base commit SHA to observe base-branch CI. The original feature head is not the squash commit. See the official [merge API](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request).
