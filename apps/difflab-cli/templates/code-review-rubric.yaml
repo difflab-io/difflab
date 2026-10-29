@@ -1,14 +1,15 @@
 version: 1
-worker_defaults:
-  model: sol
-  reasoning_effort: medium
+review_defaults:
+  model_policy: retain-frontier
 review:
   base_revision: null
   head_revision: null
   working_tree: null
   changed_files: []
   exclusions: []
-  section_reviewers: []
+  reviewers: []
+  model_inputs: []
+  model_results: []
 sections:
   - title: Intent Delivery
     criteria:
@@ -28,7 +29,7 @@ sections:
         scope: file
         default_severity: consider
         issue: >-
-          Function or other names misrepresent behavior, hide side effects, or break established naming conventions.
+          Function or other names misrepresent behavior, hide side effects, or violate written naming rules.
         results: []
       - id: readability.structure
         scope: file
@@ -45,7 +46,7 @@ sections:
       - id: organization.architecture
         scope: review
         default_severity: consider
-        issue: Files or classes break the established architecture or module patterns.
+        issue: Files or classes mix responsibilities, obscure ownership, or violate written architecture rules.
         results: []
       - id: organization.api-ergonomics
         scope: applicable-file
@@ -166,5 +167,3 @@ sections:
         default_severity: blocking
         issue: The change exposes secrets or breaks authorization or a trust boundary.
         results: []
-    worker:
-      reasoning_effort: high

@@ -8,13 +8,13 @@ Read this guide for `plan new` and `plan update`. Inspect the relevant code and 
 | --- | --- |
 | Intent | Who needs the outcome and why. |
 | Requirements | Observable behavior, constraints, and explicit non-goals. |
-| Big Ideas | Changed components, processes, and artifacts; decisions and important invariants beside their visuals. |
+| Big Ideas | Diagram-led explanation of changed relationships and flows. Keep decisions and constraints beside each visual. |
 | Infrastructure Changes | Actual hosting, services, deployment, networking, or managed resources. Write `N/A.` if none change. New source modules belong in Repo Changes. |
 | Interfaces | Short commands, signatures, code, or pseudocode showing interactions and contracts, including important failure results. |
-| Consequences | Start with `Repo Changes` and its file tree. Add `Testing` with nested end-to-end/integration scenarios, then trade-offs and compatibility. |
+| Consequences | Start with `Repo Changes` and its file tree. Add `Testing` with checks mapped to existing suites or manual acceptance, then trade-offs and compatibility. |
 | Phases | Ordered, bounded actions with file/module targets and relevant checks. Refer to design contracts rather than repeating them. |
 
-Keep the design sufficient to explain what will change and why. Adding diagrams must not move all useful design detail into a giant implementation checklist. Tasks still need enough local detail to act without the original chat.
+Use short sentences, active voice, and familiar words throughout. Prefer compact diagrams over long Big Ideas prose. Keep only decisions, constraints, and failure rules beside the visuals. Do not repeat the same explanation below a diagram. Keep the design sufficient to explain what will change and why. Adding diagrams must not move all useful design detail into a giant implementation checklist. Tasks still need enough local detail to act without the original chat.
 
 ## Show the change
 
@@ -30,32 +30,30 @@ Start `Consequences` with this shape:
 
 #### Repo Changes
 
-+ new  ~ changed  - removed  * largest edits
+[M] modified  [A] added  [D] deleted
 src/
 └── feature/
-    ├── service.ts   ~ * owns feature policy
-    └── store.ts     +   owns persistence
+    ├── [M] service.ts   owns feature policy (largest edit)
+    └── [A] store.ts     owns persistence
 
 #### Testing
 
-end-to-end/
+Existing suite: src/invitations/service.spec.ts
 └── invitation acceptance
     ├── valid request -> membership appears
-    └── expired request -> rejection; membership unchanged
-integration/
-└── invitation service
+    ├── expired request -> rejection; membership unchanged
     └── save fails -> membership and token changes roll back together
 ```
 
-Group shared path prefixes under parent directories. Do not repeat `feature/` on sibling lines. Use inspected paths for existing files and label proposed paths as new. Include removed files and the largest edits. State when nothing is removed. A selected tree is enough to show meaningful structural changes. Make sure that diagrams, interfaces, the tree, and phases agree.
+Group shared path prefixes under parent directories. Do not repeat `feature/` on sibling lines. Use inspected paths for existing files and label proposed paths as new. Put `[M]`, `[A]`, or `[D]` before each changed filename, including test files. Include removed files and identify the largest edits in a short note. State when nothing is removed. A selected tree is enough to show meaningful structural changes. Make sure that diagrams, interfaces, the tree, and phases agree.
 
 ## Specify the behavior to test
 
-Plans specify end-to-end and integration behavior only. Name the application entry point or public module API, the action, and the expected result. For example, an expired invitation must return a rejection and leave membership unchanged.
+Inspect the actual test setup before proposing checks. Reuse existing suites and fixtures. Do not invent an end-to-end suite, directory, or runner. For skill-only behavior without a harness, label checks as manual acceptance. Add automated tests only for changed observable contracts in existing public APIs. Describe application or integration behavior where the repository can test it. Name the application entry point or public module API, the action, and the expected result. For example, an expired invitation must return a rejection and leave membership unchanged.
 
 Add a `Testing` subsection under `Consequences`, as shown in the example above. Group scenarios by feature and behavior.
 
-Map scenarios to requirements and phase checks. Reuse existing suites and fixtures. Keep Arrange/Act/Assert visible. Assert results, saved state, and visible effects rather than private calls. Do not list every function or chase coverage percentages. Leave smaller test details to implementation and review.
+Map scenarios to requirements and phase checks. Reuse existing suites and fixtures. Keep Arrange/Act/Assert visible in automated tests. Name the real suite path and configured task for each automated group. Keep manual walkthroughs separate from actual live execution evidence. Assert results, saved state, and visible effects rather than private calls. Do not list every function or chase coverage percentages. Leave smaller test details to implementation and review.
 
 Keep commit and green-CI checks when the user expects them, including `plan go --commit`. Use the execution workflow's permissions. If remote CI needs an unauthorized push, report the unmet gate rather than marking it complete.
 

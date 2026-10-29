@@ -12,7 +12,7 @@ Confirm the current checkout's absolute repository root before acting. Use the r
 
 ## Workflows
 
-- `new [--local] [--bg] [focus]`: follow `references/workflows/new.md`.
+- `new [--local] [--bg] [--council [models]] [--adversarial] [focus]`: follow `references/workflows/new.md`.
 - `address [--local] [--bg] [inline requests]`: follow `references/workflows/address.md`.
 - Help or an unclear review request: follow `references/workflows/help.md`.
 
@@ -20,7 +20,15 @@ Read the selected workflow before acting. For `address`, apply [repository rule 
 
 For `new`, read [the review rubric](references/rubric.md). Scaffold both installed templates: `code-review` as `REVIEW.md` and `code-review-rubric` as `rubric.yaml` in the same review directory. Use `REVIEW.md` for the broad assessment and change requests. Fill `rubric.yaml` as the detailed checklist for thorough inspection. It defines criterion IDs, scopes, issues, and default severities. Evidence guidance stays in the rubric guide. For file-scoped criteria, inspect every changed source file and record a result tagged with its path. Tag function findings with file and line locations. Apply the rubric with old/custom review templates too.
 
-Every `new` review requires a distinct native subagent for each enabled rubric section that contains criteria. Read optional `worker_defaults` and section `worker` settings from the template. Follow the workflow's setting precedence. Defaults are Opus or Sol at medium reasoning effort. Security is optional and defaults to high reasoning effort when explicitly requested. Use a higher-tier model only when the user explicitly requests it. Follow the delegation instructions in every mode. The lead reviewer combines results and owns review files and publication.
+One reviewer covers the full enabled rubric. Never create one agent per section or dimension. Keep `--bg` for a complete background review or address run. Council can use one full reviewer per selected model. The lead owns shared checks, aggregate files, and publication.
+
+Keep the selected model when it is an available frontier model, regardless of vendor. Switch the default only when the current model is not frontier. Use actual runtime metadata and available model controls. Explicit user model choices override defaults. Never hard-code Opus/Sol or claim a model switch that did not happen. See [model selection and council](references/workflows/new.md#model-selection-and-council).
+
+Read applicable AGENTS.md files and named style guides. Written rules take precedence over generic preferences. Existing code is context, not a quality standard. Flag material antipatterns even when surrounding code shares them. Do not flag harmless inconsistency with an unwritten convention.
+
+Apply the language instructions to whole reports, council reports, aggregates, comments, and replies. Use short sentences, active voice, and familiar words. State each issue, effect, and useful fix once. Keep detailed coverage in YAML. Link findings from section assessments instead of repeating them. A complete review does not need a long report.
+
+`--council` accepts optional comma-separated model names and fuzzy-matches them to available models. Each model independently reviews the same diff and full rubric. Save template reports and rubrics in `council/`, then aggregate the supported findings. `--adversarial` challenges every dimension, including Security, and can combine with council. Evidence and severity rules still apply.
 
 Every generated review comment and reply must use simple English and be as short as possible. Report only material issues supported by evidence. Include a suggested change when a concrete fix is available. State only the issue, its effect, and the useful fix or question. Phrase recommendations with “Let's”, “I suggest”, or “I recommend”. Omit repeated context, long code summaries, nitpicks, minor optimizations, and speculative hardening requests. Add a snippet only when it makes the fix clearer.
 

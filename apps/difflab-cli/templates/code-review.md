@@ -2,9 +2,10 @@
 
 - **Revision:** [commit or diff]
 - **Intent:** [stated objective and source]
-- **Reviewer:** [name]
+- **Reviewer:** [actual model identity]
+- **Mode:** [normal/adversarial; single model or council with linked model reports]
 
-[Apply root and applicable nested AGENTS.md rules throughout every section. Repository rules take precedence over generic rubric conventions. Cite violations under the relevant section.]
+[Use short sentences, active voice, and familiar words throughout. Keep section assessments brief and link to findings instead of repeating them. Keep detailed criterion coverage in rubric.yaml. Apply AGENTS.md and named style guides. Informal conventions are context, not requirements. Flag material antipatterns even when existing code shares them.]
 
 ## Intent Delivery
 
@@ -12,7 +13,7 @@
 
 ## Readability
 
-[Do names and code structure show what happens? Compare names with behavior, side effects, and callers. Follow language conventions and established codebase patterns. Flag misleading names and flows that are hard to follow.]
+[Do names and code structure show what happens? Compare names with behavior, side effects, and callers. Apply written naming rules. Do not enforce harmless informal patterns. Flag misleading names and flows that are hard to follow.]
 
 ## Semantic Organization
 
@@ -20,7 +21,7 @@
 
 ## Maintainability
 
-[Does the change follow established codebase patterns and applicable AGENTS.md rules? Check new fields, types, helpers, and dependencies against existing code and callers. Reuse suitable code and remove needless complexity.]
+[Does the change remain understandable and maintainable under applicable written rules? Existing antipatterns do not justify new ones. Check new fields, types, helpers, and dependencies against existing code and callers. Reuse suitable code and remove needless complexity.]
 
 ## Reliability/Testing
 
@@ -36,11 +37,11 @@
 
 ## Security
 
-[Optional: run this dimension only when explicitly requested, including a security focus. Otherwise state that it was not selected. Report clear security defects discovered by other dimensions without claiming a security audit. Avoid unrelated hardening requests.]
+[Optional in normal mode: select for a security focus or --adversarial. Adversarial mode challenges all applicable dimensions. Otherwise state that it was not selected. Report clear security defects discovered by other dimensions without claiming a security audit. Avoid unrelated hardening requests.]
 
 ## Change Requests
 
-Every generated comment and reply must use simple English and be as short as possible. Include a suggested change when a concrete fix is available. State the issue and its effect directly. Phrase recommendations with “Let's”, “I suggest”, or “I recommend”. Include a short snippet or suggested patch only when it clarifies the fix. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit repeated context, nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
+State each finding once here, with its issue, effect, and useful fix. Use short, plain-English sentences for the whole report, including generated comments and replies. Include a suggested change when a concrete fix is available. State the issue and its effect directly. Phrase recommendations with “Let's”, “I suggest”, or “I recommend”. Include a short snippet or suggested patch only when it clarifies the fix. Use the scope that fixes the problem, including a refactor when needed. Group repeated instances of one cause. Omit repeated context, nitpicks, minor optimizations, and speculative findings. End each generated request and response with its model attribution quote. Preserve human text unchanged.
 
 ### [file:line — request]
 
@@ -57,7 +58,7 @@ Every generated comment and reply must use simple English and be as short as pos
 
 | Severity | Location | Evidence and impact | Required change or question |
 | --- | --- | --- | --- |
-| [blocking/consider/note] | [file:line] | [reproducible observation] | [concrete action] |
+| [blocking/consider/note] | [file:line] | [short link to Change Request; do not repeat its text] | [short action or link] |
 
 ## Overall Assessment
 
@@ -67,4 +68,5 @@ Every generated comment and reply must use simple English and be as short as pos
 
 - **Checks run:** [command and result.]
 - **Not verified:** [environment, path, behavior, or applicable repository guidance that could not be checked.]
+- **Council:** [source reports, actual model identities, unresolved disagreements, or not selected.]
 - **Rubric:** [path to the copied YAML rubric with completed criterion results. Disclose missing, pending, skipped, or stale results.]

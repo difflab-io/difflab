@@ -2,7 +2,7 @@
 
 1. Make sure that the repository root, initialized `.difflab` store, current branch, and actual diff match the review target. Do not review an empty or unrelated diff.
 
-   With `--bg`, delegate this workflow to a native background subagent with the exact target. For remote mode, grant permission to commit, push, create a draft PR, and post inline findings. For `--local`, grant no remote or commit rights. Return control immediately. If the target is ambiguous, a check fails, or forge access is unavailable, the worker stops and reports the blocker. The worker never asks for permissions during the run. If native background capability is unavailable, report that limit. Do not pretend to start a background review.
+   With `--bg`, delegate this workflow to a native background subagent with the exact target. For remote mode, grant permission to commit, push, create a draft PR, and post inline findings. For `--local`, grant no remote or commit rights. Return control immediately. If the target is ambiguous, a check fails, or forge access is unavailable, the worker stops and reports the blocker. The worker never asks for permissions during the run. The background lead covers the full rubric or coordinates full council reviewers. It must not spawn section agents. If native background capability is unavailable, report that limit. Do not pretend to start a background review.
 
 2. Select the target in this order: an explicit plan or issue, then a unique matching plan, issue, or branch. A focus such as “security” directs review depth. It does not determine the artifact slug, the short name used in its path. Use `YYMMDD-{slug}`.
 
@@ -15,17 +15,17 @@
    scaffold({name:"code-review-rubric",cwd:<absolute repository root>,path:".difflab/reviews/YYMMDD-{slug}",filename:"rubric.yaml"})
    ```
 
-   Read both resulting files. Use the installed rubric template, including its customizations. Do not overwrite either file. If rubric scaffolding fails, stop and report the failure. Do not proceed with a review that lacks the rubric. Fill its results using the instructions below. Do not create a separate CSV. Apply this procedure in foreground and background modes.
+   Before scaffolding, resolve models and modes through [model selection and council](#model-selection-and-council). Preflight all report and rubric destinations, including council files. Read both resulting files. Use the installed rubric template, including its customizations. Do not overwrite either file. If rubric scaffolding fails, stop and report the failure. Do not proceed with a review that lacks the rubric. Fill its results using the instructions below. Do not create a separate CSV. Apply this procedure in foreground and background modes.
 
    Use `REVIEW.md` for the broad assessment, material findings, change requests, and verification results. Use `rubric.yaml` as the detailed checklist that records which criteria and files were inspected. Keep file-level checklist detail out of the prose report unless it explains a finding or limit.
 
-   Select optional sections, then delegate each enabled rubric section using the instructions below before filling its results. This requirement applies to foreground, background, local, and remote reviews. In `--bg`, the background lead must create the section workers too.
+   Select optional sections, then inspect every enabled criterion in the same reviewer. In council mode, repeat the complete inspection for each selected model. Do not delegate dimensions.
 
-   Use the rubric's section criteria to assess the change. Read root and applicable nested `AGENTS.md` files before assessing criteria. Apply their rules throughout every section. When a repository rule differs from a generic rubric convention, use the repository rule. Cite violations under the relevant criterion. Distinguish established conventions from personal preferences. Inspect language conventions, codebase patterns, names, module roles, existing types and helpers, and test fixtures. Request the refactor needed to make unclear code understandable. Fill criterion results with concrete evidence as each inspection finishes. Use default severities as starting points and record any adjustment.
+   Read root and applicable nested AGENTS.md files and named style guides. Written rules override generic preferences. Use existing patterns as context, not as mandatory rules. Flag material defects and antipatterns even when nearby code shares them. Do not demand consistency with poor informal practices or flag harmless differences alone. Each finding needs a written rule or a concrete effect on behavior, comprehension, or maintenance. Keep fixes within the reviewed change.
 
    Assess application behavior first, then module public APIs, then focused unit behavior. Require clear Arrange/Act/Assert blocks. Every comment and reply must use simple English and be as short as possible. Include a suggested change when a concrete fix is available. Each finding needs evidence and an effect on comprehension, rules, or behavior. Use the requested focus to deepen the review. Omit nitpicks and minor optimizations, even during a deeper audit. Do not invent findings or request tests solely because a private function lacks one.
 
-   Fill every applicable section of `REVIEW.md`. Preserve its headings and human text. Do not add a separate section or tally for repository guidance. Do not rewrite installed templates. Record the diff or commit, base and head revisions, intent, reviewer, executed checks, and skipped checks. Keep section assessments concise. Link the completed YAML rubric under `Verification and Limits`. If applicable guidance cannot be read, disclose that limit there.
+   Fill every applicable section of `REVIEW.md`. Preserve its headings and human text. Do not add a separate section or tally for repository guidance. Do not rewrite installed templates. Record the diff or commit, base and head revisions, intent, reviewer, executed checks, and skipped checks. Use one short assessment or a link to a finding per section. State each finding once under Change Requests; use short links in the Findings table. Keep per-file inspection detail in YAML. Use short sentences, active voice, and familiar words throughout. Remove repeated context and long code summaries. Link the completed YAML rubric under `Verification and Limits`. If applicable guidance cannot be read, disclose that limit there.
 
 4. For `--local`, add generated findings under `## Change Requests` in `REVIEW.md`. Do not commit, push, contact a forge, create a PR, or make any remote write. Apply the attribution and reporting rules below without entering the remote steps.
 
@@ -33,7 +33,7 @@
 
    If there are uncommitted changes, create a conventional commit without agent self-attribution. Push the branch. If a commit, push, or check fails, stop before creating a PR or posting findings. Never force-push merely to start a review.
 
-6. Reuse a suitable existing PR. Otherwise, scaffold `pull-request-description` to a distinct file in the review directory, such as `PR-DRAFT.md`. Do not overwrite an existing file. Fill every `{{...}}` placeholder. Open a draft PR from the pushed branch with that file as its body.
+6. Reuse a suitable existing PR without overwriting its description. Otherwise, follow the [PR description contract](../../../pr/references/workflows/draft.md#description-contract). Scaffold the installed `pull-request-description` template to a distinct file such as `PR-DRAFT.md`. Fill Intent, Changes, Validation, Further Work, and References from the actual diff and verified checks. Preserve custom sections. Stop for a missing template or unresolved placeholders. Open a draft with that body, then read it back and compare it with the intended text.
 
    After pushing, read the actual PR diff again. Anchor findings to changed lines in that diff. Do not use stale working-tree lines. Use the forge CLI's authenticated API when needed to post inline change requests on the PR. Never post a finding against an unmapped or outdated diff line.
 
@@ -43,27 +43,55 @@
 
 7. End every generated finding or comment with `> Generated via <actual model name>`. Keep human comments verbatim. If the model name is unavailable, stop before posting comments. Do not guess.
 
-8. Check that every required section worker finished and every required criterion result is filled using the instructions below. Make sure that the review is published and its comments belong to the intended PR threads. Report the exact REVIEW.md and rubric.yaml paths, commit SHA, PR identity, findings, executed checks, skipped checks, and forge or authentication failures. Disclose missing workers and missing, pending, skipped, or stale results instead of claiming a complete review. For `--local`, report the applicable local results without contacting a forge.
+8. Check that every selected model completed the full review and every required criterion result is filled using the instructions below. Make sure that the review is published and its comments belong to the intended PR threads. Report the exact REVIEW.md and rubric.yaml paths, commit SHA, PR identity, findings, executed checks, skipped checks, and forge or authentication failures. Disclose incomplete model passes and missing, pending, skipped, or stale results instead of claiming a complete review. For `--local`, report the applicable local results without contacting a forge.
 
    Do not approve or merge as part of `new`. If publication fails, report the pending review ID. Do not claim that the review is complete. If there are no findings, do not create an empty review or invent comments.
 
-## Delegate each rubric section
+## Model selection and council
 
-The lead reviewer must create one distinct native subagent per enabled section that contains criteria in the scaffolded YAML. The bundled rubric requires seven sections: Intent Delivery, Readability, Semantic Organization, Maintainability, Reliability/Testing, Documentation, and Performance. Security has `optional: true`. Enable it only when the user explicitly requests a security review or security focus. Derive assignments from the actual template, including customized sections. Enable other optional sections only when explicitly requested. Record unselected sections in `review.exclusions` with the reason. Leave their results empty and mark them as not selected in `REVIEW.md`. An unselected optional section is not incomplete work and needs no worker. The lead writes report-only sections such as Findings and Overall Assessment. Do not substitute role-playing or a single worker covering several enabled sections.
+These are natural-language skill options, not new CLI syntax. Resolve capabilities before creating artifacts. Use the runtime's actual selected model and catalog. Retain the selected model if it is frontier. Otherwise select a confirmed available frontier model. Honor explicit user choices first, including non-frontier council models. If frontier status or switching capability is unknown, disclose that limit and ask for a supported choice. In background mode, report it as a blocker. Never replace a selected frontier Gemini or another vendor's model merely because an old template names Sol or Opus.
 
-Read optional worker settings from the copied template. `worker_defaults` sets defaults for all sections. A section's `worker` mapping overrides individual fields. Both mappings accept `model` and `reasoning_effort`. Resolve each field in this order: explicit user settings, section `worker`, `worker_defaults`, then workflow defaults. Without template settings, use an available Opus or Sol model at medium reasoning effort. Selected Security defaults to high reasoning effort.
+The bundled `review_defaults.model_policy: retain-frontier` documents this policy. Record actual model identity, confirmed reasoning setting when available, and status in `review.reviewers`. Do not invent reasoning settings. Legacy `worker_defaults`, section `worker`, and `section_reviewers` fields remain preserved as custom data. They cannot create section agents or override current model policy. Disclose ignored legacy execution settings in Verification and Limits. Preserve custom criteria and unrelated configuration.
 
-Resolve `opus` and `sol` to actual available model identifiers. Use the runtime's reasoning controls. Do not invent identifiers or treat a prompt saying “think hard” as a configured reasoning setting. A template cannot authorize a higher-tier model without an explicit user request. If required settings or native delegation are unavailable, report the blocker. Do not silently substitute settings or claim settings that were not applied.
+Without council, one reviewer inspects all enabled sections. Security stays optional unless explicitly requested. Enable other optional sections on explicit request. Record unselected sections and reasons in `review.exclusions`; leave their results empty. With `--adversarial`, enable every applicable optional dimension, including Security, and challenge all dimensions for defects. Actively look for security faults, semantic gaps, misleading names, unclear flows, missing intent, and reliability or performance problems. Do not invent defects, inflate severity, require a finding count, or demand unrelated hardening.
 
-Run workers concurrently within the runtime's available slots. If slots are limited, run distinct workers in batches or sequentially. Do not drop enabled sections to fit the concurrency limit. In `--bg`, the background lead coordinates these workers. If nested delegation is unavailable, report that limitation instead of skipping the requirement.
+### Resolve names before starting
 
-Give each worker the same repository root, base and head revisions, working-tree state, changed-file inventory, intent, focus, and applicable guidance. Give it its assigned section, criterion definitions, the evidence guide, and these result and comment instructions. Each worker owns only the inspection of its assigned section. It must inspect every file required by the criterion scopes and return results with evidence, exclusions, file/function locations, and concise suggested changes.
+For `--council model-a,model-b`, split on commas and trim whitespace. Match each input against the actual available model catalog:
 
-Workers are not alone in the checkout. They must not edit source, change either shared review file, revert others' edits, commit, push, create a PR, or publish comments. They return their results to the lead. The lead coordinates project checks and gives workers any check results needed for their assessments. Workers must report unverified behavior honestly.
+1. Prefer an exact identifier or known alias after normalizing case, spaces, and punctuation.
+2. Accept a clear fuzzy match, including a minor typo. People need not provide exact identifiers. Do not merge distinct version or tier identifiers during normalization.
+3. If several candidates remain plausible, show them and ask. In background mode, report the ambiguity instead. Do not silently choose the first or cheapest candidate.
+4. Record each supplied name and its resolved actual identity in `review.model_inputs`. Reject empty entries, duplicate resolved identities, unavailable models, and unsupported invocation capabilities before starting.
 
-Record worker assignments and outcomes in `review.section_reviewers` in the copied YAML. For each section, record its title, agent identity, actual model, actual reasoning setting, and completion status. Do not claim settings that the runtime cannot confirm. A worker must report its actual model identity for generated-comment attribution.
+A bare `--council` selects all distinct frontier models that the runtime confirms are available and invokable. Record that list before inspection. If fewer than two are available, report insufficient council capability. An explicit one-model list is valid; disclose that it requests one perspective.
 
-The lead waits for every assigned worker, combines its results into the shared checklist, and verifies proposed findings against the diff. Group duplicate findings from different sections while preserving each criterion's result. Resolve conflicting assessments using evidence. Return missing or unsupported results to the assigned worker for completion. If the diff changes, send affected work back to the relevant section workers before publication. Do not claim a completed review while an enabled section's worker is missing or incomplete.
+### Run complete independent passes
+
+Use one full reviewer per model. Native model agents are allowed for council, including under a background lead. Run concurrently when supported or in batches when slots are limited. Do not split a model's rubric by dimension. Give each reviewer the same repository root, base/head revisions, working-tree snapshot, changed-file inventory, intent, guidance, rubric definitions, focus, and mode. Do not give it prior council findings.
+
+Scaffold the installed `code-review` and `code-review-rubric` templates for every pass:
+
+```text
+.difflab/reviews/YYMMDD-<slug>/
+├── [A] REVIEW.md
+├── [A] rubric.yaml
+└── [A] council/
+    ├── [A] <actual-model>.md
+    └── [A] <actual-model>.rubric.yaml
+```
+
+Use the resolved actual model name, not the fuzzy input, as the filename stem. Keep safe stems unchanged. For unsafe names, encode UTF-8 bytes outside `[A-Za-z0-9._-]` as `%HH`; encode `%` too. Encode a stem equal to `.` or `..` in full. Record the mapping in `review.model_inputs`. Reject filesystem name collisions, including case-insensitive collisions, before scaffolding. Never follow a model name outside `council/` or overwrite an existing report. If the filesystem cannot store a name, stop and report it.
+
+Each model reviewer owns only its own report and rubric. Reviewers are not alone in the checkout. They must not edit source, shared reports, another reviewer's work, or revert others' changes. They cannot commit, push, or publish. The lead coordinates shared checks and publication. Every model records actual identity and completion state. If the runtime cannot invoke a selected model, stop without pretending to run it or silently substituting another. If direct model switching is used, restore the caller's selection when possible and disclose failures.
+
+### Aggregate and publish once
+
+Wait for every requested pass. Keep completed artifacts after a failure, mark the aggregate incomplete, and stop before publication. Group findings by root cause and affected behavior. Verify each claim against the same diff. A supported finding from one model stays eligible without majority agreement. Resolve disagreements through evidence and record unresolved claims as limits.
+
+Fill the top-level report and rubric from verified pass results. Preserve links to source reports, per-model criterion coverage, and actual model provenance. In the aggregate rubric, use `model_results` with each model's rubric path and completion state. Do not mark aggregate criteria complete while a required pass lacks coverage. Attribute each report to its actual model and synthesized comments to the model that writes them, using the skill's attribution rule unless the user explicitly overrides it.
+
+Re-read the actual diff after any check, commit, or push that can change evidence. Update the changed-file inventory and repeat affected inspections for every selected model before publication. Publish the aggregate findings once through the lead's authorized remote workflow. Do not post each council report separately. Review address acts on aggregate requests once.
 
 ## Fill the copied rubric
 
@@ -114,7 +142,7 @@ Use the shortest simple-English wording that preserves the problem and useful fi
 
 Group repeated instances of one cause. Keep severity clear and justify it by demonstrated impact. A readability issue is not automatically blocking. Preserve human comments. Base the overall recommendation on material findings and known limits. Keep the section assessments and overall recommendation concise. A clean review can have no change requests.
 
-Run the optional Security dimension when explicitly requested. Deepen performance audits when explicitly requested. Record any unperformed requested audit as a limit. If Security is not selected, say so without claiming a security audit or marking the review incomplete. Still report clear security defects discovered during other inspections. If a deeper performance audit is not warranted, mark that audit `SKIPPED` with a reason. Record actual commands and results. Distinguish code inspection from executed checks and measurements.
+Run the optional Security dimension for an explicit security focus or --adversarial. Deepen performance audits for an explicit performance focus or --adversarial. Record any unperformed requested audit as a limit. If Security is not selected, say so without claiming a security audit or marking the review incomplete. Still report clear security defects discovered during other inspections. If a deeper performance audit is not warranted, mark that audit `SKIPPED` with a reason. Record actual commands and results. Distinguish code inspection from executed checks and measurements.
 
 These examples illustrate the rubric. They are not findings about this repository:
 
@@ -134,7 +162,7 @@ A comprehension finding does not require a runtime bug. Explain the effect on th
 
 ### Semantic Organization
 
-Public APIs are the operations available to callers. Follow the architecture the project uses. For example, in Model-View-Controller (MVC), responsibilities belong to models, views, or controllers. Do not impose MVC on a project that does not use it.
+Public APIs are the operations available to callers. Use the architecture as context. Follow written project rules, but flag material role or ownership problems even when existing code shares them. For example, in Model-View-Controller (MVC), responsibilities belong to models, views, or controllers. Do not impose MVC on a project that does not use it.
 
 Request the scope needed to fix the problem, including changes across files. Keep unrelated work out of scope.
 
@@ -164,7 +192,7 @@ This priority order does not require three test layers for every change. Use exp
 
 Do not introduce a fixture framework or hide behavior just to remove a few repeated lines. Tests of `isExpired` do not prove that accepting an expired invitation leaves membership unchanged.
 
-The plan skill lists exact end-to-end/integration scenarios under `Consequences → Testing`. Do not copy lower-level coverage advice into generated plans.
+The plan skill lists behavior checks under `Consequences → Testing`, using existing suites or clearly labeled manual checks. Do not copy lower-level coverage advice into generated plans.
 
 ### Documentation
 

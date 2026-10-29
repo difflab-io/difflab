@@ -68,7 +68,13 @@ Ask your agent in chat. These phrases are skill requests, not `difflab` shell co
 - “PoC init cache-test” or “PoC new compare cache stores.” The agent uses an isolated `poc/*` branch and records its base commit in the branch README.
 - “PoC freeze.” The agent tags the experiment and asks before it deletes the local and remote branches.
 
-`--bg` runs a workflow in a background agent. For remote review, it authorizes commits, pushes, draft pull requests, verified inline comments, and eligible thread resolutions without another permission prompt. If a target or permission is unclear, the worker stops and reports the problem. `--local` makes no remote changes and does not commit.
+`--bg` runs a whole workflow in a background agent. Reviews use one reviewer for all rubric dimensions. They retain the selected frontier model regardless of vendor.
+
+`review new --council` selects available frontier models; `--council model-a,model-b` accepts aliases and clear typos. Ambiguous names need a choice. Each council model reviews the full diff independently, with reports under `council/` and one aggregate review. Add `--adversarial` to challenge all dimensions, including Security. Reports use short, plain-English findings and keep detailed coverage in YAML.
+
+For remote review, `--bg` authorizes commits, pushes, draft pull requests, verified inline comments, and eligible thread resolutions without another permission prompt. If a target or permission is unclear, the worker stops and reports the problem. `--local` makes no remote changes and does not commit.
+
+`pr new`, create, open, and draft use the installed Difflab pull-request-description template. They fill Intent, Changes, Validation, Further Work, and References before creation. `pr merge --squash` selects the forge’s native squash merge; it never merges first and cleans up history afterward.
 
 Plans, reviews, and explorations live under `.difflab/plans/`, `.difflab/reviews/`, and `.difflab/explore/`. They are local project-store files. ADRs live in numbered directories under the tracked `adr/` directory. PoC branches replace the root README with the experiment README and provide mise tasks for build, tests, and each prototype. The skills require focused modules, simple code, and minimal examples; no forge merge gate is needed.
 
