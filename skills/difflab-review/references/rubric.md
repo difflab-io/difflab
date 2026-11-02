@@ -1,6 +1,8 @@
 # Code review rubric
 
-Scaffold `code-review-rubric` as `rubric.yaml` beside `REVIEW.md`. The YAML defines issues, scopes, and severity defaults. This guide explains the evidence to record. Follow [review new](workflows/new.md) for worker settings, inspection, results, and publication.
+Scaffold `code-review-rubric` as `rubric.yaml` beside `REVIEW.md`. The YAML defines issues, scopes, and severity defaults. This guide explains the evidence to record. Follow [review new](workflows/new.md) for model selection, inspection, results, and publication.
+
+Written AGENTS.md rules and named style guides take precedence over generic preferences. Informal patterns are context, not requirements. Flag material defects even when existing code shares them. A harmless difference alone is not a finding. Use plain English throughout the report; keep detailed coverage here in YAML, not repeated prose.
 
 ## Intent Delivery
 
@@ -9,13 +11,13 @@ Scaffold `code-review-rubric` as `rubric.yaml` beside `REVIEW.md`. The YAML defi
 
 ## Readability
 
-- `readability.function-names`: Flag names that misrepresent behavior or break project conventions. Show the mismatch and suggest a clearer name.
+- `readability.function-names`: Flag names that misrepresent behavior, confuse callers, or violate written naming rules. Show the mismatch and suggest a clearer name.
 - `readability.structure`: Flag flows that hide what happens. Identify the confusing part and suggest a simpler flow.
 
 ## Semantic Organization
 
 - `organization.roles`: Flag mixed responsibilities or unclear module roles. Identify the responsibilities and the refactor that clarifies ownership.
-- `organization.architecture`: Flag code that breaks the established architecture. Cite the pattern and the role that owns the behavior.
+- `organization.architecture`: Flag mixed responsibilities, unclear ownership, or violations of written architecture rules. Show the affected role and concrete effect; existing antipatterns do not excuse the defect.
 - `organization.api-ergonomics`: Flag public types unrelated to the module role or APIs that are hard to discover and use. Show the confusing caller experience and suggest a clearer interface.
 - `organization.new-files`: Flag files without a justified module boundary. Name the existing module that owns the behavior. One or two functions alone do not justify a finding.
 - `organization.file-structure`: Flag file layouts that break project rules. Cite the required section order or declaration placement.
@@ -29,11 +31,13 @@ Scaffold `code-review-rubric` as `rubric.yaml` beside `REVIEW.md`. The YAML defi
 
 ## Reliability/Testing
 
+Prefer outside-in testing (`e2e` > `integration` > `unit`). Treat verbose AI-generated unit tests with the least trust. Encourage BDD/Gherkin-style test organization (`given`/`when`/`then` or nested `describe`/`it`) so coverage is easy to understand, and strongly prefer human-verifiable outputs for end-to-end and integration tests (snapshots, test logs, JSON request/response outputs).
+
 - `testing.correctness`: Flag incorrect behavior. Record the triggering case, changed location, and wrong result.
-- `testing.application`: Flag required behavior without test evidence. Name the missing scenario and useful test boundary.
-- `testing.relevance`: Flag tests that only confirm dependency behavior. Show which repository behavior the assertions fail to establish. Meaningful integration tests can use real dependencies.
+- `testing.application`: Flag required behavior without outside-in test evidence (`e2e` > `integration` > `unit`), or end-to-end/integration tests that lack human-verifiable outputs such as snapshots, test logs, or JSON outputs. Name the missing scenario, test boundary, or verifiable artifact.
+- `testing.relevance`: Flag verbose AI-generated unit tests that pad coverage without proving real contracts, or tests that only confirm external dependency behavior. Show which repository behavior the assertions fail to establish. Meaningful integration tests can use real dependencies.
 - `testing.names`: Flag names that omit the tested function or functionality, or its expected behavior. Suggest a name that includes both, regardless of grouping style.
-- `testing.arrange-act-assert`: Flag grouping or interleaved setup, actions, and assertions that hide the scenario. Suggest clear groups or separate Arrange, Act, and Assert blocks.
+- `testing.arrange-act-assert`: Flag disorganized unit tests or interleaved setup, actions, and assertions that hide coverage. Suggest BDD/Gherkin-style organization (`given`/`when`/`then` or nested `describe`/`it`) with separate Arrange, Act, and Assert blocks.
 - `testing.fixtures`: Flag setup that hides behavior or recreates shared helpers. Identify the repetition, existing helper, or placement rule.
 
 ## Documentation
@@ -48,6 +52,6 @@ Scaffold `code-review-rubric` as `rubric.yaml` beside `REVIEW.md`. The YAML defi
 
 ## Security
 
-This section is optional. Run it only when explicitly requested. Report clear security defects found in other sections too.
+This section is optional. Run it when explicitly requested, including through `--adversarial`. Report clear security defects found in other sections too.
 
 - `security.defects`: Flag exposed secrets or broken authorization or trust boundaries. Cite the changed location and concrete exposure.

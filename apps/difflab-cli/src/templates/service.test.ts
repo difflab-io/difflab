@@ -195,6 +195,96 @@ describe('TemplateService', () => {
     expect(await readFile(file, 'utf8')).toBe(customized)
   })
 
+  test('scaffoldFromTemplate keeps council reports and rubric results independent', async () => {
+    // Arrange
+    await configureGitRepo()
+    const store = join(userPaths(home).projects, 'DIFFLAB', 'github.com--example--repo')
+    await mkdir(store, { recursive: true })
+    await symlink(store, join(cwd, '.difflab'))
+    const reviewPath = '.difflab/reviews/261029-council'
+    const outputs: { report: string; rubric: string }[] = []
+
+    // Act: scaffold an aggregate and two complete model passes through the public API.
+    for (const [path, stem] of [
+      [reviewPath, 'REVIEW'],
+      [`${reviewPath}/council`, 'fixture-model-a'],
+      [`${reviewPath}/council`, 'fixture-model-b'],
+    ]) {
+      const report = await service.scaffoldFromTemplate('code-review', cwd, path, `${stem}.md`)
+      const rubric = await service.scaffoldFromTemplate(
+        'code-review-rubric',
+        cwd,
+        path,
+        stem === 'REVIEW' ? 'rubric.yaml' : `${stem}.rubric.yaml`,
+      )
+      outputs.push({ report, rubric })
+    }
+    const firstPass = parse(await readFile(outputs[1].rubric, 'utf8'))
+    firstPass.review.reviewers = [{ model: 'fixture-model-a', status: 'complete' }]
+    firstPass.sections[0].criteria[0].results = [
+      { file: null, status: 'PASS', evidence: 'Fixture intent is satisfied.', finding: null },
+    ]
+    await writeFile(outputs[1].rubric, stringify(firstPass))
+
+    // Assert
+    for (const { report } of outputs) {
+      expect(await readFile(report, 'utf8')).toContain('## Change Requests')
+      expect(await readFile(report, 'utf8')).toContain('## Verification and Limits')
+    }
+    expect(outputs[1].report).toBe(join(store, 'reviews/261029-council/council/fixture-model-a.md'))
+    for (const index of [0, 2]) {
+      const untouched = parse(await readFile(outputs[index].rubric, 'utf8'))
+      expect(untouched.review.reviewers).toEqual([])
+      expect(untouched.sections[0].criteria[0].results).toEqual([])
+    }
+    await expectFailureWith(
+      service.scaffoldFromTemplate(
+        'code-review',
+        cwd,
+        `${reviewPath}/council`,
+        'fixture-model-a.md',
+      ),
+      'Destination already exists',
+    )
+    expect(parse(await readFile(outputs[1].rubric, 'utf8'))).toEqual(firstPass)
+  })
+
+  test('scaffoldFromTemplate uses the installed customized PR description without replacing it', async () => {
+    // Arrange
+    await service.listTemplates()
+    const installed = join(home, '.difflab/templates/pull-request-description.md')
+    const customized = `${await readFile(installed, 'utf8')}\n## Deployment\n\n{{deployment}}\n`
+    await writeFile(installed, customized)
+
+    // Act
+    const draft = await service.scaffoldFromTemplate(
+      'pull-request-description',
+      cwd,
+      'drafts',
+      'PR-DRAFT.md',
+    )
+    await service.listTemplates()
+
+    // Assert
+    expect(await readFile(draft, 'utf8')).toBe(customized)
+    expect(await readFile(installed, 'utf8')).toBe(customized)
+    for (const section of [
+      'Intent',
+      'Changes',
+      'Validation',
+      'Further Work',
+      'References',
+      'Deployment',
+    ]) {
+      expect(await readFile(draft, 'utf8')).toContain(`## ${section}`)
+    }
+    await expectFailureWith(
+      service.scaffoldFromTemplate('pull-request-description', cwd, 'drafts', 'PR-DRAFT.md'),
+      'Destination already exists',
+    )
+    expect(await readFile(draft, 'utf8')).toBe(customized)
+  })
+
   test('scaffolds inside an initialized project symlink without following other symlinks', async () => {
     // Arrange
     await configureGitRepo()

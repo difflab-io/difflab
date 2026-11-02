@@ -18,8 +18,6 @@ Project owners need to invite teammates without sharing credentials. Recipients 
 
 ### Big Ideas
 
-Keep invitation policy in the service and transport concerns in the handler. Store a single-use token hash, project, recipient, and expiry. Use the existing mail queue; no new service is needed.
-
 ```mermaid
 flowchart LR
   HTTP["HTTP handler"] --> Service["Invitation service<br/>eligibility and acceptance"]
@@ -27,7 +25,7 @@ flowchart LR
   Service --> Queue["Existing mail queue"]
 ```
 
-Acceptance adds membership and consumes the invitation in one transaction. Invalid acceptance leaves both unchanged. Queue delivery after saving, so an email outage cannot lose an invitation.
+Store only the token hash. Save before queueing delivery. An email outage must not lose the invitation.
 
 ```mermaid
 flowchart TD
@@ -57,34 +55,37 @@ Never log raw tokens. Apply the existing request rate limit to creation; do not 
 
 #### Repo Changes
 
-Illustrative paths: `+` new, `~` changed, `*` largest edits. No files are removed.
+Illustrative paths: `[M]` modified, `[A]` added, `[D]` deleted, `[R]` renamed. No files are removed or renamed. `service.ts` contains the largest edits.
 
 ```text
 src/
 ├── invitations/
-│   ├── store.ts               +   persistence and transaction
-│   ├── service.ts             + * invitation policy
-│   └── service.spec.ts        +   public API with real test store
+│   ├── [A] store.ts               persistence and transaction
+│   ├── [A] service.ts             invitation policy
+│   └── [A] service.spec.ts        public API with real test store
 └── http/
-    ├── routes.ts              ~   register invitation handlers
-    ├── invitations.ts         +   transport and authorization
-    └── invitations.spec.ts    +   application request scenarios
+    ├── [M] routes.ts              register invitation handlers
+    ├── [A] invitations.ts         transport and authorization
+    └── [A] invitations.spec.ts    application request scenarios
 ```
 
 #### Testing
 
 ```text
-end-to-end/
-└── invitation acceptance
-    ├── owner sends invite -> recipient accepts -> membership appears
-    └── wrong recipient, expired, or used token -> rejection; state unchanged
-integration/
-└── invitation service
-    ├── failed transaction -> membership and token changes roll back
-    └── email failure -> saved invitation stays pending for retry
+src/
+├── http/
+│   └── [A] invitations.spec.ts (application behavior)
+│       └── [A] describe invitation endpoints
+│           ├── [A] given an owner invite, when recipient accepts, then membership appears
+│           └── [A] given a wrong recipient or expired/used token, when accepted, then it rejects without changing state
+└── invitations/
+    └── [A] service.spec.ts (public module behavior)
+        └── [A] describe invitation service
+            ├── [A] given a failed transaction, when accepting, then membership and token changes roll back
+            └── [A] given an email failure, when creating, then the saved invitation stays pending for retry
 ```
 
-Use request scenarios in `src/http/invitations.spec.ts` and service scenarios in `src/invitations/service.spec.ts`. Reuse fixtures with a real test store.
+Use BDD-style nested `given`/`when`/`then` scenarios in `src/http/invitations.spec.ts` and `src/invitations/service.spec.ts`. Reuse fixtures with a real test store.
 
 #### Trade-offs
 
@@ -107,7 +108,7 @@ Email delivery can fail after persistence. Use existing queue retries and keep t
 - [ ] Queue delivery after persistence, retry transient mail failures, and expose the pending state to owners.
 - [ ] In `src/http/invitations.spec.ts`, send an owner invitation, accept as its recipient, and read back membership. Verify wrong-recipient, expired, and used-token requests leave state unchanged. Verify an email failure keeps the saved invitation pending.
 - [ ] Validation
-  - [ ] Run the end-to-end acceptance/rejection scenarios, then the service integration scenarios listed above.
+  - [ ] Run the application acceptance/rejection scenarios, then the service integration scenarios listed above.
   - [ ] Run relevant lint and format checks. This example grants no commit or push permission.
   - [ ] If execution authorizes commits and expects CI, commit the changes and confirm CI is green for that commit.
 

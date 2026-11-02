@@ -29,6 +29,7 @@
 
 - Use soft wraps for Markdown prose. Keep each paragraph on one source line and let the editor wrap it for display.
 - Keep line breaks that define code blocks, diagrams, file trees, tables, lists, and other Markdown structure.
+- [Proposed] Keep skill and agent instructions imperative, terse, and instructional; do not write them as historical logs.
 
 ### TypeScript
 
@@ -43,3 +44,6 @@
 - Put tests that depend on external services in an `e2e` directory outside application and library source trees.
 - Keep each test readable with separate Arrange, Act, and Assert steps.
 - Put generic shared test utilities in `src/extensions`.
+- [Proposed] Prefer outside-in testing (`e2e` > `integration` > `unit`) over verbose AI-generated unit tests.
+- [Proposed] Organize tests in BDD/Gherkin style with nested `given`/`when`/`then` or `it` clauses so coverage is easy to read.
+- [Proposed] Prefer human-verifiable test outputs for end-to-end and integration tests, such as snapshots, test logs, or JSON request/response outputs.

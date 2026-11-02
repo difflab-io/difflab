@@ -9,3 +9,9 @@ Current GitLab documentation describes a `requested_changes` review state on dra
 After merging, resolve the resulting base branch SHA and match base-branch pipelines to that SHA and ref. Merge-request and merged-results pipelines are not necessarily post-merge pipelines. Surface pipeline URLs and failing job logs, and distinguish no configured pipeline from one that has not appeared yet. See [merge](../workflows/merge.md).
 
 Official references: [draft notes API](https://docs.gitlab.com/api/draft_notes/), [merge request reviews](https://docs.gitlab.com/user/project/merge_requests/reviews/), and [pipelines API](https://docs.gitlab.com/api/pipelines/). Recheck current instance documentation before using version-dependent operations.
+
+## Native squash merge
+
+For an explicit `--squash`, check project squash options and the instance's merge capability. Request `squash: true` through `PUT /projects/:id/merge_requests/:merge_request_iid/merge`, with the verified expected source `sha`. Do not request source-branch deletion. Stop if project policy prohibits squash or the instance cannot apply it. Never substitute a regular merge followed by history cleanup.
+
+After completion, read merged state, `squash_commit_sha`, and `merge_commit_sha`. Project merge policy can create a merge commit in addition to the squash commit. Identify the actual resulting target-branch commit from the completed operation and observe CI for that SHA/ref, not the intermediate squash commit when a separate merge commit exists. Never change project merge policy implicitly. See the official [merge operation](https://docs.gitlab.com/api/merge_requests/#merge-a-merge-request).
