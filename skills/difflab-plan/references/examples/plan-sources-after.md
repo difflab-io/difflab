@@ -190,22 +190,22 @@ The metadata tree lives outside the repository. Phase 3 also changes eleven loca
 
 ```text
 end-to-end/
-├── source capture
-│   ├── create draft from raw inputs -> article, records, and indexes agree
-│   └── update draft -> both evidence events and shared links remain
-├── dream maintenance
-│   ├── improve, merge, or deprecate -> exact change links to original evidence
-│   └── dry run -> proposal only; articles and metadata stay unchanged
-└── wiki navigation
-    ├── fresh load -> every folder starts collapsed
-    └── expand nested folders -> labels and article links work
+├── [A] source capture (packages/diffwiki-cli/tests/meta.e2e.test.ts)
+│   ├── [A] given raw inputs, when creating a draft, then article, records, and indexes agree
+│   └── [A] given an existing draft, when updated, then both evidence events and shared links remain
+├── [A] dream maintenance (packages/diffwiki-cli/tests/meta.e2e.test.ts)
+│   ├── [A] given source records, when dream improves/merges/deprecates, then changes link to original evidence
+│   └── [A] given dry-run mode, when dream runs, then articles and metadata stay unchanged
+└── [M] wiki navigation (apps/wiki/tests/e2e/client-nav.spec.ts)
+    ├── [A] given a fresh load, when rendered, then every folder starts collapsed
+    └── [M] given collapsed folders, when expanded, then nested labels and article links work
 integration/
-├── metadata public APIs
-│   ├── nested MD/MDX and index/README targets -> exact mirrored paths
-│   ├── setup and reindex retries -> records and human notes stay intact
-│   └── content save followed by metadata failure -> saved path and repair step
-└── title update API
-    └── title-only or combined update -> path and untouched bytes preserved
+├── [A] metadata public APIs (packages/diffwiki-core/tests/meta.test.ts)
+│   ├── [A] given nested MD/MDX and index/README targets, when initialized, then paths mirror exactly
+│   ├── [A] given existing records and human notes, when reindexed, then notes stay intact
+│   └── [A] given a metadata failure after content save, when caught, then saved path and repair step return
+└── [M] title update API (packages/diffwiki-core/tests/content-model.test.ts)
+    └── [A] given a title-only or combined update, when saved, then path and untouched bytes are preserved
 ```
 
 Use temporary homes and real content roots for capture and metadata scenarios. Compare saved evidence and article bytes through public APIs. Use the rendered app for navigation scenarios.

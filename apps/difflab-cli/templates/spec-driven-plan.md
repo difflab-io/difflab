@@ -31,11 +31,11 @@
 
 #### Repo Changes
 
-[Start with a selected file tree: [M] modified, [A] added, [D] deleted before changed filenames, including tests. Identify the largest edits in a short note. Include new modules and meaningful structural changes. Use real inspected paths; label proposed files. State when nothing is removed.]
+[Start with a selected file tree: [M] modified, [A] added, [D] deleted, [R] renamed before changed filenames, including tests. Identify the largest edits in a short note. Include new modules and meaningful structural changes. Use real inspected paths; label proposed files. State when nothing is removed.]
 
 #### Testing
 
-[Inspect the actual test setup first. Show a nested outline of behavior checks mapped to existing suites and configured tasks. Label skill checks without a harness as manual acceptance. Do not invent an end-to-end suite or runner. Name the entry point, input/action, and expected result for each scenario. Reuse existing fixtures and suites. Match the scenarios to requirements and phase checks.]
+[Inspect the actual test setup first. Show a nested outline of behavior checks mapped to existing suites and configured tasks, using [M], [A], [D], or [R] notation on suites and scenarios just like Repo Changes. Prefer BDD-style test organization with nested given/when/then or it clauses. Label skill checks without a harness as manual acceptance. Do not invent an end-to-end suite or runner. Name the entry point, input/action, and expected result for each scenario. Reuse existing fixtures and suites. Match the scenarios to requirements and phase checks.]
 
 #### Trade-offs
 

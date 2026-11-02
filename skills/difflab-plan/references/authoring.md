@@ -30,7 +30,7 @@ Start `Consequences` with this shape:
 
 #### Repo Changes
 
-[M] modified  [A] added  [D] deleted
+[M] modified  [A] added  [D] deleted  [R] renamed
 src/
 └── feature/
     ├── [M] service.ts   owns feature policy (largest edit)
@@ -38,22 +38,24 @@ src/
 
 #### Testing
 
-Existing suite: src/invitations/service.spec.ts
-└── invitation acceptance
-    ├── valid request -> membership appears
-    ├── expired request -> rejection; membership unchanged
-    └── save fails -> membership and token changes roll back together
+src/
+└── invitations/
+    └── [M] service.spec.ts
+        └── [A] describe invitation acceptance
+            ├── [A] given a valid invite, when accepted, then membership appears
+            ├── [A] given an expired invite, when accepted, then it rejects without changing membership
+            └── [A] given a save failure, when accepted, then membership and token changes roll back together
 ```
 
-Group shared path prefixes under parent directories. Do not repeat `feature/` on sibling lines. Use inspected paths for existing files and label proposed paths as new. Put `[M]`, `[A]`, or `[D]` before each changed filename, including test files. Include removed files and identify the largest edits in a short note. State when nothing is removed. A selected tree is enough to show meaningful structural changes. Make sure that diagrams, interfaces, the tree, and phases agree.
+Group shared path prefixes under parent directories. Do not repeat `feature/` on sibling lines. Use inspected paths for existing files and label proposed paths as new. Put `[M]`, `[A]`, `[D]`, or `[R]` before each changed filename and test entry in both `Repo Changes` and `Testing`. Include removed or renamed files and identify the largest edits in a short note. State when nothing is removed. A selected tree is enough to show meaningful structural changes. Make sure that diagrams, interfaces, the tree, and phases agree.
 
 ## Specify the behavior to test
 
-Inspect the actual test setup before proposing checks. Reuse existing suites and fixtures. Do not invent an end-to-end suite, directory, or runner. For skill-only behavior without a harness, label checks as manual acceptance. Add automated tests only for changed observable contracts in existing public APIs. Describe application or integration behavior where the repository can test it. Name the application entry point or public module API, the action, and the expected result. For example, an expired invitation must return a rejection and leave membership unchanged.
+Inspect the actual test setup before proposing checks. Reuse existing suites and fixtures. Do not invent an end-to-end suite, directory, or runner. For skill-only behavior without a harness, label checks as manual acceptance. Add automated tests only for changed observable contracts in existing public APIs. Prefer outside-in tests (`e2e` > `integration` > `unit`) with human-verifiable outputs such as snapshots, test logs, or JSON request/response outputs. Describe application or integration behavior where the repository can test it. Name the application entry point or public module API, the action, and the expected result. For example, an expired invitation must return a rejection and leave membership unchanged.
 
-Add a `Testing` subsection under `Consequences`, as shown in the example above. Group scenarios by feature and behavior.
+Add a `Testing` subsection under `Consequences`, as shown in the example above. Use `[M]`, `[A]`, `[D]`, or `[R]` notation on test suites, groups, and scenarios just like `Repo Changes`. Prefer BDD-style test organization with nested `given`/`when`/`then` or `it` clauses so tests are readable and well organized.
 
-Map scenarios to requirements and phase checks. Reuse existing suites and fixtures. Keep Arrange/Act/Assert visible in automated tests. Name the real suite path and configured task for each automated group. Keep manual walkthroughs separate from actual live execution evidence. Assert results, saved state, and visible effects rather than private calls. Do not list every function or chase coverage percentages. Leave smaller test details to implementation and review.
+Map scenarios to requirements and phase checks. Reuse existing suites and fixtures. Keep BDD grouping and Arrange/Act/Assert steps clear in automated tests. Name the real suite path and configured task for each automated group. Keep manual walkthroughs separate from actual live execution evidence. Assert results, saved state, and visible effects rather than private calls. Do not list every function or chase coverage percentages. Leave smaller test details to implementation and review.
 
 Keep commit and green-CI checks when the user expects them, including `plan go --commit`. Use the execution workflow's permissions. If remote CI needs an unauthorized push, report the unmet gate rather than marking it complete.
 

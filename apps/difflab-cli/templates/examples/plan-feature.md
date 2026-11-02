@@ -55,7 +55,7 @@ Never log raw tokens. Apply the existing request rate limit to creation; do not 
 
 #### Repo Changes
 
-Illustrative paths: `[M]` modified, `[A]` added, `[D]` deleted. No files are removed. `service.ts` contains the largest edits.
+Illustrative paths: `[M]` modified, `[A]` added, `[D]` deleted, `[R]` renamed. No files are removed or renamed. `service.ts` contains the largest edits.
 
 ```text
 src/
@@ -72,17 +72,20 @@ src/
 #### Testing
 
 ```text
-Application behavior (hypothetical existing suite)
-└── invitation acceptance
-    ├── owner sends invite -> recipient accepts -> membership appears
-    └── wrong recipient, expired, or used token -> rejection; state unchanged
-Public module behavior (hypothetical existing suite)
-└── invitation service
-    ├── failed transaction -> membership and token changes roll back
-    └── email failure -> saved invitation stays pending for retry
+src/
+├── http/
+│   └── [A] invitations.spec.ts (application behavior)
+│       └── [A] describe invitation endpoints
+│           ├── [A] given an owner invite, when recipient accepts, then membership appears
+│           └── [A] given a wrong recipient or expired/used token, when accepted, then it rejects without changing state
+└── invitations/
+    └── [A] service.spec.ts (public module behavior)
+        └── [A] describe invitation service
+            ├── [A] given a failed transaction, when accepting, then membership and token changes roll back
+            └── [A] given an email failure, when creating, then the saved invitation stays pending for retry
 ```
 
-Use request scenarios in `src/http/invitations.spec.ts` and service scenarios in `src/invitations/service.spec.ts`. Reuse fixtures with a real test store.
+Use BDD-style nested `given`/`when`/`then` scenarios in `src/http/invitations.spec.ts` and `src/invitations/service.spec.ts`. Reuse fixtures with a real test store.
 
 #### Trade-offs
 

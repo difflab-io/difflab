@@ -30,7 +30,7 @@ Apply the language instructions to whole reports, council reports, aggregates, c
 
 `--council` accepts optional comma-separated model names and fuzzy-matches them to available models. Each model independently reviews the same diff and full rubric. Save template reports and rubrics in `council/`, then aggregate the supported findings. `--adversarial` challenges every dimension, including Security, and can combine with council. Evidence and severity rules still apply.
 
-Every generated review comment and reply must use simple English and be as short as possible. Report only material issues supported by evidence. Include a suggested change when a concrete fix is available. State only the issue, its effect, and the useful fix or question. Phrase recommendations with “Let's”, “I suggest”, or “I recommend”. Omit repeated context, long code summaries, nitpicks, minor optimizations, and speculative hardening requests. Add a snippet only when it makes the fix clearer.
+Keep every generated review comment and reply to one short sentence in simple English ideally, never multi-line prose. Prefer a suggested change, short code snippet, or compact diagram for involved points; treat walls of text as a last resort. Report only material issues supported by evidence. State only the issue, its effect, and the useful fix or question. Phrase recommendations with “Let's”, “I suggest”, or “I recommend”. Omit repeated context, long code summaries, nitpicks, minor optimizations, and speculative hardening requests.
 
 Every generated review comment or reply must end exactly with `> Generated via <actual model name>`. Obtain the actual model name from the active model/runtime metadata; never substitute a harness or agent name and never invent an identifier.
 

@@ -23,7 +23,7 @@
 
    Read root and applicable nested AGENTS.md files and named style guides. Written rules override generic preferences. Use existing patterns as context, not as mandatory rules. Flag material defects and antipatterns even when nearby code shares them. Do not demand consistency with poor informal practices or flag harmless differences alone. Each finding needs a written rule or a concrete effect on behavior, comprehension, or maintenance. Keep fixes within the reviewed change.
 
-   Assess application behavior first, then module public APIs, then focused unit behavior. Require clear Arrange/Act/Assert blocks. Every comment and reply must use simple English and be as short as possible. Include a suggested change when a concrete fix is available. Each finding needs evidence and an effect on comprehension, rules, or behavior. Use the requested focus to deepen the review. Omit nitpicks and minor optimizations, even during a deeper audit. Do not invent findings or request tests solely because a private function lacks one.
+   Assess application behavior first, then module public APIs, then focused unit behavior. Prefer outside-in tests (`e2e` > `integration` > `unit`) with human-verifiable outputs, and scrutinize unit test organization for BDD/Gherkin structure (`given`/`when`/`then` or `it`) and clear Arrange/Act/Assert blocks. Keep every comment and reply to one short sentence in simple English ideally, never multi-line prose. Prefer a suggested change, code snippet, or compact diagram for involved points; treat walls of text as a last resort. Each finding needs evidence and an effect on comprehension, rules, or behavior. Use the requested focus to deepen the review. Omit nitpicks and minor optimizations, even during a deeper audit. Do not invent findings or request tests solely because a private function lacks one.
 
    Fill every applicable section of `REVIEW.md`. Preserve its headings and human text. Do not add a separate section or tally for repository guidance. Do not rewrite installed templates. Record the diff or commit, base and head revisions, intent, reviewer, executed checks, and skipped checks. Use one short assessment or a link to a finding per section. State each finding once under Change Requests; use short links in the Findings table. Keep per-file inspection detail in YAML. Use short sentences, active voice, and familiar words throughout. Remove repeated context and long code summaries. Link the completed YAML rubric under `Verification and Limits`. If applicable guidance cannot be read, disclose that limit there.
 
@@ -33,7 +33,7 @@
 
    If there are uncommitted changes, create a conventional commit without agent self-attribution. Push the branch. If a commit, push, or check fails, stop before creating a PR or posting findings. Never force-push merely to start a review.
 
-6. Reuse a suitable existing PR without overwriting its description. Otherwise, follow the [PR description contract](../../../pr/references/workflows/draft.md#description-contract). Scaffold the installed `pull-request-description` template to a distinct file such as `PR-DRAFT.md`. Fill Intent, Changes, Validation, Further Work, and References from the actual diff and verified checks. Preserve custom sections. Stop for a missing template or unresolved placeholders. Open a draft with that body, then read it back and compare it with the intended text.
+6. Reuse a suitable existing PR without overwriting its description. Otherwise, follow the [PR description contract](../../../pr/references/workflows/draft.md#description-contract). Scaffold the installed `pull-request-description` template to a distinct file such as `PR-DRAFT.md`. Fill the template from the actual diff and verified checks without changing its structure. Stop for a missing template or unresolved placeholders. Open a draft with that body, then read it back and compare it with the intended text.
 
    After pushing, read the actual PR diff again. Anchor findings to changed lines in that diff. Do not use stale working-tree lines. Use the forge CLI's authenticated API when needed to post inline change requests on the PR. Never post a finding against an unmapped or outdated diff line.
 
@@ -41,7 +41,7 @@
 
    Publish every verified inline finding before `review new` finishes. This applies in foreground and `--bg` modes. This invocation authorizes posting the review. Do not post an overall comment. On GitHub, create the pending review with inline comments. Submit it with event `COMMENT` and an empty overall body. On forges without pending reviews, post inline comments directly. If the forge cannot publish inline-only comments, stop and report the blocker.
 
-7. End every generated finding or comment with `> Generated via <actual model name>`. Keep human comments verbatim. If the model name is unavailable, stop before posting comments. Do not guess.
+7. Keep every generated finding or comment to one sentence max ideally, with no multi-line prose; use code snippets, suggested changes, or diagrams for involved points, and treat walls of text as a last resort. End every generated finding or comment with `> Generated via <actual model name>`. Keep human comments verbatim. If the model name is unavailable, stop before posting comments. Do not guess.
 
 8. Check that every selected model completed the full review and every required criterion result is filled using the instructions below. Make sure that the review is published and its comments belong to the intended PR threads. Report the exact REVIEW.md and rubric.yaml paths, commit SHA, PR identity, findings, executed checks, skipped checks, and forge or authentication failures. Disclose incomplete model passes and missing, pending, skipped, or stale results instead of claiming a complete review. For `--local`, report the applicable local results without contacting a forge.
 
@@ -51,7 +51,7 @@
 
 These are natural-language skill options, not new CLI syntax. Resolve capabilities before creating artifacts. Use the runtime's actual selected model and catalog. Retain the selected model if it is frontier. Otherwise select a confirmed available frontier model. Honor explicit user choices first, including non-frontier council models. If frontier status or switching capability is unknown, disclose that limit and ask for a supported choice. In background mode, report it as a blocker. Never replace a selected frontier Gemini or another vendor's model merely because an old template names Sol or Opus.
 
-The bundled `review_defaults.model_policy: retain-frontier` documents this policy. Record actual model identity, confirmed reasoning setting when available, and status in `review.reviewers`. Do not invent reasoning settings. Legacy `worker_defaults`, section `worker`, and `section_reviewers` fields remain preserved as custom data. They cannot create section agents or override current model policy. Disclose ignored legacy execution settings in Verification and Limits. Preserve custom criteria and unrelated configuration.
+The bundled `review_defaults.model_policy: retain-frontier` documents this policy. Record actual model identity, confirmed reasoning setting when available, and status in `review.reviewers`. Do not invent reasoning settings. Preserve custom criteria and unrelated YAML fields, including legacy `worker_defaults`, section `worker`, and `section_reviewers`, without spawning section agents or overriding the model policy. Disclose ignored legacy execution settings in Verification and Limits.
 
 Without council, one reviewer inspects all enabled sections. Security stays optional unless explicitly requested. Enable other optional sections on explicit request. Record unselected sections and reasons in `review.exclusions`; leave their results empty. With `--adversarial`, enable every applicable optional dimension, including Security, and challenge all dimensions for defects. Actively look for security faults, semantic gaps, misleading names, unclear flows, missing intent, and reliability or performance problems. Do not invent defects, inflate severity, require a finding count, or demand unrelated hardening.
 
@@ -138,7 +138,7 @@ If the diff changes, update the inventory and reassess affected results before r
 
 Read enough surrounding code to establish what each changed location does. Before writing a finding, connect that location to concrete evidence, its effect, and the needed change or question. A material comprehension issue is valid without a runtime bug. Request the refactor that fixes its cause, including changes across files when needed.
 
-Use the shortest simple-English wording that preserves the problem and useful fix. Prefer one short sentence when it is enough. Include a suggested change when possible. Start recommendations with “Let's”, “I suggest”, or “I recommend”. Put the file and line in the comment location. Do not repeat a long code summary. Include a short snippet or suggested patch only when it clarifies the fix.
+Keep every comment to one short sentence in simple English ideally, never multi-line prose. Prefer a suggested change, short code snippet, or compact diagram for involved points; treat walls of text as a last resort. Start recommendations with “Let's”, “I suggest”, or “I recommend”. Put the file and line in the comment location. Do not repeat a long code summary.
 
 Group repeated instances of one cause. Keep severity clear and justify it by demonstrated impact. A readability issue is not automatically blocking. Preserve human comments. Base the overall recommendation on material findings and known limits. Keep the section assessments and overall recommendation concise. A clean review can have no change requests.
 
@@ -178,11 +178,13 @@ Do not recommend a dependency solely because a package exists. Establish that it
 
 ### Reliability/Testing
 
-Prioritize application behavior, then module public APIs, then focused unit behavior. High line or function coverage does not establish application or module contracts.
+Test from the outside in (`e2e` > `integration` > `unit`). Prioritize application behavior, then module public APIs, then focused unit behavior. Treat verbose AI-generated unit tests with the least trust; high line or function coverage does not establish application or module contracts.
+
+Strongly prefer human-verifiable test outputs, especially for end-to-end and integration tests, such as snapshots, test logs, or JSON request/response outputs.
 
 Tests must establish behavior of the repository's own source code. Trace assertions to that behavior. Flag tests that merely confirm external dependency behavior. Tests can use real dependencies when they establish the repository's own integration contract. Do not replace meaningful integration tests with mocks solely because they use dependencies.
 
-Every test name must identify the function or functionality under test and its expected behavior. Apply this rule regardless of behavior-driven grouping or any other test organization. Grouping style does not excuse a name that hides the subject or expected result.
+Scrutinize unit test organization. Encourage BDD/Gherkin-style grouping with nested `given`/`when`/`then` or `it` clauses so coverage is easy to understand. Every test name must identify the function or functionality under test and its expected behavior, regardless of grouping style.
 
 Do not demand a test per function, a coverage percentage, exported private helpers, or tests of private call sequences. Do not duplicate behavior already established through public APIs.
 
@@ -192,7 +194,7 @@ This priority order does not require three test layers for every change. Use exp
 
 Do not introduce a fixture framework or hide behavior just to remove a few repeated lines. Tests of `isExpired` do not prove that accepting an expired invitation leaves membership unchanged.
 
-The plan skill lists behavior checks under `Consequences → Testing`, using existing suites or clearly labeled manual checks. Do not copy lower-level coverage advice into generated plans.
+The plan skill lists behavior checks under `Consequences → Testing` with `[M/A/D/R]` notation and BDD clauses, using existing suites or clearly labeled manual checks. Do not copy lower-level coverage advice into generated plans.
 
 ### Documentation
 

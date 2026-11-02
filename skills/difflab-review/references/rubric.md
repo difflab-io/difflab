@@ -31,11 +31,13 @@ Written AGENTS.md rules and named style guides take precedence over generic pref
 
 ## Reliability/Testing
 
+Prefer outside-in testing (`e2e` > `integration` > `unit`). Treat verbose AI-generated unit tests with the least trust. Encourage BDD/Gherkin-style test organization (`given`/`when`/`then` or nested `describe`/`it`) so coverage is easy to understand, and strongly prefer human-verifiable outputs for end-to-end and integration tests (snapshots, test logs, JSON request/response outputs).
+
 - `testing.correctness`: Flag incorrect behavior. Record the triggering case, changed location, and wrong result.
-- `testing.application`: Flag required behavior without test evidence. Name the missing scenario and useful test boundary.
-- `testing.relevance`: Flag tests that only confirm dependency behavior. Show which repository behavior the assertions fail to establish. Meaningful integration tests can use real dependencies.
+- `testing.application`: Flag required behavior without outside-in test evidence (`e2e` > `integration` > `unit`), or end-to-end/integration tests that lack human-verifiable outputs such as snapshots, test logs, or JSON outputs. Name the missing scenario, test boundary, or verifiable artifact.
+- `testing.relevance`: Flag verbose AI-generated unit tests that pad coverage without proving real contracts, or tests that only confirm external dependency behavior. Show which repository behavior the assertions fail to establish. Meaningful integration tests can use real dependencies.
 - `testing.names`: Flag names that omit the tested function or functionality, or its expected behavior. Suggest a name that includes both, regardless of grouping style.
-- `testing.arrange-act-assert`: Flag grouping or interleaved setup, actions, and assertions that hide the scenario. Suggest clear groups or separate Arrange, Act, and Assert blocks.
+- `testing.arrange-act-assert`: Flag disorganized unit tests or interleaved setup, actions, and assertions that hide coverage. Suggest BDD/Gherkin-style organization (`given`/`when`/`then` or nested `describe`/`it`) with separate Arrange, Act, and Assert blocks.
 - `testing.fixtures`: Flag setup that hides behavior or recreates shared helpers. Identify the repetition, existing helper, or placement rule.
 
 ## Documentation

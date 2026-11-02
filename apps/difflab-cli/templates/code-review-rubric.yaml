@@ -102,14 +102,15 @@ sections:
       - id: testing.application
         scope: review
         default_severity: consider
-        issue: Required behavior or a meaningful regression lacks test evidence.
+        issue: >-
+          Required behavior lacks outside-in test evidence (e2e > integration > unit), or e2e/integration tests lack human-verifiable outputs such as snapshots, test logs, or JSON outputs.
         results: []
       - id: testing.relevance
         scope: applicable-file
         applies_when: Added or modified test files.
         default_severity: consider
         issue: >-
-          A test verifies external dependency behavior without establishing behavior of the repository's own source code.
+          Verbose unit tests pad coverage without proving real contracts, or a test verifies external dependency behavior without establishing behavior of the repository's own source code.
         results: []
       - id: testing.names
         scope: applicable-file
@@ -123,7 +124,7 @@ sections:
         applies_when: Added or modified test files.
         default_severity: consider
         issue: >-
-          Test grouping or interleaved setup, actions, and assertions hide the scenario or expected result.
+          Test organization lacks clear BDD/Gherkin structure (given/when/then) or interleaves setup, actions, and assertions so coverage or expected results are hard to see.
         results: []
       - id: testing.fixtures
         scope: applicable-file

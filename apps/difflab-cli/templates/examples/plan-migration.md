@@ -57,7 +57,7 @@ readSource = legacy | new            # reversible; legacy remains default
 
 #### Repo Changes
 
-Illustrative paths: `[M]` modified, `[A]` added, `[D]` deleted. No files are removed. `writer.ts` and `backfill.ts` contain the largest edits.
+Illustrative paths: `[M]` modified, `[A]` added, `[D]` deleted, `[R]` renamed. No files are removed or renamed. `writer.ts` and `backfill.ts` contain the largest edits.
 
 ```text
 infra/
@@ -74,17 +74,19 @@ src/
 #### Testing
 
 ```text
-Application behavior (hypothetical existing suite)
-└── activity history
-    ├── write and page history across cutover -> same records and cursors
-    └── write after cutover, then roll back -> no lost events
-Public module behavior (hypothetical existing suite)
-└── activity storage
-    ├── retry a failed destination -> one logical event in each store
-    └── interrupt and resume backfill -> same IDs and order; no duplicates
+src/
+└── activity/
+    ├── [M] history.spec.ts (application behavior)
+    │   └── [A] describe activity history cutover
+    │       ├── [A] given dual writes, when paging history across cutover, then records and cursors match
+    │       └── [A] given writes after cutover, when rolling back, then no events are lost
+    └── [A] migration.spec.ts (public module behavior)
+        └── [A] describe activity storage migration
+            ├── [A] given a failed destination write, when retried, then one logical event exists in each store
+            └── [A] given an interrupted backfill, when resumed, then IDs and order match without duplicates
 ```
 
-Use `src/activity/history.spec.ts` for application scenarios and `src/activity/migration.spec.ts` for public storage APIs with real test stores.
+Use BDD-style nested `given`/`when`/`then` scenarios in `src/activity/history.spec.ts` for application behavior and `src/activity/migration.spec.ts` for public storage APIs with real test stores.
 
 #### Trade-offs
 
