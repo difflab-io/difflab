@@ -35,7 +35,7 @@ Apply [difflab-bdd](../../difflab-bdd/SKILL.md) to analyze test suites against t
 
 - `testing.correctness`: Flag incorrect behavior with its triggering case, location, and wrong result.
 - `testing.application`: Flag missing outside-in test coverage (`e2e` > `integration` > `unit`) or missing human-verifiable artifacts (screenshots, replays, file dumps, snapshots, JSON outputs, or debug logs).
-- `testing.relevance`: Flag verbose unit tests that pad coverage without proving real contracts, duplicate downstream paths after a converged state, or only test external dependencies.
+- `testing.relevance`: Flag verbose unit tests that pad coverage without proving real contracts, duplicate downstream paths after a converged state, test the structure of static assets or templates, test the test apparatus itself, write regression tests for changes introduced within the same changeset or for alpha projects without users, or only test external dependencies.
 - `testing.names`: Flag test names that omit the tested functionality or expected outcome.
 - `testing.arrange-act-assert`: Flag flat or interleaved setup, actions, and assertions. Propose a flowchart-aligned BDD tree (`given` -> `when` -> `then`) with clear Arrange, Act, and Assert blocks.
 - `testing.fixtures`: Flag repeated setup that should be hoisted to an enclosing `given` scope or shared helper.

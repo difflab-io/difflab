@@ -63,12 +63,6 @@ describe('TemplateService', () => {
     expect(await readFile(join(home, '.difflab/templates/poc-readme.md'), 'utf8')).toContain(
       'base_commit:',
     )
-    expect(await readFile(join(home, '.difflab/templates/hook-definition.md'), 'utf8')).toContain(
-      '## Trigger',
-    )
-    expect(await readFile(join(home, '.difflab/templates/task.md'), 'utf8')).toContain(
-      '_To be completed by the person doing the work._',
-    )
     expect(await readdir(join(home, '.difflab/templates/examples'))).toHaveLength(10)
     for (const name of ['exploration-summary', 'exploration-research', 'exploration-proposal']) {
       expect(await readFile(join(home, `.difflab/templates/${name}.md`), 'utf8')).toContain('# ')
@@ -100,8 +94,6 @@ describe('TemplateService', () => {
     expect(packageContents).toContain('dist/index.js')
     const built = await readFile(join(packageRoot, 'dist/index.js'), 'utf8')
     expect(built).toContain('Reusable global Agent Skill flow definition')
-    expect(built).toContain('Reusable global Agent Skill hook definition')
-    expect(built).toContain('Terse task or bug ticket with objective, context, and references')
     expect(built).toContain('Definition SHA-256')
     expect(built).toContain('Source-grounded technical exploration summary')
     expect(built).toContain('maintainability.complexity')
@@ -163,8 +155,6 @@ describe('TemplateService', () => {
     const catalog = await service.listTemplates()
     const installed = join(home, '.difflab/templates/code-review-rubric.yaml')
     const rubric = parse(await readFile(installed, 'utf8'))
-    expect(rubric.review.model_inputs).toBeUndefined()
-    expect(rubric.review.model_results).toBeUndefined()
     rubric.worker_defaults = { model: 'opus', reasoning_effort: 'low' }
     rubric.sections[0].worker = { reasoning_effort: 'high' }
     rubric.sections[0].criteria[0].issue = 'Project-specific intent requirement.'
@@ -205,66 +195,6 @@ describe('TemplateService', () => {
       'Destination already exists',
     )
     expect(await readFile(file, 'utf8')).toBe(customized)
-  })
-
-  describe('given an initialized ~/.difflab store and catalog templates installed', () => {
-    let globalStore: string
-
-    beforeEach(async () => {
-      await service.listTemplates()
-      globalStore = join(home, '.difflab')
-    })
-
-    describe('when scaffolding hook-definition into hooks/<name>/HOOK.md', () => {
-      test('then it writes HOOK.md exclusively with Trigger, Action, and Instructions sections', async () => {
-        // Arrange / Act
-        const hookFile = await service.scaffoldFromTemplate(
-          'hook-definition',
-          globalStore,
-          'hooks/on-merge',
-          'HOOK.md',
-        )
-        const content = await readFile(hookFile, 'utf8')
-
-        // Assert
-        expect(hookFile).toBe(await realpath(join(globalStore, 'hooks/on-merge/HOOK.md')))
-        expect(content).toContain('## Trigger')
-        expect(content).toContain('## Action')
-        expect(content).toContain('## Instructions')
-      })
-
-      test('then it rejects a duplicate hook registration without overwriting HOOK.md', async () => {
-        // Arrange
-        const hookFile = await service.scaffoldFromTemplate(
-          'hook-definition',
-          globalStore,
-          'hooks/on-merge',
-          'HOOK.md',
-        )
-        await writeFile(hookFile, '# Custom on-merge hook\n')
-
-        // Act / Assert
-        await expectFailureWith(
-          service.scaffoldFromTemplate('hook-definition', globalStore, 'hooks/on-merge', 'HOOK.md'),
-          'Destination already exists',
-        )
-        expect(await readFile(hookFile, 'utf8')).toBe('# Custom on-merge hook\n')
-      })
-    })
-
-    test('when scaffolding task into a workspace directory, then it writes Objective, Context, Technical Approach placeholder, and References sections', async () => {
-      // Arrange / Act
-      const taskFile = await service.scaffoldFromTemplate('task', cwd, 'tasks', 'TASK.md')
-      const content = await readFile(taskFile, 'utf8')
-
-      // Assert
-      expect(taskFile).toBe(await realpath(join(cwd, 'tasks/TASK.md')))
-      expect(content).toContain('## Objective')
-      expect(content).toContain('## Context')
-      expect(content).toContain('## Technical Approach')
-      expect(content).toContain('_To be completed by the person doing the work._')
-      expect(content).toContain('## References')
-    })
   })
 
   test('scaffoldFromTemplate uses the installed customized PR description without replacing it', async () => {

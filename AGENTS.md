@@ -44,6 +44,7 @@
 - Put tests that depend on external services in an `e2e` directory outside application and library source trees.
 - Keep each test readable with separate Arrange, Act, and Assert steps.
 - Put generic shared test utilities in `src/extensions`.
+- Do not test the structure of static assets or templates, the test apparatus itself, or write regression tests for changes introduced within the same changeset or for alpha projects without users.
 - [Proposed] Prefer outside-in testing (`e2e` > `integration` > `unit`) over verbose AI-generated unit tests.
 - [Proposed] Organize tests in BDD/Gherkin style with nested `given`/`when`/`then` or `it` clauses so coverage is easy to read.
 - [Proposed] Prefer human-verifiable test outputs for end-to-end and integration tests, such as snapshots, test logs, or JSON request/response outputs.

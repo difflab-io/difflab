@@ -65,3 +65,9 @@ Tests must optimize for both behavioral coverage and human verifiability:
 
 - Capture artifacts that are easy to inspect visually or diff directly: Playwright screenshots, screen replays/traces, file dumps, snapshots, and JSON request/response payloads.
 - Use structured debug logs in integration and e2e tests to verify internal module invariants without coupling tests to private function mocks.
+
+## 5. What not to test
+
+- Do not test the structure or wording of static assets or templates.
+- Do not test the test apparatus, harness, or fixtures themselves.
+- Do not write regression tests for changes introduced within the same changeset or for alpha projects without users.

@@ -108,7 +108,7 @@ sections:
         applies_when: Added or modified test files.
         default_severity: consider
         issue: >-
-          Verbose unit tests pad coverage without proving real contracts, or a test verifies external dependency behavior without establishing behavior of the repository's own source code.
+          Verbose unit tests pad coverage without proving real contracts, validate static asset or template structure, test the test apparatus itself, add regression tests for changes within the same changeset or for alpha projects without users, or only verify external dependency behavior.
         results: []
       - id: testing.names
         scope: applicable-file
