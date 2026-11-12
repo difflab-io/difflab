@@ -71,18 +71,31 @@ src/
 
 #### Testing
 
+```mermaid
+flowchart TD
+  Invite["Owner creates invitation"] --> Saved["State: Pending invitation saved<br/>(even if email queue fails)"]
+  Saved --> Accept["Recipient submits token"]
+  Accept --> Eligible{"Intended recipient,<br/>unused & unexpired?"}
+  Eligible -->|"no"| Reject["Reject; membership & token unchanged"]
+  Eligible -->|"yes"| Tx["Consume token + add member"]
+  Tx -->|"tx fails"| Rollback["Roll back membership & token"]
+  Tx -->|"tx succeeds"| Member["Return active membership"]
+```
+
 ```text
 src/
 ├── http/
 │   └── [A] invitations.spec.ts (application behavior)
-│       └── [A] describe invitation endpoints
-│           ├── [A] given an owner invite, when recipient accepts, then membership appears
-│           └── [A] given a wrong recipient or expired/used token, when accepted, then it rejects without changing state
+│       └── [A] given a pending owner invitation
+│           ├── [A] when the intended recipient accepts, then membership appears in JSON response
+│           └── [A] when a wrong recipient or expired/used token is submitted, then it rejects without changing state
 └── invitations/
     └── [A] service.spec.ts (public module behavior)
-        └── [A] describe invitation service
-            ├── [A] given a failed transaction, when accepting, then membership and token changes roll back
-            └── [A] given an email failure, when creating, then the saved invitation stays pending for retry
+        ├── [A] given an email queue failure, when creating an invitation, then the saved invitation stays pending for retry
+        └── [A] given a pending invitation (converged state)
+            └── [A] when the database transaction fails during acceptance
+                ├── [A] then membership changes roll back
+                └── [A] then the invitation token remains unconsumed
 ```
 
 Use BDD-style nested `given`/`when`/`then` scenarios in `src/http/invitations.spec.ts` and `src/invitations/service.spec.ts`. Reuse fixtures with a real test store.

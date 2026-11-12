@@ -32,6 +32,10 @@ import explorationProposal from '../../templates/exploration-proposal.md' with {
 
 import pocReadme from '../../templates/poc-readme.md' with { type: 'text' }
 
+import hookDefinition from '../../templates/hook-definition.md' with { type: 'text' }
+
+import taskTemplate from '../../templates/task.md' with { type: 'text' }
+
 import planFeature from '../../templates/examples/plan-feature.md' with { type: 'text' }
 
 import planMigration from '../../templates/examples/plan-migration.md' with { type: 'text' }
@@ -71,6 +75,8 @@ const contents: Record<string, string> = {
   'exploration-research.md': explorationResearch,
   'exploration-proposal.md': explorationProposal,
   'poc-readme.md': pocReadme,
+  'hook-definition.md': hookDefinition,
+  'task.md': taskTemplate,
   'examples/plan-feature.md': planFeature,
   'examples/plan-migration.md': planMigration,
   'examples/design-service.md': designService,
@@ -120,6 +126,8 @@ export const catalog: TemplateInfo[] = [
   { name: 'exploration-research', description: 'Technical exploration research notes' },
   { name: 'exploration-proposal', description: 'Optional technical exploration approach' },
   { name: 'poc-readme', description: 'Disposable proof-of-concept branch README' },
+  { name: 'hook-definition', description: 'Reusable global Agent Skill hook definition' },
+  { name: 'task', description: 'Terse task or bug ticket with objective, context, and references' },
 ]
 
 export const embeddedSource: TemplateSource = {

@@ -22,7 +22,7 @@ Use local date `YYMMDD` and a short lower-case hyphenated slug. Prefer a supplie
 
 Read the selected workflow before acting. Use the existing templates through MCP `scaffold` or its documented CLI equivalent; read the resulting document and fill placeholders rather than rendering or replacing the template. Only change files owned by the selected workflow: `new` fills PLAN.md, `update` snapshots and revises it, and `go` updates live status and checkboxes. Progress goes through `log_append`, never direct edits to logs.txt. Do not commit or push without separate authorization.
 
-For `new` and `update`, read [the authoring guide](references/authoring.md). It defines visual design, nested repo trees, compact interfaces, and exact end-to-end/integration test scenarios. Its linked source examples are resources to consult on demand. Apply the guide with old/custom templates too. Preserve human content and completed tasks.
+For `new` and `update`, read [the authoring guide](references/authoring.md), invoke [difflab-writing-style](../difflab-writing-style/SKILL.md), and invoke [difflab-bdd](../difflab-bdd/SKILL.md). They define concise diagram-first prose, directory-grouped `[M/A/D/R]` repo and test trees, compact interfaces, and behavior flowcharts that map to BDD test trees. Its linked source examples are resources to consult on demand. Apply the guide with old/custom templates too. Preserve human content and completed tasks.
 
 ## Safety and handoff
 

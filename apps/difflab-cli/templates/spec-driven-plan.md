@@ -31,11 +31,11 @@
 
 #### Repo Changes
 
-[Start with a selected file tree: [M] modified, [A] added, [D] deleted, [R] renamed before changed filenames, including tests. Identify the largest edits in a short note. Include new modules and meaningful structural changes. Use real inspected paths; label proposed files. State when nothing is removed.]
+[Start with a directory-grouped file tree using `[M]` modified, `[A]` added, `[D]` deleted, and `[R]` renamed before changed entries, including tests. Apply `/difflab-writing-style`. Identify the largest edits in a short note. Use real inspected paths and label proposed files. State when nothing is removed.]
 
 #### Testing
 
-[Inspect the actual test setup first. Show a nested outline of behavior checks mapped to existing suites and configured tasks, using [M], [A], [D], or [R] notation on suites and scenarios just like Repo Changes. Prefer BDD-style test organization with nested given/when/then or it clauses. Label skill checks without a harness as manual acceptance. Do not invent an end-to-end suite or runner. Name the entry point, input/action, and expected result for each scenario. Reuse existing fixtures and suites. Match the scenarios to requirements and phase checks.]
+[Apply `/difflab-bdd`. First draw a Mermaid behavior flowchart showing context branches, state transitions, and converging intermediate states from the user's or caller's perspective. Then map the flowchart into a nested `[M/A/D/R]` BDD test tree starting with `given <context>` (or optional `describe`/`feature`), nesting `when` -> `then` as needed, collapsing single-outcome branches to `when <action>, then <outcome>`, and hoisting shared fixtures. Prioritize `e2e` > `integration` > `unit` and specify human-verifiable outputs (screenshots, replays, file dumps, snapshots, JSON outputs, or debug logs). Label skill checks without a harness as `manual acceptance`.]
 
 #### Trade-offs
 

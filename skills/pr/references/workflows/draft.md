@@ -6,13 +6,11 @@ Look for an existing open PR/MR with the same head repository and branch and tar
 
 ## Description contract
 
-Use the installed `~/.difflab/templates/pull-request-description.md` for every generated PR/MR description. Follow the template and do not change its structure, since users can customize or override it. Preserve custom sections and user prose. Read the actual branch diff, relevant plan or issue, and executed check results before filling it. Do not infer passing checks from commits or invent issue links. State checks that did not run, no further work, or no linked issue when applicable.
+Every `pr new`, `pr create`, `pr open`, or `pr draft` execution MUST use the Difflab `pull-request-description` template (`~/.difflab/templates/pull-request-description.md`) for the PR/MR body. Never create a PR/MR with an empty description or without `--body-file`. Follow the template structure and preserve custom sections. Read the actual branch diff, relevant plan or issue, and executed check results before filling it. Do not infer passing checks from commits or invent issue links. State checks that did not run, no further work, or no linked issue when applicable.
 
-Prefer `scaffold({name:"pull-request-description",cwd:<absolute checkout root>,path:<distinct local draft directory>,filename:"PR-DRAFT.md"})`. Read the result and fill every placeholder without replacing its structure. If scaffolding is unavailable, read the installed file and create a distinct working copy without overwriting any existing file. Do not edit the installed template or silently substitute a bundled or forge default. If the template is missing or unreadable, report the setup issue before creation.
-
-Place supplied factual prose in the relevant sections without changing its meaning. If the user explicitly requests a verbatim body, honor that choice unless repository instructions require the template. Report that conflict before writing. A partial supplied description is not a reason to leave other sections empty.
-
-Before creation, make sure that the body contains actual change details or explicit limits in every required section. Reject unresolved placeholders and empty sections. Keep the prose short and use simple English.
+1. Scaffold the template first: call `scaffold({name:"pull-request-description",cwd:<absolute checkout root>,path:<distinct local draft directory>,filename:"PR-DRAFT.md"})` (or `difflab templates scaffold pull-request-description <draft-dir> PR-DRAFT.md --cwd <absolute checkout root>`). If scaffolding is unavailable, copy `~/.difflab/templates/pull-request-description.md` (or `apps/difflab-cli/templates/pull-request-description.md`) to a new local draft file without overwriting any existing file.
+2. Fill every placeholder (`{{intent}}`, `{{changes}}`, `{{validation}}`, `{{further_work}}`, `{{issue_url}}`, plus any custom sections) using [difflab-writing-style](../../../difflab-writing-style/SKILL.md).
+3. Verify the draft file on disk before calling the forge CLI: confirm that every section heading is followed by concrete content and no `{{...}}` placeholder or empty section remains. Stop if the template is missing or any section is blank.
 
 ## Create and read back
 
