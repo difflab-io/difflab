@@ -69,4 +69,3 @@ Address the two requests. No unrelated cleanup is needed.
 - **Checks run:** None. This is a fictional example.
 - **Not verified:** Execution and real repository guidance.
 - **Rubric:** A real review links its filled rubric here.
-- **Council:** Not selected.

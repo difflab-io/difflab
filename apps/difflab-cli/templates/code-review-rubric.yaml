@@ -8,8 +8,6 @@ review:
   changed_files: []
   exclusions: []
   reviewers: []
-  model_inputs: []
-  model_results: []
 sections:
   - title: Intent Delivery
     criteria:

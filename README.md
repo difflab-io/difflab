@@ -31,7 +31,7 @@ Restart Pi after setup. For another supported client, replace `pi` with `cursor`
 A skill is a set of instructions that tells an agent how to use Difflab. Install the Difflab skills for Pi with [`npx skills`](https://skills.sh/):
 
 ```bash
-npx skills add difflab-io/difflab --agent pi --skill difflab-doctor difflab-init difflab-todo difflab-plan difflab-review difflab-flow explore adr poc --global --yes
+npx skills add difflab-io/difflab --agent pi --skill difflab-doctor difflab-init difflab-todo difflab-plan difflab-review difflab-flow difflab-hooks difflab-bdd difflab-writing-style difflab-explore difflab-adr difflab-poc git pr --global --yes
 ```
 
 Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. Planning init/new uses MCP `scaffold` when available and falls back to `difflab templates scaffold` when needed. Execution and review use MCP tools including `log_append`; if these are missing, update the CLI and register the selected client, then restart or reload it.
@@ -61,6 +61,8 @@ Ask your agent in chat. These phrases are skill requests, not `difflab` shell co
 - “Review address.” The agent fixes requested changes, pushes the fix, and replies in each thread. It resolves only small, fully completed requests. It leaves questions, broad refactors, and reopened threads open.
 - “Flow new autospec for CSV export with an optional remote review.” The agent creates a reusable definition, not a run.
 - “Flow go autospec with input 'Export monthly sales' --local.” The agent freezes a local run before executing it.
+- “Hooks register on-merge to run flow go autoreview.” The agent scaffolds `~/.difflab/hooks/on-merge/HOOK.md`.
+- “Hooks invoke on-merge.” The agent runs the registered hook.
 - “Explore new options for caching.” The agent saves research with external sources under `.difflab/explore/`.
 - “Explore update caching with new evidence.” The agent saves the old research before it updates the findings.
 - “ADR init for cache storage.” The agent creates `adr/NNNN-title/ADR.md`, with room for diagrams beside it.
@@ -68,13 +70,9 @@ Ask your agent in chat. These phrases are skill requests, not `difflab` shell co
 - “PoC init cache-test” or “PoC new compare cache stores.” The agent uses an isolated `poc/*` branch and records its base commit in the branch README.
 - “PoC freeze.” The agent tags the experiment and asks before it deletes the local and remote branches.
 
-`--bg` runs a whole workflow in a background agent. Reviews use one reviewer for all rubric dimensions. They retain the selected frontier model regardless of vendor.
+Reviews run in the active single agent without subagents across all enabled rubric dimensions, retaining the selected frontier model regardless of vendor. Add `--adversarial` to challenge all dimensions, including Security. Plans and reviews apply `difflab-writing-style` (concise `/simple-english` prose, Mermaid/Draw.io diagrams, repository terminology, and `[M/A/D/R]` trees) and `difflab-bdd` (behavior flowcharts with converging state branches, `e2e` > `integration` > `unit` priority, and hierarchical `given`/`when`/`then` test trees). `--local` makes no remote changes and does not commit.
 
-`review new --council` selects available frontier models; `--council model-a,model-b` accepts aliases and clear typos. Ambiguous names need a choice. Each council model reviews the full diff independently, with reports under `council/` and one aggregate review. Add `--adversarial` to challenge all dimensions, including Security. Reports use short, plain-English findings and keep detailed coverage in YAML.
-
-For remote review, `--bg` authorizes commits, pushes, draft pull requests, verified inline comments, and eligible thread resolutions without another permission prompt. If a target or permission is unclear, the worker stops and reports the problem. `--local` makes no remote changes and does not commit.
-
-`pr new`, create, open, and draft fill the installed Difflab pull-request-description template without changing its structure before creation. `pr merge --squash` selects the forge’s native squash merge; it never merges first and cleans up history afterward.
+`pr new`, create, open, and draft always scaffold and fill the installed Difflab `pull-request-description` template before creation. `pr merge` watches post-merge CI and then invokes `~/.difflab/hooks/on-merge/HOOK.md` via `difflab-hooks` when registered. `pr merge --squash` selects the forge’s native squash merge; it never merges first and cleans up history afterward.
 
 Plans, reviews, and explorations live under `.difflab/plans/`, `.difflab/reviews/`, and `.difflab/explore/`. They are local project-store files. ADRs live in numbered directories under the tracked `adr/` directory. PoC branches replace the root README with the experiment README and provide mise tasks for build, tests, and each prototype. The skills require focused modules, simple code, and minimal examples; no forge merge gate is needed.
 

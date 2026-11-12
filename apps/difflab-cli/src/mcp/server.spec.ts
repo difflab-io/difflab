@@ -127,6 +127,8 @@ describe('Difflab MCP over stdio', () => {
         'exploration-research',
         'exploration-proposal',
         'poc-readme',
+        'hook-definition',
+        'task',
       ])
       expect(responseText(scaffolded)).toEqual({
         name: 'spec-driven-plan',

@@ -3,9 +3,9 @@
 - **Revision:** [commit or diff]
 - **Intent:** [stated objective and source]
 - **Reviewer:** [actual model identity]
-- **Mode:** [normal/adversarial; single model or council with linked model reports]
+- **Mode:** [normal/adversarial]
 
-[Use short sentences, active voice, and familiar words throughout. Keep section assessments brief and link to findings instead of repeating them. Keep detailed criterion coverage in rubric.yaml. Apply AGENTS.md and named style guides. Informal conventions are context, not requirements. Flag material antipatterns even when existing code shares them.]
+[Apply `/difflab-writing-style` and `/difflab-bdd`. Use short sentences, active voice, and familiar words throughout. Keep section assessments brief and link to findings instead of repeating them. Keep detailed criterion coverage in rubric.yaml. Apply AGENTS.md and named style guides. Informal conventions are context, not requirements. Flag material antipatterns even when existing code shares them.]
 
 ## Intent Delivery
 
@@ -25,11 +25,11 @@
 
 ## Reliability/Testing
 
-[Prioritize end-to-end application behavior, then module behavior through public APIs, then focused unit behavior with public APIs first. Flag tests that only verify external dependencies rather than the repository's source behavior or integration contract. Require test names to identify the function or functionality tested and its expected behavior, regardless of grouping style. Name missing observable contracts or regressions; do not demand coverage of every function or a percentage. Check semantic grouping, clear Arrange/Act/Assert blocks, fixtures, and existing shared helpers. Flag walls of repeated setup or interleaved actions/assertions that hide the behavior. Report executed checks and limits honestly.]
+[Apply `/difflab-bdd`. Analyze tests against the component's behavior flowchart (converging state branches, `e2e` > `integration` > `unit`, and human-verifiable outputs such as screenshots, replays, file dumps, snapshots, JSON outputs, or debug logs). Propose a concrete `[M/A/D/R]` BDD test tree reorganization (`given` -> `when` -> `then` with hoisted fixtures) when tests are flat, repeat downstream assertions across converged states, or obscure setup. Flag tests that only verify external dependencies rather than the repository's source behavior. Report executed checks and limits honestly.]
 
 ## Documentation
 
-[Flag walls of text, complex language, and text that only restates the implementation. Require concise, simple-English explanations. Prefer diagrams when they clarify structures, flows, or relationships better than long prose.]
+[Apply `/difflab-writing-style`. Flag walls of text, complex language, and text that only restates the implementation. Require concise `/simple-english` explanations, domain terminology, and Mermaid/Draw.io diagrams or `[M/A/D/R]` trees when visuals communicate structure or flow better than prose.]
 
 ## Performance
 
@@ -68,5 +68,4 @@ State each finding once here, with its issue, effect, and useful fix. Use short,
 
 - **Checks run:** [command and result.]
 - **Not verified:** [environment, path, behavior, or applicable repository guidance that could not be checked.]
-- **Council:** [source reports, actual model identities, unresolved disagreements, or not selected.]
 - **Rubric:** [path to the copied YAML rubric with completed criterion results. Disclose missing, pending, skipped, or stale results.]

@@ -73,17 +73,26 @@ src/
 
 #### Testing
 
+```mermaid
+flowchart TD
+  Write["writeActivity(event)"] --> Dual["Dual write with stable ID"]
+  Dual -->|"destination fails"| Retry["Retry failed store"] --> Parity["State: Both stores hold identical events"]
+  Backfill["Interrupted backfill"] --> Resume["Resume batch"] --> Parity
+  Parity --> Cutover["Switch read flag to new store"]
+  Cutover --> ReadCutover["Page history across cutover"]
+  Cutover --> Rollback["Write post-cutover events, then roll back flag"]
+```
+
 ```text
 src/
 └── activity/
     ├── [M] history.spec.ts (application behavior)
-    │   └── [A] describe activity history cutover
-    │       ├── [A] given dual writes, when paging history across cutover, then records and cursors match
-    │       └── [A] given writes after cutover, when rolling back, then no events are lost
+    │   └── [A] given dual-written stores at parity (converged state)
+    │       ├── [A] when paging history across reader cutover, then records and cursors match
+    │       └── [A] when rolling back the reader after new writes, then no events are lost
     └── [A] migration.spec.ts (public module behavior)
-        └── [A] describe activity storage migration
-            ├── [A] given a failed destination write, when retried, then one logical event exists in each store
-            └── [A] given an interrupted backfill, when resumed, then IDs and order match without duplicates
+        ├── [A] given a failed destination write, when retried, then one logical event exists in each store
+        └── [A] given an interrupted backfill batch, when resumed, then IDs and order match without duplicates
 ```
 
 Use BDD-style nested `given`/`when`/`then` scenarios in `src/activity/history.spec.ts` for application behavior and `src/activity/migration.spec.ts` for public storage APIs with real test stores.
