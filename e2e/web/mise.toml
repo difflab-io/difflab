@@ -5,7 +5,7 @@ dir = "{{config_root}}/../.."
 run = '''
 set -eu
 if [ "$(uname -s)" = "Linux" ] && command -v apt-get >/dev/null 2>&1; then
-  bunx --no-install playwright install --with-deps chromium
+  sudo -n bunx --no-install playwright install --with-deps chromium || bunx --no-install playwright install chromium
 else
   bunx --no-install playwright install chromium
 fi

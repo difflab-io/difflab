@@ -316,7 +316,30 @@ async function ensurePlanMeta(
   if (!repoRoot) throw new Error(`Repository ${repo.url} has no localPath`)
   const config = await loadRepoConfigIfPresent(repoRoot)
   const definition = await loadFlowDefinition(paths.flows, detail.run.flowName)
-  const plan = resolveFlowExecutionPlan(definition, { input: detail.run.flowName }, [])
+  const selectedSteps = detail.steps.map((persisted) => {
+    const spec = definition.steps.find((candidate) => candidate.stepId === persisted.stepId)
+    if (!spec) {
+      throw new Error(`Definition ${detail.run.flowName} has no step '${persisted.stepId}'`)
+    }
+    return {
+      seq: persisted.seq,
+      stepId: persisted.stepId,
+      handler: spec.handler.replace(/^`|`$/g, ''),
+      requires: spec.requires.replace(/^`|`$/g, ''),
+      receivesTemplate: spec.receives,
+      produces: spec.produces,
+      instructionsTemplate: spec.instructions,
+      ...(persisted.harness ? { harness: persisted.harness } : {}),
+    }
+  })
+  const plan: ResolvedFlowPlan = {
+    definition,
+    resolvedInputs: { input: detail.run.flowName },
+    enabledFlags: [],
+    disabledFlags: [],
+    omittedSteps: [],
+    selectedSteps,
+  }
   const rebuilt: ActivePlanMeta = {
     repoRoot,
     projectKey: repo.projectId,

@@ -405,6 +405,7 @@ async function executeRigStep(
       flowMdPath,
       payload.step.seq,
       payload.step.stepId,
+      payload.step.receives,
       handoff,
       isFinalStep,
     )
@@ -529,8 +530,8 @@ async function ensureInitialFlowSnapshot(
     .map(
       (s) => `- [ ] ${s.seq}. ${s.stepId} — \`${s.handler}\`
   - Requires: ${s.requires}
-  - Instructions: ${s.instructionsTemplate}
-  - Receives: ${s.receivesTemplate}
+  - Instructions: ${s.instructionsTemplate.replace(/\s*\r?\n\s*/g, ' ')}
+  - Receives: ${s.receivesTemplate.replace(/\s*\r?\n\s*/g, ' ')}
   - Expected output: ${s.produces}
   - Result/handoff: pending`,
     )
@@ -577,6 +578,7 @@ async function markStepCompleteInFlowMd(
   flowMdPath: string,
   seq: number,
   stepId: string,
+  resolvedReceives: string,
   handoff: string,
   isFinalStep: boolean,
 ): Promise<void> {
@@ -586,11 +588,15 @@ async function markStepCompleteInFlowMd(
   if (content.includes(stepHeader)) {
     const idx = content.indexOf(stepHeader)
     const before = content.slice(0, idx)
-    const after = content
-      .slice(idx)
+    const rest = content.slice(idx)
+    const nextStepIdx = rest.slice(stepHeader.length).search(/\n- \[[ x]\] \d+\. /)
+    const blockEnd = nextStepIdx === -1 ? rest.length : stepHeader.length + nextStepIdx
+    const updatedBlock = rest
+      .slice(0, blockEnd)
       .replace(stepHeader, checkedHeader)
+      .replace(/  - Receives: [^\n]+/, `  - Receives: ${resolvedReceives.replace(/\r?\n/g, ' ')}`)
       .replace('  - Result/handoff: pending', `  - Result/handoff: ${handoff}`)
-    content = before + after
+    content = before + updatedBlock + rest.slice(blockEnd)
   }
   if (isFinalStep) {
     content = content.replace('- **Status:** in progress', '- **Status:** completed')
