@@ -32,13 +32,20 @@ run = "mise run //e2e/web:test"
 
 [tasks.e2e]
 description = "Run all Difflab E2E suites"
-usage = 'flag "--extended" help="Include extended tests"'
+usage = '''
+flag "--extended" help="Include extended tests"
+arg "[environment]" help="Optional target environment passed by Premise CI"
+'''
 run = '''
 export DIFFLAB_E2E_EXTENDED="${usage_extended:-false}"
 mise run //:e2e:fixtures:test
-mise run //e2e/app:test
-mise run //e2e/cli:test
-mise run //e2e/web:test
+if [ "${usage_environment:-}" = "preview" ]; then
+  mise run //:e2e:smoke
+else
+  mise run //e2e/app:test
+  mise run //e2e/cli:test
+  mise run //e2e/web:test
+fi
 '''
 
 [tasks."e2e:smoke"]
@@ -55,7 +62,11 @@ run = "bun x vitest run e2e/common/cassette.test.ts"
 
 [tasks."e2e:list"]
 description = "List local BDD journeys without running them"
-depends = ["//e2e/app:list", "//e2e/cli:list", "//e2e/web:list"]
+run = '''
+mise run //e2e/app:list
+mise run //e2e/cli:list
+mise run //e2e/web:list
+'''
 
 [tasks."e2e:typecheck"]
 description = "Type-check all E2E suites"
