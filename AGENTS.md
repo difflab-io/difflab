@@ -10,7 +10,7 @@
 ### Repository layout
 
 - Put reusable filesystem, process, OS, and other generic utilities in `src/extensions`. Use domain-neutral names such as `fsx`, `osx`, `processx`, and `pathx`.
-- Put persistence abstractions such as `JsonFileStore` in `src/stores`. Keep store-specific error classes in the store's module.
+- Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
 - Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module.
 
 ### TypeScript files

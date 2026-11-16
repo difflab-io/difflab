@@ -13,7 +13,7 @@ const cleanups: (() => Promise<void>)[] = []
 
 // Tests -----------------------------------------------------------------------
 describe('Difflab MCP over stdio', () => {
-  test('lists todo and template tools and handles requests over stdio', async () => {
+  test('lists MCP tools and handles project, template, and log requests over stdio', async () => {
     // Arrange
     const directory = await createTempDirectory('difflab-mcp-')
     cleanups.push(directory.cleanup)
@@ -32,9 +32,9 @@ describe('Difflab MCP over stdio', () => {
       // Act
       await client.connect(transport)
       const { tools } = await client.listTools()
-      const response = await client.callTool({
-        name: 'todo_init',
-        arguments: { cwd: directory.path, path: 'todos.json' },
+      const context = await client.callTool({
+        name: 'project_context',
+        arguments: { cwd: directory.path },
       })
       const listed = await client.callTool({ name: 'template_list', arguments: {} })
       const scaffolded = await client.callTool({
@@ -88,25 +88,13 @@ describe('Difflab MCP over stdio', () => {
       })
 
       // Assert
-      expect(tools.map((tool) => tool.name).sort()).toEqual(
-        [
-          'project_context',
-          'log_append',
-          'scaffold',
-          'template_list',
-          'todo_add',
-          'todo_complete',
-          'todo_init',
-          'todo_list',
-          'todo_remove',
-        ].sort(),
-      )
+      expect(tools.map((tool) => tool.name).sort()).toEqual([
+        'log_append',
+        'project_context',
+        'scaffold',
+        'template_list',
+      ])
       expect(tools.find((tool) => tool.name === 'project_context')?.outputSchema).toBeDefined()
-      expect(responseText(response)).toEqual({ created: true, list: { version: 1, tasks: [] } })
-      const context = await client.callTool({
-        name: 'project_context',
-        arguments: { cwd: directory.path },
-      })
       expect(context.isError).toBe(true)
       expect(context.structuredContent).toBeUndefined()
       expect(responseText(context).error).toContain('difflab-init')
