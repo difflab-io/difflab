@@ -6,6 +6,8 @@ import { ProjectSetupError, RepoStoreError } from './errors.js'
 import { createRepoConfig, readRepoConfig } from './projects/config.js'
 import { getProjectContext } from './context.js'
 import { ensureRepoStore, preflightRepoStore } from './projects/repo-store.js'
+import { registerDaemonCommands } from './daemon/commands.js'
+import { registerFlowCommands } from './flows/commands.js'
 import { createUserStore, userPaths, withUserStore } from './store/user-store.js'
 
 // Types -----------------------------------------------------------------------
@@ -82,12 +84,18 @@ export function createProgram(
           `Repository already belongs to project ${config.project.id}; requested ${key}`,
         )
       const origin = canonicalGitUrl(git.originUrl)
-      const target = join(userPaths(options.home).projects, key, repositorySlug(origin))
+      const paths = userPaths(options.home)
+      const target = join(paths.projects, key, repositorySlug(origin))
+      const isManagedWorktree = git.root.startsWith(`${paths.worktrees}/`)
       await preflightRepoStore(git.root, target)
       const project = await withUserStore(
         async (db) => {
           const project = await db.projects.getProjectById(key)
-          await db.repositories.linkRepositoryToProject(project.id, origin)
+          await db.repositories.linkRepositoryToProject(
+            project.id,
+            origin,
+            isManagedWorktree ? undefined : git.root,
+          )
           return project
         },
         { home: options.home },
@@ -159,6 +167,9 @@ export function createProgram(
       )
       write(destination)
     })
+
+  registerDaemonCommands(program, write, { home: options.home })
+  registerFlowCommands(program, write, { home: options.home, cwd: options.cwd })
 
   return program
 }

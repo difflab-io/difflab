@@ -1,0 +1,23 @@
+{
+  "name": "difflab-flow-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "clean": "rm -rf dist coverage",
+    "test": "bun test",
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "hono": "4.13.8",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "prettier": "3.9.8",
+    "typescript": "7.0.2"
+  }
+}

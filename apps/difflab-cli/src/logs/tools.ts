@@ -22,7 +22,31 @@ export const logTools = [
       outputSchema: logOutput,
       annotations: { openWorldHint: false },
     },
-    async ({ path, message }) => appendProgressLog(path, message),
+    async ({ path, message }) => {
+      const result = await appendProgressLog(path, message)
+      await dualWriteWorkerMessage(message)
+      return result
+    },
     { toStructuredContent: (result) => ({ result }) },
   ),
 ]
+
+// Helpers ---------------------------------------------------------------------
+async function dualWriteWorkerMessage(message: string): Promise<void> {
+  const appUrl = process.env.DIFFLAB_APP_URL?.trim()
+  const runId = process.env.DIFFLAB_RUN_ID?.trim()
+  if (!appUrl || !runId) return
+
+  const stepId = process.env.DIFFLAB_STEP_ID?.trim() || null
+  await fetch(`${appUrl.replace(/\/$/, '')}/v1/runs/${encodeURIComponent(runId)}/state`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: {
+        stepId,
+        level: 'info',
+        text: message,
+      },
+    }),
+  }).catch(() => undefined)
+}

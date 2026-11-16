@@ -10,8 +10,65 @@ _.path = ["{{config_root}}/bin"]
 bun = "1.4.2"
 
 [monorepo]
-config_roots = ["apps/*", "libs/*"]
+config_roots = ["apps/*", "libs/*", "e2e/app", "e2e/cli", "e2e/web"]
 
 [tasks.install]
 description = "Install workspace Bun dependencies"
 run = "bun install"
+
+[tasks."e2e:app"]
+description = "Run difflab-app orchestration and Linear trigger E2E journeys"
+usage = 'flag "--extended" help="Include extended tests"'
+run = 'DIFFLAB_E2E_EXTENDED="${usage_extended:-false}" mise run //e2e/app:test'
+
+[tasks."e2e:cli"]
+description = "Run difflab daemon and difflab flows CLI E2E journeys"
+usage = 'flag "--extended" help="Include extended tests"'
+run = 'DIFFLAB_E2E_EXTENDED="${usage_extended:-false}" mise run //e2e/cli:test'
+
+[tasks."e2e:web"]
+description = "Run SvelteKit Flows UI Playwright browser E2E journeys"
+run = "mise run //e2e/web:test"
+
+[tasks.e2e]
+description = "Run all Difflab E2E suites"
+usage = 'flag "--extended" help="Include extended tests"'
+run = '''
+export DIFFLAB_E2E_EXTENDED="${usage_extended:-false}"
+mise run //:e2e:fixtures:test
+mise run //e2e/app:test
+mise run //e2e/cli:test
+mise run //e2e/web:test
+'''
+
+[tasks."e2e:smoke"]
+description = "Run representative smoke E2E flows across app, CLI, and web"
+run = '''
+mise run //e2e/app:smoke
+mise run //e2e/cli:smoke
+mise run //e2e/web:smoke
+'''
+
+[tasks."e2e:fixtures:test"]
+description = "Verify strict HTTP cassette replay, UUID binding, and mutation barriers offline"
+run = "bun x vitest run e2e/common/cassette.test.ts"
+
+[tasks."e2e:list"]
+description = "List local BDD journeys without running them"
+depends = ["//e2e/app:list", "//e2e/cli:list", "//e2e/web:list"]
+
+[tasks."e2e:typecheck"]
+description = "Type-check all E2E suites"
+run = "bun x tsc -p e2e/tsconfig.json --noEmit"
+
+[tasks."e2e:lint"]
+description = "Lint all E2E suites"
+run = "bun x eslint e2e/common e2e/app e2e/cli e2e/web"
+
+[tasks."e2e:format"]
+description = "Format E2E TypeScript and JSON files"
+run = "bun x prettier --write 'e2e/{common,app,cli,web,recordings}/**/*.{ts,json}' e2e/tsconfig.json e2e/README.md"
+
+[tasks."e2e:format:check"]
+description = "Check E2E formatting"
+run = "bun x prettier --check 'e2e/{common,app,cli,web,recordings}/**/*.{ts,json}' e2e/tsconfig.json e2e/README.md"

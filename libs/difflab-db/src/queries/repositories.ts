@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Kysely, Transaction } from 'kysely'
+import { sql, type Kysely, type Transaction } from 'kysely'
 import { canonicalGitUrl, repositorySlug } from 'utils/gitx'
 import type { Repository } from '../entities/repository.js'
 import { validateRepository } from '../entities/repository.js'
@@ -8,8 +8,6 @@ import { retryDatabaseOperation } from '../retry.js'
 import type { ProjectDatabase } from '../schema.js'
 import { ProjectConflictError, validateProjectKey } from './projects.js'
 
-// Types -----------------------------------------------------------------------
-
 // API -------------------------------------------------------------------------
 export function createRepositoryQueries(
   db: Kysely<ProjectDatabase>,
@@ -17,11 +15,21 @@ export function createRepositoryQueries(
   dbPath: string,
 ) {
   return {
-    async linkRepositoryToProject(projectKey: string, origin: string): Promise<Repository> {
+    async linkRepositoryToProject(
+      projectKey: string,
+      origin: string,
+      localPath?: string,
+    ): Promise<Repository> {
       if (readonly) throw new DifflabDbError('Project database is read-only')
       const key = validateProjectKey(projectKey)
       const url = canonicalGitUrl(origin)
-      const repository = { id: randomUUID(), projectId: key, url, slug: repositorySlug(url) }
+      const repository: Repository = {
+        id: randomUUID(),
+        projectId: key,
+        url,
+        slug: repositorySlug(url),
+        ...(localPath ? { localPath } : {}),
+      }
       try {
         return await withDatabaseAccess(dbPath, () =>
           retryDatabaseOperation(() =>
@@ -41,6 +49,14 @@ export function createRepositoryQueries(
                 throw new ProjectConflictError(
                   `Git repository already belongs to another project: ${url}`,
                 )
+              if (localPath && existing.local_path !== localPath) {
+                await tx
+                  .updateTable('repositories')
+                  .set({ local_path: localPath })
+                  .where('id', '=', existing.id)
+                  .execute()
+                return fromDbRepository({ ...existing, local_path: localPath })
+              }
               return fromDbRepository(existing)
             }),
           ),
@@ -49,6 +65,41 @@ export function createRepositoryQueries(
         if (isConstraint(error)) throw new ProjectConflictError(`Repository already exists: ${url}`)
         throw error
       }
+    },
+
+    async listRepositories(): Promise<Repository[]> {
+      return withDatabaseAccess(dbPath, async () => {
+        const rows = await db
+          .selectFrom('repositories')
+          .selectAll()
+          .orderBy(sql`rowid`)
+          .execute()
+        return rows.map(fromDbRepository)
+      })
+    },
+
+    async getRepositoryById(id: string): Promise<Repository> {
+      return withDatabaseAccess(dbPath, async () => {
+        const row = await db
+          .selectFrom('repositories')
+          .selectAll()
+          .where('id', '=', id)
+          .executeTakeFirst()
+        if (!row) throw new DifflabDbError(`Repository not found: ${id}`)
+        return fromDbRepository(row)
+      })
+    },
+
+    async getRepositoryByOrigin(origin: string): Promise<Repository | null> {
+      const url = canonicalGitUrl(origin)
+      return withDatabaseAccess(dbPath, async () => {
+        const row = await db
+          .selectFrom('repositories')
+          .selectAll()
+          .where('github_url', '=', url)
+          .executeTakeFirst()
+        return row ? fromDbRepository(row) : null
+      })
     },
   }
 }
@@ -65,6 +116,7 @@ function fromDbRepository(row: ProjectDatabase['repositories']): Repository {
     projectId: row.project_key,
     url: row.github_url,
     slug: row.slug,
+    ...(row.local_path ? { localPath: row.local_path } : {}),
   })
 }
 
@@ -74,6 +126,7 @@ function toDbRepository(repository: Repository): ProjectDatabase['repositories']
     project_key: repository.projectId,
     github_url: repository.url,
     slug: repository.slug,
+    local_path: repository.localPath ?? null,
   }
 }
 

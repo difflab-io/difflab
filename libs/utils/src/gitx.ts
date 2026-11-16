@@ -105,6 +105,28 @@ export function repositorySlug(url: string): string {
   }
 }
 
+/** Returns the current HEAD commit SHA of the Git repository at cwd. */
+export function gitHeadSha(cwd: string): string {
+  return runGit(cwd, ['rev-parse', 'HEAD'])
+}
+
+/** Creates an isolated Git worktree checked out on a dedicated branch. */
+export function createGitWorktree(
+  repoRoot: string,
+  worktreePath: string,
+  branchName: string,
+  baseRef = 'HEAD',
+): string {
+  runGit(repoRoot, ['worktree', 'add', '-f', '-B', branchName, worktreePath, baseRef])
+  return gitRoot(worktreePath)
+}
+
+/** Removes a Git worktree and prunes stale administrative entries. */
+export function removeGitWorktree(repoRoot: string, worktreePath: string): void {
+  runGit(repoRoot, ['worktree', 'remove', '--force', worktreePath])
+  runGit(repoRoot, ['worktree', 'prune'])
+}
+
 // Helpers ---------------------------------------------------------------------
 function unsupportedOrigin(value: string): GitInspectionError {
   return new GitInspectionError(`Git origin uses an unsupported URL form: ${value}`)

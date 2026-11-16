@@ -26,7 +26,10 @@ test('separate processes can migrate and create distinct projects in one new dat
     }
     const db = new Database(dbPath, { readonly: true })
     try {
-      expect(db.query('SELECT name FROM kysely_migration').all()).toEqual([{ name: '001_initial' }])
+      expect(db.query('SELECT name FROM kysely_migration ORDER BY name').all()).toEqual([
+        { name: '001_initial' },
+        { name: '002_loops_mvp' },
+      ])
     } finally {
       db.close()
     }

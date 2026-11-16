@@ -49,7 +49,10 @@ test('migrations are idempotent and leave unrelated data intact', async () => {
   const second = await open()
   expect((await second.projects.listProjects()).map((item) => item.id)).toEqual(['ONE'])
   const check = new Database(path, { readonly: true })
-  expect(check.query('SELECT name FROM kysely_migration').all()).toEqual([{ name: '001_initial' }])
+  expect(check.query('SELECT name FROM kysely_migration ORDER BY name').all()).toEqual([
+    { name: '001_initial' },
+    { name: '002_loops_mvp' },
+  ])
   expect(check.query('SELECT message FROM user_notes').all()).toEqual([{ message: 'keep' }])
   check.close()
 })
@@ -121,7 +124,10 @@ test('concurrent writable opens migrate a new database only once', async () => {
     await first.projects.getProjectById('ONE'),
   )
   const check = new Database(path, { readonly: true })
-  expect(check.query('SELECT name FROM kysely_migration').all()).toEqual([{ name: '001_initial' }])
+  expect(check.query('SELECT name FROM kysely_migration ORDER BY name').all()).toEqual([
+    { name: '001_initial' },
+    { name: '002_loops_mvp' },
+  ])
   check.close()
 })
 
@@ -155,6 +161,7 @@ test('read-only open rejects a newer migration without modifying history', async
   const check = new Database(path, { readonly: true })
   expect(check.query('SELECT name FROM kysely_migration ORDER BY name').all()).toEqual([
     { name: '001_initial' },
+    { name: '002_loops_mvp' },
     { name: '999_future' },
   ])
   check.close()

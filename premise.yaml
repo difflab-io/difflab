@@ -11,11 +11,21 @@ workspace:
     infra: pulumi
     versioning: svu
   projects:
+    - name: difflab-app
+      template: cloudvoyant/premise-bun:premise-sveltekit-app
+      path: apps/difflab-app
+      answers:
+        name: difflab-app
     - name: difflab-cli
       template: cloudvoyant/premise-bun:premise-commander-cli
       path: apps/difflab-cli
       answers:
         name: difflab-cli
+    - name: difflab-flow-engine
+      template: cloudvoyant/premise-bun:premise-hono-api
+      path: apps/difflab-flow-engine
+      answers:
+        name: difflab-flow-engine
     - name: difflab-db
       template: cloudvoyant/premise-bun:premise-ts-lib
       path: libs/difflab-db

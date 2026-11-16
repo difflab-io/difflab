@@ -3,7 +3,13 @@ import { execFileSync } from 'node:child_process'
 import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { addPathToGitExcludes, discoverGitRepository } from './gitx.js'
+import {
+  addPathToGitExcludes,
+  createGitWorktree,
+  discoverGitRepository,
+  gitHeadSha,
+  removeGitWorktree,
+} from './gitx.js'
 
 // Setup -----------------------------------------------------------------------
 let temp: string
@@ -56,6 +62,43 @@ test('adds an exclude entry once without changing existing newline handling', as
   await addPathToGitExcludes(exclude, '/.difflab')
   await addPathToGitExcludes(exclude, '/.difflab')
   expect(await readFile(exclude, 'utf8')).toBe('first\r\n/.difflab\r\n')
+})
+
+test('given an initialized Git repository, when creating and removing a managed worktree, then checkout and cleanup succeed cleanly', async () => {
+  // Arrange
+  execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/managed.git'], {
+    cwd: root,
+  })
+  execFileSync(
+    'git',
+    [
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      'base',
+    ],
+    { cwd: root },
+  )
+  const baseSha = gitHeadSha(root)
+  const managedPath = join(temp, 'managed-wt')
+
+  // Act
+  const createdRoot = createGitWorktree(root, managedPath, 'difflab/261116-run')
+
+  // Assert
+  expect(createdRoot).toBe(await realpath(managedPath))
+  expect(gitHeadSha(createdRoot)).toBe(baseSha)
+
+  // Act
+  removeGitWorktree(root, managedPath)
+
+  // Assert
+  await expect(lstat(managedPath)).rejects.toThrow()
 })
 
 // Cleanup ---------------------------------------------------------------------

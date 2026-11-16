@@ -1,6 +1,7 @@
 node_modules/
 **/node_modules/
 dist/
+**/dist/
 .output/
 **/.output/
 .svelte-kit/
@@ -15,8 +16,10 @@ bun.lock
 CHANGELOG.md
 RELEASE_NOTES.md
 **/*.template.md
+.codevoyant/
 .worktrees/
 .tmp/
-# Reference examples retain source code/tables; prose uses soft wraps per AGENTS.md.
-skills/difflab-plan/references/examples/plan-sources-before.md
-skills/difflab-plan/references/examples/plan-sources-after.md
+target/
+e2e/outputs/
+**/playwright-report/
+**/test-results/

@@ -39,7 +39,15 @@ export function userPaths(home = process.env.HOME || homedir()) {
     tilde = resolve(home)
   }
   const root = join(tilde, '.difflab')
-  return { root, projects: join(root, 'projects'), database: join(root, 'difflab.sqlite') }
+  return {
+    root,
+    projects: join(root, 'projects'),
+    flows: join(root, 'flows'),
+    worktrees: join(root, 'worktrees'),
+    config: join(root, 'config.toml'),
+    daemonState: join(root, 'daemon.json'),
+    database: join(root, 'difflab.sqlite'),
+  }
 }
 
 /** Only expose user-wide project operations; each call closes its database handle. */
