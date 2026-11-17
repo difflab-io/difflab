@@ -1,11 +1,11 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { OUTPUTS_ROOT, TestHarness } from '../common/test-harness.js'
 
 // Tests -----------------------------------------------------------------------
 test.describe('Given difflab-app open in Playwright (1120x640)', () => {
-  test('When autoreview runs via difflab flows run, then SSE streams live step status and Herdr badges @smoke', async ({
+  test('When Project Home loads and autoreview runs via difflab flows run, then Helical UI renders Project Home and streams live Flows DAG over SSE @smoke', async ({
     page,
   }, testInfo) => {
     // Arrange
@@ -19,6 +19,11 @@ test.describe('Given difflab-app open in Playwright (1120x640)', () => {
 
       await page.goto(daemon.appUrl)
       await expect(page.getByTestId('sse-status')).toContainText('SSE live', { timeout: 15_000 })
+      await expect(page.getByTestId('project-selector')).toContainText('DIFFLAB')
+      await expect(page.getByTestId('project-home')).toBeVisible()
+      await expect(page.getByTestId('repo-component-graph')).toBeVisible()
+
+      const homeShotBuffer = await page.screenshot({ fullPage: true })
 
       // Act
       const started = await runtime.cli(
@@ -34,7 +39,7 @@ test.describe('Given difflab-app open in Playwright (1120x640)', () => {
       expect(started.exitCode).toBe(0)
       const runId = started.json<{ run: { id: string } }>().run.id
 
-      // Assert live SSE updates without reloading the page
+      // Assert live SSE updates switch to Flows and stream DAG step transitions without reloading
       await expect(page.getByTestId('selected-flow-name')).toHaveText('autoreview', {
         timeout: 20_000,
       })
@@ -51,6 +56,7 @@ test.describe('Given difflab-app open in Playwright (1120x640)', () => {
         runId,
       })
       await mkdir(join(OUTPUTS_ROOT, 'web'), { recursive: true })
+      await writeFile(join(outDir, 'project-home.png'), homeShotBuffer)
       await page.screenshot({ path: join(outDir, 'flows-ui.png'), fullPage: true })
     } catch (error) {
       failed = true

@@ -1,18 +1,63 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { FlowRun, FlowRunDetail, FlowStep, WorkerMessage } from 'difflab-db'
+  import { ChevronRight, Search } from 'lucide-svelte'
+  import {
+    AppRail,
+    ProjectSelector,
+    ThemeService,
+    ThemeToggle,
+    type AppRailItem,
+    type DifflabAppId,
+    type ProjectSelectorOption,
+  } from 'ui'
+  import ArtifactExplorerView from '$lib/components/ArtifactExplorerView.svelte'
+  import FlowsAppView from '$lib/components/FlowsAppView.svelte'
+  import ProjectHomeView from '$lib/components/ProjectHomeView.svelte'
   import type { PageData } from './$types'
 
+  // Constants -----------------------------------------------------------------
+  const APP_LABELS: Record<DifflabAppId, string> = {
+    home: 'Home',
+    wikis: 'Wikis',
+    tasks: 'Tasks',
+    plans: 'Plans',
+    reviews: 'Reviews',
+    flows: 'Flows',
+  }
+
+  const theme = new ThemeService({
+    storageKey: 'difflab.theme',
+    themeClass: 'theme-difflab',
+    defaultPreference: 'dark',
+  })
+
+  // API -----------------------------------------------------------------------
   let { data }: { data: PageData } = $props()
+
+  let activeApp = $state<DifflabAppId>('home')
+  let selectedProjectId = $state<string | null>(null)
+  let showAllProjectsInFlows = $state(false)
+  let searchQuery = $state('')
 
   let runs = $state<FlowRun[]>([])
   let selectedRunId = $state<string | null>(null)
+  let selectedPlanId = $state<string | null>(null)
+  let selectedReviewId = $state<string | null>(null)
+  let selectedDocId = $state<string | null>(null)
+
   let stepsByRun = $state<Record<string, FlowStep[]>>({})
   let messagesByRun = $state<Record<string, WorkerMessage[]>>({})
   let streamConnected = $state(false)
+  let initializedFromServer = $state(false)
 
   $effect(() => {
     runs = data.runs
+    if (!initializedFromServer) {
+      activeApp = data.initialApp
+      selectedProjectId = data.initialProjectId
+      initializedFromServer = true
+    }
     if (data.initialDetail) {
       const id = data.initialDetail.run.id
       if (!selectedRunId) selectedRunId = id
@@ -23,12 +68,110 @@
     }
   })
 
+  const activeProject = $derived(
+    data.workspace.projects.find((p) => p.id === selectedProjectId) ??
+      data.workspace.projects[0] ??
+      null,
+  )
+
+  const projectOptions = $derived<ProjectSelectorOption[]>(
+    data.workspace.projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      repoCount: p.counts.repositories,
+      flowCount: p.counts.flows,
+    })),
+  )
+
+  const projectScopedRuns = $derived(
+    activeProject
+      ? runs.filter((r) => data.workspace.repoProjectMap[r.repoId] === activeProject.id)
+      : runs,
+  )
+
+  const flowsSidebarRuns = $derived(showAllProjectsInFlows ? runs : projectScopedRuns)
+
   const activeStatuses = new Set(['queued', 'running', 'blocked'])
-  const activeRuns = $derived(runs.filter((r) => activeStatuses.has(r.status)))
-  const completedRuns = $derived(runs.filter((r) => !activeStatuses.has(r.status)))
+  const activeFlowCount = $derived(
+    projectScopedRuns.filter((r) => activeStatuses.has(r.status)).length,
+  )
+
   const selectedRun = $derived(runs.find((r) => r.id === selectedRunId) ?? null)
   const selectedSteps = $derived(selectedRunId ? (stepsByRun[selectedRunId] ?? []) : [])
   const selectedMessages = $derived(selectedRunId ? (messagesByRun[selectedRunId] ?? []) : [])
+
+  const railItems = $derived<AppRailItem[]>([
+    { id: 'home', label: 'Home' },
+    { id: 'wikis', label: 'Wikis', badge: activeProject?.counts.docs ?? 0 },
+    { id: 'tasks', label: 'Tasks', badge: activeProject?.triggers.length ?? 0 },
+    { id: 'plans', label: 'Plans', badge: activeProject?.counts.plans ?? 0 },
+    { id: 'reviews', label: 'Reviews', badge: activeProject?.counts.reviews ?? 0 },
+    {
+      id: 'flows',
+      label: 'Flows',
+      badge: projectScopedRuns.length,
+      live: activeFlowCount > 0,
+    },
+  ])
+
+  const breadcrumbLeaf = $derived.by(() => {
+    if (activeApp === 'flows' && selectedRun) return selectedRun.flowName
+    if (activeApp === 'plans' && activeProject) {
+      const plan =
+        activeProject.plans.find((p) => p.id === selectedPlanId) ?? activeProject.plans[0]
+      return plan?.title ?? null
+    }
+    if (activeApp === 'reviews' && activeProject) {
+      const rev =
+        activeProject.reviews.find((r) => r.id === selectedReviewId) ?? activeProject.reviews[0]
+      return rev?.title ?? null
+    }
+    return null
+  })
+
+  // Helpers -------------------------------------------------------------------
+  function syncUrlState(
+    nextProjectId: string | null,
+    nextApp: DifflabAppId,
+    nextRunId?: string | null,
+  ): void {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (nextProjectId) url.searchParams.set('project', nextProjectId)
+    url.searchParams.set('app', nextApp)
+    if (nextApp === 'flows' && nextRunId) {
+      url.searchParams.set('runId', nextRunId)
+    } else {
+      url.searchParams.delete('runId')
+    }
+    window.history.replaceState({}, '', url)
+  }
+
+  function handleSelectProject(projectId: string): void {
+    selectedProjectId = projectId
+    selectedPlanId = null
+    selectedReviewId = null
+    selectedDocId = null
+
+    const nextRuns = runs.filter((r) => data.workspace.repoProjectMap[r.repoId] === projectId)
+    if (!showAllProjectsInFlows) {
+      const nextRunId = nextRuns[0]?.id ?? null
+      selectedRunId = nextRunId
+      if (nextRunId && !stepsByRun[nextRunId]) {
+        void hydrateRunDetail(nextRunId)
+      }
+    }
+    syncUrlState(projectId, activeApp, selectedRunId)
+  }
+
+  function handleSelectApp(app: DifflabAppId): void {
+    activeApp = app
+    if (app === 'flows' && !selectedRunId) {
+      const candidate = flowsSidebarRuns[0]?.id ?? runs[0]?.id ?? null
+      if (candidate) void selectRun(candidate)
+    }
+    syncUrlState(selectedProjectId, app, selectedRunId)
+  }
 
   async function hydrateRunDetail(runId: string): Promise<void> {
     try {
@@ -73,12 +216,30 @@
 
   async function selectRun(runId: string): Promise<void> {
     selectedRunId = runId
+    activeApp = 'flows'
+    syncUrlState(selectedProjectId, 'flows', runId)
     if (!stepsByRun[runId]) {
       await hydrateRunDetail(runId)
     }
   }
 
+  function openDocsForRepo(repoId?: string, componentName?: string): void {
+    if (activeProject && repoId) {
+      const match =
+        (componentName
+          ? activeProject.docs.find(
+              (d) =>
+                d.repoId === repoId &&
+                d.relativePath.toLowerCase().includes(componentName.toLowerCase()),
+            )
+          : undefined) ?? activeProject.docs.find((d) => d.repoId === repoId)
+      if (match) selectedDocId = match.id
+    }
+    handleSelectApp('wikis')
+  }
+
   onMount(() => {
+    const disposeTheme = theme.init()
     const es = new EventSource('/v1/stream')
     es.onopen = () => {
       streamConnected = true
@@ -94,6 +255,13 @@
       }
       const isNew = !runs.some((r) => r.id === payload.runId)
       upsertRun(payload.run)
+      if (isNew) {
+        const runProj = data.workspace.repoProjectMap[payload.run.repoId]
+        if (runProj) selectedProjectId = runProj
+        selectedRunId = payload.runId
+        activeApp = 'flows'
+        syncUrlState(selectedProjectId, 'flows', payload.runId)
+      }
       if (isNew || !stepsByRun[payload.runId]) {
         void hydrateRunDetail(payload.runId)
       }
@@ -117,514 +285,180 @@
 
     return () => {
       es.close()
+      disposeTheme()
     }
   })
 </script>
 
 <svelte:head>
-  <title>Difflab Flows</title>
+  <title>
+    {activeProject ? `${activeProject.name} · ${APP_LABELS[activeApp]} — Difflab` : 'Difflab'}
+  </title>
 </svelte:head>
 
-<div class="shell">
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark">difflab</span>
-      <span class="brand-sep">/</span>
-      <span class="brand-section">flows</span>
+<div class="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+  <!-- Top Toolbar (PRD: Project Selector, Breadcrumbs, Search, Live Status, Theme) -->
+  <header
+    class="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border bg-sidebar px-3 text-sidebar-foreground select-none"
+  >
+    <div class="flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-xs font-semibold tracking-tight text-foreground hover:bg-accent"
+        onclick={() => handleSelectApp('home')}
+      >
+        <span class="inline-block size-2 rounded-xs bg-foreground"></span>
+        <span>difflab</span>
+      </button>
+
+      <span class="text-muted-foreground/50">/</span>
+
+      <ProjectSelector
+        projects={projectOptions}
+        selectedId={activeProject?.id ?? null}
+        onchange={handleSelectProject}
+      />
+
+      <nav aria-label="Breadcrumb" class="hidden min-w-0 items-center gap-1 text-xs md:flex">
+        <ChevronRight size={13} strokeWidth={1.6} class="shrink-0 text-muted-foreground/60" />
+        <button
+          type="button"
+          class={[
+            'rounded px-1.5 py-0.5 font-medium transition-colors hover:bg-accent',
+            breadcrumbLeaf ? 'text-muted-foreground' : 'text-foreground',
+          ].join(' ')}
+          onclick={() => handleSelectApp(activeApp)}
+        >
+          {APP_LABELS[activeApp]}
+        </button>
+        {#if breadcrumbLeaf}
+          <ChevronRight size={13} strokeWidth={1.6} class="shrink-0 text-muted-foreground/60" />
+          <span class="max-w-60 truncate font-medium text-foreground">{breadcrumbLeaf}</span>
+        {/if}
+      </nav>
     </div>
-    <div class="stream-badge" data-testid="sse-status" data-connected={streamConnected}>
-      <span class="dot" class:live={streamConnected}></span>
-      {streamConnected ? 'SSE live' : 'connecting'}
+
+    <div class="flex shrink-0 items-center gap-2">
+      {#if activeApp !== 'home' && activeApp !== 'tasks'}
+        <label class="relative hidden items-center sm:flex">
+          <Search
+            size={12}
+            strokeWidth={1.6}
+            class="pointer-events-none absolute left-2 text-muted-foreground"
+          />
+          <input
+            type="search"
+            bind:value={searchQuery}
+            placeholder={`Filter ${APP_LABELS[activeApp].toLowerCase()}...`}
+            aria-label={`Filter ${APP_LABELS[activeApp]}`}
+            class="h-7 w-44 rounded-md border border-border bg-background pr-2.5 pl-6.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+          />
+        </label>
+      {/if}
+
+      <div
+        data-testid="sse-status"
+        data-connected={streamConnected}
+        class="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-[11px] font-medium text-muted-foreground"
+      >
+        <span
+          class={[
+            'size-1.5 rounded-full',
+            streamConnected ? 'bg-[var(--success)]' : 'bg-muted-foreground',
+          ].join(' ')}
+        ></span>
+        <span>{streamConnected ? 'SSE live' : 'connecting'}</span>
+      </div>
+
+      <ThemeToggle
+        value={theme.preference}
+        size="sm"
+        onchange={(next) => theme.setPreference(next)}
+      />
     </div>
   </header>
 
-  <div class="workspace">
-    <aside class="sidebar" data-testid="runs-sidebar">
-      <section class="group">
-        <h2>Active ({activeRuns.length})</h2>
-        {#if activeRuns.length === 0}
-          <p class="muted">No active workflow runs.</p>
-        {:else}
-          {#each activeRuns as run (run.id)}
-            <button
-              type="button"
-              class="run-item"
-              class:selected={selectedRunId === run.id}
-              data-testid={`run-item-${run.id}`}
-              onclick={() => selectRun(run.id)}
-            >
-              <div class="run-item-top">
-                <span class="flow-name">{run.flowName}</span>
-                <span class={`pill status-${run.status}`}>{run.status}</span>
-              </div>
-              {#if data.repoLabels?.[run.repoId]}
-                <div class="run-repo">{data.repoLabels[run.repoId]}</div>
-              {/if}
-              <div class="run-id">{run.id}</div>
-            </button>
-          {/each}
-        {/if}
-      </section>
+  <!-- Main Workspace Shell: Icon-Only App Bar + Contextual Sidebar (where applicable) + Content -->
+  <div class="flex min-h-0 flex-1 overflow-hidden">
+    <AppRail {activeApp} items={railItems} onselect={handleSelectApp} />
 
-      <section class="group">
-        <h2>Completed ({completedRuns.length})</h2>
-        {#if completedRuns.length === 0}
-          <p class="muted">No completed runs yet.</p>
-        {:else}
-          {#each completedRuns as run (run.id)}
-            <button
-              type="button"
-              class="run-item"
-              class:selected={selectedRunId === run.id}
-              data-testid={`run-item-${run.id}`}
-              onclick={() => selectRun(run.id)}
-            >
-              <div class="run-item-top">
-                <span class="flow-name">{run.flowName}</span>
-                <span class={`pill status-${run.status}`}>{run.status}</span>
-              </div>
-              {#if data.repoLabels?.[run.repoId]}
-                <div class="run-repo">{data.repoLabels[run.repoId]}</div>
-              {/if}
-              <div class="run-id">{run.id}</div>
-            </button>
-          {/each}
-        {/if}
-      </section>
-    </aside>
-
-    <main class="detail" data-testid="run-detail">
-      {#if !selectedRun}
-        <div class="empty-state">
-          <h1>No workflow run selected</h1>
-          <p>
-            Trigger a Linear Ready task or run <code
-              >difflab flows run autoreview --flag --local</code
-            >.
+    {#if activeApp === 'flows'}
+      <FlowsAppView
+        projectId={activeProject?.id ?? null}
+        projectName={activeProject?.name ?? null}
+        runs={flowsSidebarRuns}
+        allRunsCount={runs.length}
+        showAllProjects={showAllProjectsInFlows}
+        {searchQuery}
+        {selectedRun}
+        {selectedSteps}
+        {selectedMessages}
+        repoLabels={data.repoLabels}
+        onToggleShowAll={(next) => {
+          showAllProjectsInFlows = next
+          const pool = next ? runs : projectScopedRuns
+          if (!pool.some((r) => r.id === selectedRunId) && pool[0]) {
+            void selectRun(pool[0].id)
+          }
+        }}
+        onSelectRun={(runId) => {
+          void selectRun(runId)
+        }}
+      />
+    {:else if !activeProject}
+      <main class="flex flex-1 items-center justify-center p-6 text-center">
+        <div class="max-w-md">
+          <h1 class="m-0 text-base font-semibold text-foreground">
+            No Difflab projects initialized
+          </h1>
+          <p class="mt-1.5 text-xs text-muted-foreground">
+            Run <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground"
+              >difflab init</code
+            > inside a repository to register your first project.
           </p>
         </div>
-      {:else}
-        <section class="run-header">
-          <div class="title-row">
-            <div>
-              <h1 data-testid="selected-flow-name">{selectedRun.flowName}</h1>
-              <div class="mono sub" data-testid="selected-run-id">{selectedRun.id}</div>
-            </div>
-            <span
-              class={`pill pill-lg status-${selectedRun.status}`}
-              data-testid="selected-run-status"
-            >
-              {selectedRun.status}
-            </span>
-          </div>
-
-          <div class="badges" data-testid="herdr-badges">
-            {#if data.repoLabels?.[selectedRun.repoId]}
-              <span class="badge">{data.repoLabels[selectedRun.repoId]}</span>
-            {/if}
-            <span class="badge">harness: {selectedRun.harness}</span>
-            {#if selectedRun.herdrSession}
-              <span class="badge badge-herdr" data-testid="herdr-session-badge">
-                herdr session: {selectedRun.herdrSession}
-              </span>
-            {/if}
-            {#if selectedRun.herdrPaneId}
-              <span class="badge badge-herdr" data-testid="herdr-pane-badge">
-                pane: {selectedRun.herdrPaneId}
-              </span>
-            {/if}
-            {#if selectedRun.herdrAgentName}
-              <span class="badge badge-herdr" data-testid="herdr-agent-badge">
-                agent: {selectedRun.herdrAgentName}
-              </span>
-            {/if}
-            {#if selectedRun.triggerKey}
-              <span class="badge">trigger: {selectedRun.triggerKey}</span>
-            {/if}
-            {#if selectedRun.commitSha}
-              <span class="badge mono">commit: {selectedRun.commitSha.slice(0, 8)}</span>
-            {/if}
-          </div>
-
-          {#if selectedRun.worktreePath}
-            <div class="meta-line mono">worktree: {selectedRun.worktreePath}</div>
-          {/if}
-        </section>
-
-        <div class="panels">
-          <section class="panel" data-testid="steps-panel">
-            <h2>Steps ({selectedSteps.length})</h2>
-            <ol class="step-list">
-              {#each selectedSteps as step (step.id)}
-                <li class="step-card" data-testid={`step-${step.stepId}`} data-status={step.status}>
-                  <div class="step-row">
-                    <span class="step-title">
-                      <span class="mono">{step.seq}.</span>
-                      {step.stepId}
-                    </span>
-                    <div class="step-meta">
-                      {#if step.harness}
-                        <span class="badge">{step.harness}</span>
-                      {/if}
-                      <span class={`pill status-${step.status}`}>{step.status}</span>
-                    </div>
-                  </div>
-                  {#if step.summary}
-                    <div class="step-summary">{step.summary}</div>
-                  {/if}
-                  {#if step.handoff}
-                    <div class="step-handoff mono">{step.handoff}</div>
-                  {/if}
-                </li>
-              {/each}
-            </ol>
-          </section>
-
-          <section class="panel" data-testid="messages-panel">
-            <h2>Worker activity ({selectedMessages.length})</h2>
-            {#if selectedMessages.length === 0}
-              <p class="muted">Waiting for step messages...</p>
-            {:else}
-              <ul class="log-list">
-                {#each selectedMessages as msg (msg.id)}
-                  <li class={`log-line level-${msg.level}`}>
-                    <span class="log-meta mono">
-                      [{msg.level}]{msg.stepId ? ` ${msg.stepId}:` : ''}
-                    </span>
-                    <span>{msg.message}</span>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          </section>
-        </div>
-      {/if}
-    </main>
+      </main>
+    {:else if activeApp === 'home'}
+      <ProjectHomeView
+        project={activeProject}
+        projectRuns={projectScopedRuns}
+        repoLabels={data.repoLabels}
+        onOpenApp={handleSelectApp}
+        onOpenFlow={(runId) => {
+          void selectRun(runId)
+        }}
+        onOpenPlan={(planId) => {
+          selectedPlanId = planId
+          handleSelectApp('plans')
+        }}
+        onOpenReview={(reviewId) => {
+          selectedReviewId = reviewId
+          handleSelectApp('reviews')
+        }}
+        onOpenDocs={openDocsForRepo}
+      />
+    {:else}
+      <ArtifactExplorerView
+        mode={activeApp}
+        project={activeProject}
+        projectRuns={projectScopedRuns}
+        {searchQuery}
+        {selectedPlanId}
+        {selectedReviewId}
+        {selectedDocId}
+        onSelectPlan={(id) => {
+          selectedPlanId = id
+        }}
+        onSelectReview={(id) => {
+          selectedReviewId = id
+        }}
+        onSelectDoc={(id) => {
+          selectedDocId = id
+        }}
+        onOpenFlow={(runId) => {
+          void selectRun(runId)
+        }}
+      />
+    {/if}
   </div>
 </div>
-
-<style>
-  :global(body) {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-    background: #0b0f17;
-    color: #e5e7eb;
-  }
-
-  .shell {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-  }
-
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    border-bottom: 1px solid #1f2937;
-    background: #111827;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    font-size: 15px;
-  }
-
-  .brand-mark {
-    color: #f9fafb;
-  }
-
-  .brand-sep {
-    color: #4b5563;
-  }
-
-  .brand-section {
-    color: #93c5fd;
-  }
-
-  .stream-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: #1f2937;
-    color: #d1d5db;
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #6b7280;
-  }
-
-  .dot.live {
-    background: #10b981;
-  }
-
-  .workspace {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    flex: 1;
-  }
-
-  .sidebar {
-    border-right: 1px solid #1f2937;
-    padding: 16px;
-    background: #0f1522;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .group h2,
-  .panel h2 {
-    margin: 0 0 10px;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #9ca3af;
-  }
-
-  .run-item {
-    width: 100%;
-    text-align: left;
-    background: #141c2c;
-    border: 1px solid #1f2937;
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    color: inherit;
-    cursor: pointer;
-  }
-
-  .run-item.selected {
-    border-color: #3b82f6;
-    background: #172554;
-  }
-
-  .run-item-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .flow-name {
-    font-weight: 600;
-    font-size: 14px;
-  }
-
-  .run-repo {
-    font-size: 11px;
-    color: #93c5fd;
-    margin-top: 3px;
-  }
-
-  .run-id {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    color: #9ca3af;
-    margin-top: 4px;
-  }
-
-  .detail {
-    padding: 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .empty-state {
-    margin: auto;
-    text-align: center;
-    color: #9ca3af;
-  }
-
-  .run-header {
-    background: #111827;
-    border: 1px solid #1f2937;
-    border-radius: 10px;
-    padding: 16px 18px;
-  }
-
-  .title-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .title-row h1 {
-    margin: 0;
-    font-size: 20px;
-  }
-
-  .sub {
-    color: #9ca3af;
-    font-size: 12px;
-    margin-top: 4px;
-  }
-
-  .badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .badge {
-    font-size: 12px;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: #1f2937;
-    color: #d1d5db;
-    border: 1px solid #374151;
-  }
-
-  .badge-herdr {
-    background: #064e3b;
-    border-color: #059669;
-    color: #d1fae5;
-  }
-
-  .meta-line {
-    margin-top: 10px;
-    font-size: 12px;
-    color: #9ca3af;
-  }
-
-  .panels {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
-  .panel {
-    background: #111827;
-    border: 1px solid #1f2937;
-    border-radius: 10px;
-    padding: 16px;
-  }
-
-  .step-list,
-  .log-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .step-card {
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: #0f172a;
-    border: 1px solid #1e293b;
-  }
-
-  .step-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .step-title {
-    font-weight: 500;
-    font-size: 14px;
-  }
-
-  .step-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .step-summary {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #cbd5e1;
-  }
-
-  .step-handoff {
-    margin-top: 6px;
-    font-size: 11px;
-    color: #93c5fd;
-    word-break: break-all;
-  }
-
-  .log-line {
-    font-size: 12px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: #0f172a;
-    border-left: 3px solid #475569;
-  }
-
-  .log-line.level-done {
-    border-left-color: #10b981;
-  }
-
-  .log-line.level-error,
-  .log-line.level-blocker {
-    border-left-color: #ef4444;
-  }
-
-  .log-meta {
-    color: #94a3b8;
-    margin-right: 6px;
-  }
-
-  .pill {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 999px;
-    text-transform: uppercase;
-  }
-
-  .pill-lg {
-    font-size: 12px;
-    padding: 4px 10px;
-  }
-
-  .status-queued,
-  .status-pending {
-    background: #374151;
-    color: #e5e7eb;
-  }
-
-  .status-running {
-    background: #1d4ed8;
-    color: #dbeafe;
-  }
-
-  .status-done {
-    background: #065f46;
-    color: #d1fae5;
-  }
-
-  .status-failed,
-  .status-blocked {
-    background: #7f1d1d;
-    color: #fee2e2;
-  }
-
-  .mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-
-  .muted {
-    font-size: 12px;
-    color: #6b7280;
-    margin: 0;
-  }
-</style>

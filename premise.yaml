@@ -31,3 +31,8 @@ workspace:
       path: libs/difflab-db
       answers:
         name: difflab-db
+    - name: ui
+      template: cloudvoyant/premise-bun:premise-ts-lib
+      path: libs/ui
+      answers:
+        name: ui
