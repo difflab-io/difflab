@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BookOpen, CheckSquare, FileCode2, GitBranch, GitPullRequest } from 'lucide-svelte'
+  import { BookOpen, CheckSquare, ClipboardList, GitBranch, GitPullRequest } from 'lucide-svelte'
   import { MarkdownDocument, StatusPill } from 'ui'
   import type { ProjectWorkspaceData, WorkspacePlanItem } from '$lib/server/workspace-data.js'
 
@@ -205,7 +205,7 @@
             <header class="rounded-lg border border-border bg-card p-4">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
-                  <FileCode2 size={15} strokeWidth={1.6} class="text-muted-foreground" />
+                  <ClipboardList size={15} strokeWidth={1.6} class="text-muted-foreground" />
                   <h1 class="m-0 text-base font-semibold text-foreground">{activePlan.title}</h1>
                 </div>
                 <StatusPill status={activePlan.status} size="sm" />

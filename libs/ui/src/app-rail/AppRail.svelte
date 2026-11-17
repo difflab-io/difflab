@@ -1,6 +1,13 @@
 <script lang="ts">
   import { cn } from '@cloudvoyant/helical-ui'
-  import { BookOpen, CheckSquare, FileCode2, GitPullRequest, House, Workflow } from 'lucide-svelte'
+  import {
+    BookOpen,
+    CheckSquare,
+    ClipboardList,
+    GitPullRequest,
+    House,
+    Workflow,
+  } from 'lucide-svelte'
   import { appRailButtonVariants } from './styles.js'
   import type { AppRailProps, DifflabAppId } from './types.js'
 
@@ -16,7 +23,7 @@
   {:else if id === 'tasks'}
     <CheckSquare size={16} strokeWidth={1.65} />
   {:else if id === 'plans'}
-    <FileCode2 size={16} strokeWidth={1.65} />
+    <ClipboardList size={16} strokeWidth={1.65} />
   {:else if id === 'reviews'}
     <GitPullRequest size={16} strokeWidth={1.65} />
   {:else}
