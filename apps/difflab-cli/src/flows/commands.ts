@@ -34,7 +34,7 @@ export function registerFlowCommands(
       (val: string, all: string[]) => [...all, val],
       [],
     )
-    .option('--harness <kind>', 'Override harness kind (claude, codex, pi, mock)')
+    .option('--harness <kind>', 'Override harness kind (agy, claude, codex, pi, mock)')
     .option('--json', 'Emit JSON response')
     .action(
       async (

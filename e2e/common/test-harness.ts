@@ -1,7 +1,17 @@
 import { execFile, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -11,156 +21,16 @@ const execFileAsync = promisify(execFile)
 const COMMON_DIR = dirname(fileURLToPath(import.meta.url))
 export const WORKSPACE_ROOT = resolve(COMMON_DIR, '../..')
 export const OUTPUTS_ROOT = join(WORKSPACE_ROOT, 'e2e/outputs')
+const RECORDINGS_FLOWS_DIR = join(WORKSPACE_ROOT, 'e2e/recordings/flows')
 const TARGET_E2E_ROOT = join(WORKSPACE_ROOT, 'target/e2e')
 const CLI_DIST_ENTRY = join(WORKSPACE_ROOT, 'apps/difflab-cli/dist/index.js')
-const MOCK_AGENT_SCRIPT = join(COMMON_DIR, 'mock-agent.ts')
+const FLOW_REPLAY_RUNNER_SCRIPT = join(COMMON_DIR, 'flow-replay-runner.ts')
+const GH_SHIM_SCRIPT = join(COMMON_DIR, 'gh-shim.ts')
 const HERDR_SHIM_SCRIPT = join(COMMON_DIR, 'herdr-shim.ts')
 
-const AUTOSPEC_DEFINITION = `# autospec
-
-## Intent
-
-Autonomously plan and implement an objective, commit scoped changes in an isolated worktree, review them, and mark ready.
-
-## Inputs
-
-| Name | Required | Default | Description |
-| --- | --- | --- | --- |
-| input | yes | — | Objective to plan and implement. |
-| branch | no | auto | Target feature branch or auto. |
-
-## Flags
-
-| Flag | Default | Capability | Effect |
-| --- | --- | --- | --- |
-| --merge | false | merge | Include final merge after checks pass. |
-
-## Steps
-
-### 1. prepare-branch
-
-- Handler: \`procedure: prepare feature checkout\`
-- When: always
-- Unless: never
-- Requires: local
-- Receives: \`{{input}}\`, \`{{branch}}\`
-- Produces: \`checkout\`
-- Instructions: Verify isolated checkout and Difflab store.
-
-### 2. draft-plan
-
-- Handler: \`plan new\`
-- When: always
-- Unless: never
-- Requires: local
-- Receives: \`{{input}}\`, \`{{steps.prepare-branch.checkout}}\`
-- Produces: \`plan_path\`
-- Instructions: Create and fill PLAN.md for {{input}}.
-
-### 3. implement
-
-- Handler: \`plan go\`
-- When: always
-- Unless: never
-- Requires: local
-- Receives: \`{{steps.draft-plan.plan_path}}\`, \`{{steps.prepare-branch.checkout}}\`
-- Produces: \`diff_ref\`
-- Instructions: Execute the implementation plan inside the isolated worktree.
-
-### 4. remote-review
-
-- Handler: \`review new\`
-- When: always
-- Unless: never
-- Requires: remote-pipeline
-- Receives: \`{{steps.implement.diff_ref}}\`
-- Produces: \`review_path\`, \`pr_url\`
-- Instructions: Commit scoped changes inside the worktree and record REVIEW.md.
-
-### 5. address-remote
-
-- Handler: \`review address\`
-- When: always
-- Unless: never
-- Requires: remote-pipeline
-- Receives: \`{{steps.remote-review.review_path}}\`, \`{{steps.remote-review.pr_url}}\`
-- Produces: \`result\`
-- Instructions: Verify and address review threads.
-
-### 6. publish-ready
-
-- Handler: \`pr publish\`
-- When: always
-- Unless: never
-- Requires: remote-pipeline
-- Receives: \`{{steps.address-remote.result}}\`, \`{{steps.remote-review.pr_url}}\`
-- Produces: \`pr_url\`, \`head_sha\`
-- Instructions: Reconcile PLAN.md and mark ready.
-
-### 7. merge
-
-- Handler: \`pr merge\`
-- When: \`--merge\`
-- Unless: never
-- Requires: merge
-- Receives: \`{{steps.publish-ready.pr_url}}\`, \`{{steps.publish-ready.head_sha}}\`
-- Produces: \`merge_result\`
-- Instructions: Merge verified PR.
-`
-
-const AUTOREVIEW_DEFINITION = `# autoreview
-
-## Intent
-
-Run one local or remote code review and address round for an existing change.
-
-## Inputs
-
-| Name | Required | Default | Description |
-| --- | --- | --- | --- |
-| input | no | current branch diff | Target diff or branch to review. |
-
-## Flags
-
-| Flag | Default | Capability | Effect |
-| --- | --- | --- | --- |
-| --local | false | local | Run local review and address without mutating Git history. |
-| --remote-review | false | remote-review | Run remote PR review and address. |
-
-## Steps
-
-### 1. local-review
-
-- Handler: \`review new --local\`
-- When: always
-- Unless: \`--remote-review\`
-- Requires: local
-- Receives: \`{{input}}\`
-- Produces: \`review_path\`
-- Instructions: Record grounded local findings in REVIEW.md.
-
-### 2. remote-review
-
-- Handler: \`review new\`
-- When: \`--remote-review\`
-- Unless: \`--local\`
-- Requires: remote-review
-- Receives: \`{{input}}\`
-- Produces: \`review_path\`, \`pr_url\`
-- Instructions: Review remotely and publish findings.
-
-### 3. address-local
-
-- Handler: \`review address --local\`
-- When: always
-- Unless: \`--remote-review\`
-- Requires: local
-- Receives: \`{{steps.local-review.review_path}}\`
-- Produces: \`result\`
-- Instructions: Address local findings and record outcomes in REVIEW.md.
-`
-
 // Types -----------------------------------------------------------------------
+export type SuiteKind = 'app' | 'cli' | 'web'
+
 export type CliInvocationResult = {
   args: string[]
   exitCode: number
@@ -201,11 +71,13 @@ export type RunDetailSnapshot = {
 
 // API -------------------------------------------------------------------------
 export class TestHarness {
-  readonly suite: string
+  readonly suite: SuiteKind
   readonly rootDir: string
   readonly homeDir: string
+  readonly projectStoreDir: string
   readonly repoDir: string
   readonly originDir: string
+  readonly ghStateFile: string
   readonly herdrBin: string
   readonly herdrMode: 'real' | 'shim'
   readonly herdrSession: string
@@ -213,11 +85,13 @@ export class TestHarness {
   private readonly transcript: string[] = []
 
   private constructor(params: {
-    suite: string
+    suite: SuiteKind
     rootDir: string
     homeDir: string
+    projectStoreDir: string
     repoDir: string
     originDir: string
+    ghStateFile: string
     herdrBin: string
     herdrMode: 'real' | 'shim'
     herdrSession: string
@@ -226,8 +100,10 @@ export class TestHarness {
     this.suite = params.suite
     this.rootDir = params.rootDir
     this.homeDir = params.homeDir
+    this.projectStoreDir = params.projectStoreDir
     this.repoDir = params.repoDir
     this.originDir = params.originDir
+    this.ghStateFile = params.ghStateFile
     this.herdrBin = params.herdrBin
     this.herdrMode = params.herdrMode
     this.herdrSession = params.herdrSession
@@ -235,82 +111,148 @@ export class TestHarness {
   }
 
   static async create(
-    suite: 'app' | 'cli' | 'web',
+    suite: SuiteKind,
     extraEnv: NodeJS.ProcessEnv = {},
     meta: { name?: string } = {},
   ): Promise<TestHarness> {
     const id = randomBytes(3).toString('hex')
     const slug = slugify(meta.name ?? suite).slice(0, 32)
     const rootDir = join(TARGET_E2E_ROOT, `${suite}-${slug}-${id}`)
-    // Keep $HOME short so macOS UNIX domain sockets (sockaddr_un.sun_path <= 104 bytes) succeed in Herdr.
     const rawShortHome = join('/tmp', `dl-${id}`)
     await mkdir(rawShortHome, { recursive: true })
     const homeDir = await realpath(rawShortHome)
     const repoDir = join(rootDir, 'repo')
     const originDir = join(rootDir, 'origin.git')
+    const shimBinDir = join(rootDir, 'bin')
+    const ghStateFile = join(rootDir, 'gh-state.json')
     const shimStateDir = join(rootDir, 'herdr-shim')
+    const projectStoreDir = join(
+      homeDir,
+      '.difflab/projects/DIFFLAB/github.com--example--loops-demo',
+    )
 
     await mkdir(rootDir, { recursive: true })
-    await symlink(homeDir, join(rootDir, 'home')).catch(() => undefined)
+    await symlink(homeDir, join(rootDir, 'difflab-home')).catch(() => undefined)
     await mkdir(join(homeDir, '.difflab/flows'), { recursive: true })
     await mkdir(repoDir, { recursive: true })
     await mkdir(originDir, { recursive: true })
+    await mkdir(shimBinDir, { recursive: true })
 
-    await writeFile(join(homeDir, '.difflab/flows/autospec.md'), AUTOSPEC_DEFINITION, 'utf8')
-    await writeFile(join(homeDir, '.difflab/flows/autoreview.md'), AUTOREVIEW_DEFINITION, 'utf8')
+    // Copy the user's real local ~/.difflab/flows/{autospec,autoreview}.md (falling back to verbatim recordings on CI).
+    const realHostHome = process.env.HOME || homedir()
+    await copyFlowDefinition(realHostHome, homeDir, 'autospec.md')
+    await copyFlowDefinition(realHostHome, homeDir, 'autoreview.md')
+
     await writeFile(
       join(homeDir, '.difflab/config.toml'),
       [
         'appPort = 0',
         'enginePort = 0',
         'daemonRigPort = 0',
-        'defaultHarness = "mock"',
+        'defaultHarness = "agy"',
         'retention = "retain"',
         '',
       ].join('\n'),
       'utf8',
     )
 
-    // Initialize isolated bare remote and primary repository checkout with mise.toml.
-    runGit(originDir, ['init', '--bare'])
-    runGit(repoDir, ['init', '-b', 'main'])
-    runGit(repoDir, ['config', 'user.name', 'Difflab E2E'])
-    runGit(repoDir, ['config', 'user.email', 'e2e@difflab.local'])
-    runGit(repoDir, ['remote', 'add', 'origin', 'https://github.com/example/loops-demo.git'])
+    const bunBin = resolveBunBinary()
+    const realGitBin = resolveSystemGitBinary()
+    await installOfflineGitAndGhShims(shimBinDir, realGitBin, bunBin, originDir)
+
+    // Initialize isolated bare remote and primary repository checkout with mise.toml, package.json, and AGENTS.md.
+    execFileSync(realGitBin, ['init', '--bare', '-b', 'main'], { cwd: originDir, stdio: 'ignore' })
+    execFileSync(realGitBin, ['init', '-b', 'main'], { cwd: repoDir, stdio: 'ignore' })
+    execFileSync(realGitBin, ['config', 'user.name', 'Difflab E2E'], { cwd: repoDir })
+    execFileSync(realGitBin, ['config', 'user.email', 'e2e@difflab.local'], { cwd: repoDir })
+    execFileSync(
+      realGitBin,
+      ['remote', 'add', 'origin', 'https://github.com/example/loops-demo.git'],
+      { cwd: repoDir },
+    )
 
     await mkdir(join(repoDir, 'src'), { recursive: true })
     await writeFile(join(repoDir, 'mise.toml'), ['[tools]', 'bun = "1.4.2"', ''].join('\n'), 'utf8')
     await writeFile(
+      join(repoDir, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'loops-demo',
+          private: true,
+          type: 'module',
+          scripts: {
+            test: 'bun test',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    await writeFile(
+      join(repoDir, 'AGENTS.md'),
+      [
+        '# Repository Guidance',
+        '',
+        '- Group TypeScript code under `// Constants`, `// Types`, `// API`, and `// Helpers` dividers.',
+        '- Colocate unit tests in `.test.ts` files and run checks with `bun test`.',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
+    await writeFile(
       join(repoDir, 'src/reviewed-module.ts'),
       [
         '// API -------------------------------------------------------------------------',
+        '/** Normalize a topic string by trimming surrounding whitespace. */',
         'export function formatTopic(topic: string): string {',
-        '  return ` ${topic} `',
+        '  return topic.trim()',
         '}',
         '',
       ].join('\n'),
       'utf8',
     )
-    runGit(repoDir, ['add', '.'])
-    runGit(repoDir, ['commit', '-m', 'chore: initialize fixture repository'])
+    await writeFile(
+      join(repoDir, 'src/reviewed-module.test.ts'),
+      [
+        "import { describe, expect, test } from 'bun:test'",
+        "import { formatTopic } from './reviewed-module.js'",
+        '',
+        '// Tests -----------------------------------------------------------------------',
+        "describe('given formatTopic', () => {",
+        "  test('when topic has surrounding spaces, then normalized string contains core topic', () => {",
+        "    expect(formatTopic('  loops  ').trim()).toBe('loops')",
+        '  })',
+        '})',
+        '',
+      ].join('\n'),
+      'utf8',
+    )
 
-    // Trust fixture checkouts and worktrees in mise so `mise exec -- ...` never prompts interactively.
+    execFileSync(realGitBin, ['add', '.'], { cwd: repoDir })
+    execFileSync(realGitBin, ['commit', '-m', 'chore: initialize fixture repository'], {
+      cwd: repoDir,
+    })
+
     execFileSync('mise', ['trust', repoDir], { stdio: 'ignore' })
 
     const resolvedHerdr = detectHerdrBinary()
     const herdrSession = `dle2e-${id}`
-    const bunBin = resolveBunBinary()
 
+    // Preserve real HOME so `agy` can read ~/.gemini OAuth credentials while isolating Difflab via DIFFLAB_HOME_ROOT.
     const baseEnv: NodeJS.ProcessEnv = {
       ...process.env,
-      HOME: homeDir,
+      HOME: realHostHome,
+      PATH: `${shimBinDir}:${process.env.PATH ?? ''}`,
       DIFFLAB_HOME_ROOT: homeDir,
       DIFFLAB_STORE_DIR: join(homeDir, '.difflab'),
       DIFFLAB_WORKSPACE_ROOT: WORKSPACE_ROOT,
+      DIFFLAB_ORIGIN_BARE_REPO: originDir,
+      DIFFLAB_GH_STATE_FILE: ghStateFile,
       DIFFLAB_HERDR_BIN: resolvedHerdr.bin,
       DIFFLAB_HERDR_SESSION: herdrSession,
       DIFFLAB_HERDR_SHIM_DIR: shimStateDir,
-      DIFFLAB_HARNESS_CMD: `${bunBin} ${MOCK_AGENT_SCRIPT}`,
+      DIFFLAB_HARNESS_CMD: `${bunBin} ${FLOW_REPLAY_RUNNER_SCRIPT}`,
       MISE_TRUSTED_CONFIG_PATHS: `${homeDir}:${repoDir}`,
       HERDR_ENV: undefined,
       HERDR_SOCKET: undefined,
@@ -324,15 +266,16 @@ export class TestHarness {
       suite,
       rootDir,
       homeDir,
+      projectStoreDir,
       repoDir,
       originDir,
+      ghStateFile,
       herdrBin: resolvedHerdr.bin,
       herdrMode: resolvedHerdr.mode,
       herdrSession,
       baseEnv,
     })
 
-    // Register DIFFLAB project, initialize the fixture repository, and commit difflab.yaml.
     await harness.cli(
       'project',
       'add',
@@ -343,16 +286,29 @@ export class TestHarness {
       'https://github.com/example/loops-demo.git',
     )
     await harness.cli('init', 'DIFFLAB')
-    runGit(repoDir, ['add', 'difflab.yaml'])
-    runGit(repoDir, ['commit', '-m', 'chore: commit initialized difflab.yaml'])
+    execFileSync(realGitBin, ['add', 'difflab.yaml'], { cwd: repoDir })
+    execFileSync(realGitBin, ['commit', '-m', 'chore: commit initialized difflab.yaml'], {
+      cwd: repoDir,
+    })
+    harness.git(['push', '-u', 'origin', 'main'])
 
     return harness
   }
 
+  git(args: string[], cwd = this.repoDir): string {
+    return execFileSync('git', args, {
+      cwd,
+      env: this.baseEnv,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+  }
+
   async writeRepoConfig(yamlContent: string): Promise<void> {
     await writeFile(join(this.repoDir, 'difflab.yaml'), yamlContent, 'utf8')
-    runGit(this.repoDir, ['add', 'difflab.yaml'])
-    runGit(this.repoDir, ['commit', '-m', 'chore: configure difflab.yaml workflow triggers'])
+    this.git(['add', 'difflab.yaml'])
+    this.git(['commit', '-m', 'chore: configure difflab.yaml workflow triggers'])
+    this.git(['push', 'origin', 'HEAD'])
   }
 
   async cli(...args: string[]): Promise<CliInvocationResult> {
@@ -368,7 +324,7 @@ export class TestHarness {
       const out = await execFileAsync(bunBin, [CLI_DIST_ENTRY, ...args], {
         cwd: this.repoDir,
         env: { ...this.baseEnv, ...extraEnv },
-        timeout: 45_000,
+        timeout: 60_000,
         maxBuffer: 8 * 1024 * 1024,
       })
       stdout = out.stdout.trim()
@@ -403,7 +359,7 @@ export class TestHarness {
     appUrl: string,
     runId: string,
     expectedStatuses: string[] = ['done', 'failed', 'blocked'],
-    timeoutMs = 90_000,
+    timeoutMs = process.env.DIFFLAB_E2E_EXTENDED === 'true' ? 1_600_000 : 90_000,
   ): Promise<RunDetailSnapshot> {
     const deadline = Date.now() + timeoutMs
     let lastDetail: RunDetailSnapshot | null = null
@@ -420,7 +376,7 @@ export class TestHarness {
           )
         }
       }
-      await new Promise((r) => setTimeout(r, 150))
+      await new Promise((r) => setTimeout(r, 250))
     }
     throw new Error(
       `Timed out waiting for run ${runId} to reach [${expectedStatuses.join(', ')}]; last=${JSON.stringify(lastDetail)}`,
@@ -436,6 +392,9 @@ export class TestHarness {
     await mkdir(outDir, { recursive: true })
 
     await writeFile(join(outDir, 'cli.log'), this.transcript.join('\n---\n'), 'utf8')
+    if (existsSync(this.ghStateFile)) {
+      await copyFile(this.ghStateFile, join(outDir, 'gh-state.json'))
+    }
 
     if (options.appUrl && options.runId) {
       const res = await fetch(
@@ -450,28 +409,23 @@ export class TestHarness {
         if (existsSync(flowMd)) await copyFile(flowMd, join(outDir, 'FLOW.md'))
         if (existsSync(logsTxt)) await copyFile(logsTxt, join(outDir, 'logs.txt'))
 
-        const projectStoreDir = dirname(dirname(detail.run.storeFlowDir))
-        const planCandidate = join(projectStoreDir, 'plans', options.runId, 'PLAN.md')
-        const reviewCandidate = join(projectStoreDir, 'reviews', options.runId, 'REVIEW.md')
-        if (existsSync(planCandidate)) await copyFile(planCandidate, join(outDir, 'PLAN.md'))
-        if (existsSync(reviewCandidate)) await copyFile(reviewCandidate, join(outDir, 'REVIEW.md'))
-
-        const primaryHead = runGit(this.repoDir, ['rev-parse', 'HEAD'])
-        const primaryStatus = runGit(this.repoDir, ['status', '--porcelain'])
         const wtPath = detail.run.worktreePath
         let worktreeHead: string | null = null
         if (wtPath && existsSync(wtPath)) {
-          worktreeHead = runGit(wtPath, ['rev-parse', 'HEAD'])
-          const gitLog = runGit(wtPath, ['log', '--stat', '-n', '5'])
+          worktreeHead = this.git(['rev-parse', 'HEAD'], wtPath)
+          const gitLog = this.git(['log', '--stat', '-n', '5'], wtPath)
           await writeFile(join(outDir, 'worktree-git-log.txt'), `${gitLog}\n`, 'utf8')
         }
 
+        const primaryHead = this.git(['rev-parse', 'HEAD'])
+        const primaryStatus = this.git(['status', '--porcelain'])
         await writeFile(
           join(outDir, 'locations.json'),
           JSON.stringify(
             {
               herdrMode: this.herdrMode,
               herdrSession: this.herdrSession,
+              harness: detail.run.harness,
               primaryCheckoutPath: this.repoDir,
               primaryCheckoutHead: primaryHead,
               primaryCheckoutStatusPorcelain: primaryStatus,
@@ -484,6 +438,29 @@ export class TestHarness {
           ),
           'utf8',
         )
+      }
+    }
+
+    // Export latest scaffolded plan and review artifacts from the project store (whether named runId or YYMMDD-slug).
+    const latestPlanDir = await findLatestSubdirWithFile(
+      join(this.projectStoreDir, 'plans'),
+      'PLAN.md',
+    )
+    if (latestPlanDir) {
+      await copyFile(join(latestPlanDir, 'PLAN.md'), join(outDir, 'PLAN.md'))
+      if (existsSync(join(latestPlanDir, 'logs.txt'))) {
+        await copyFile(join(latestPlanDir, 'logs.txt'), join(outDir, 'plan-logs.txt'))
+      }
+    }
+
+    const latestReviewDir = await findLatestSubdirWithFile(
+      join(this.projectStoreDir, 'reviews'),
+      'REVIEW.md',
+    )
+    if (latestReviewDir) {
+      await copyFile(join(latestReviewDir, 'REVIEW.md'), join(outDir, 'REVIEW.md'))
+      if (existsSync(join(latestReviewDir, 'rubric.yaml'))) {
+        await copyFile(join(latestReviewDir, 'rubric.yaml'), join(outDir, 'rubric.yaml'))
       }
     }
 
@@ -525,6 +502,73 @@ export class TestHarness {
 }
 
 // Helpers ---------------------------------------------------------------------
+async function copyFlowDefinition(
+  realHostHome: string,
+  isolatedHome: string,
+  filename: string,
+): Promise<void> {
+  const hostPath = join(realHostHome, '.difflab/flows', filename)
+  const fallbackPath = join(RECORDINGS_FLOWS_DIR, filename)
+  const sourcePath = existsSync(hostPath) ? hostPath : fallbackPath
+  await copyFile(sourcePath, join(isolatedHome, '.difflab/flows', filename))
+}
+
+async function installOfflineGitAndGhShims(
+  shimBinDir: string,
+  realGitBin: string,
+  bunBin: string,
+  originDir: string,
+): Promise<void> {
+  const gitShimPath = join(shimBinDir, 'git')
+  await writeFile(
+    gitShimPath,
+    [
+      '#!/bin/sh',
+      'needs_rewrite=0',
+      'for arg in "$@"; do',
+      '  case "$arg" in',
+      '    fetch|push|pull|ls-remote|clone) needs_rewrite=1; break ;;',
+      '  esac',
+      'done',
+      'if [ "$needs_rewrite" = "1" ]; then',
+      `  exec '${realGitBin}' -c 'url.${originDir}.insteadOf=https://github.com/example/loops-demo.git' -c 'url.${originDir}.insteadOf=https://github.com/example/loops-demo' "$@"`,
+      'fi',
+      `exec '${realGitBin}' "$@"`,
+      '',
+    ].join('\n'),
+    { mode: 0o755 },
+  )
+
+  const ghShimPath = join(shimBinDir, 'gh')
+  await writeFile(
+    ghShimPath,
+    ['#!/bin/sh', `exec '${bunBin}' '${GH_SHIM_SCRIPT}' "$@"`, ''].join('\n'),
+    { mode: 0o755 },
+  )
+}
+
+async function findLatestSubdirWithFile(
+  parentDir: string,
+  filename: string,
+): Promise<string | null> {
+  const entries = await readdir(parentDir, { withFileTypes: true }).catch(() => [])
+  let latestPath: string | null = null
+  let latestMtime = -1
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const candidateFile = join(parentDir, entry.name, filename)
+    if (!existsSync(candidateFile)) continue
+    const stat = await import('node:fs/promises').then((m) =>
+      m.stat(candidateFile).catch(() => null),
+    )
+    if (stat && stat.mtimeMs >= latestMtime) {
+      latestMtime = stat.mtimeMs
+      latestPath = join(parentDir, entry.name)
+    }
+  }
+  return latestPath
+}
+
 function detectHerdrBinary(): { bin: string; mode: 'real' | 'shim' } {
   if (process.env.DIFFLAB_HERDR_BIN) {
     return {
@@ -554,12 +598,19 @@ function detectHerdrBinary(): { bin: string; mode: 'real' | 'shim' } {
   return { bin: HERDR_SHIM_SCRIPT, mode: 'shim' }
 }
 
-function resolveBunBinary(): string {
+export function resolveBunBinary(): string {
   try {
     return execFileSync('which', ['bun'], { encoding: 'utf8' }).trim() || 'bun'
   } catch {
     return 'bun'
   }
+}
+
+function resolveSystemGitBinary(): string {
+  for (const candidate of ['/opt/homebrew/bin/git', '/usr/local/bin/git', '/usr/bin/git']) {
+    if (existsSync(candidate)) return candidate
+  }
+  return 'git'
 }
 
 function slugify(value: string): string {
@@ -569,14 +620,6 @@ function slugify(value: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'journey'
   )
-}
-
-function runGit(cwd: string, args: string[]): string {
-  return execFileSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim()
 }
 
 export async function readArtifactText(dir: string, filename: string): Promise<string> {

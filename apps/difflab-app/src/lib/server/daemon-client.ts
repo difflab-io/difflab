@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises'
-import type { WorktreeRetention } from 'difflab-db'
+import type { HarnessKind, WorktreeRetention } from 'difflab-db'
 import { resolveStorePaths } from './db.js'
-import type { ResolvedFlowStep } from './flow-parser.js'
 
 // Types -----------------------------------------------------------------------
 export type RigExecutePayload = {
@@ -13,21 +12,9 @@ export type RigExecutePayload = {
   storeFlowDir: string
   flowName: string
   definitionPath: string
-  definitionSha256: string
-  resolvedInputs: Record<string, string>
-  enabledFlags: string[]
-  disabledFlags: string[]
-  omittedSteps: { stepId: string; reason: string }[]
-  allSelectedSteps: ResolvedFlowStep[]
-  step: {
-    stepId: string
-    seq: number
-    handler: string
-    harness: string
-    receives: string
-    produces: string
-    instructions: string
-  }
+  inputs: Record<string, string>
+  flags: string[]
+  harness: HarnessKind
   appUrl: string
   retention: WorktreeRetention
 }
@@ -68,7 +55,7 @@ export async function resolveDaemonUrls(
   throw new Error('No active difflab daemon rig URL found; start it with `difflab daemon up`')
 }
 
-export async function dispatchStepToDaemon(
+export async function dispatchFlowToDaemon(
   daemonRigUrl: string,
   payload: RigExecutePayload,
 ): Promise<void> {

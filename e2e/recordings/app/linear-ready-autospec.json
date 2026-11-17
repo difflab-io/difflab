@@ -19,7 +19,7 @@
                 "identifier": "ENG-41",
                 "title": "Refresh onboarding README copy",
                 "description": "Routine copy tweak assigned to another teammate.",
-                "state": { "name": "Ready" },
+                "state": { "name": "Todo" },
                 "team": { "key": "ENG" },
                 "assignee": { "name": "alice", "displayName": "alice" },
                 "labels": { "nodes": [{ "name": "DOCS" }] }
@@ -27,8 +27,8 @@
               {
                 "id": "22222222-2222-4222-8222-222222222222",
                 "identifier": "ENG-42",
-                "title": "Implement local workflow loops",
-                "description": "Orchestrate autospec steps in isolated worktrees and stream Herdr progress.",
+                "title": "Add normalizeSlug helper",
+                "description": "Add export function normalizeSlug(input: string): string in src/slug.ts (trimming and lowercasing hyphen-separated words) with unit tests in src/slug.test.ts.",
                 "state": { "name": "Ready" },
                 "team": { "key": "ENG" },
                 "assignee": { "name": "difflab", "displayName": "difflab" },
@@ -46,7 +46,7 @@
         "method": "POST",
         "path": "/graphql",
         "body": {
-          "query": "query ReadyIssues { issues(filter: { state: { name: { eqIgnoreCase: \"Ready\" } } }, first: 25) { nodes { id identifier title description state { name } team { key } assignee { name displayName } labels { nodes { name } } } } }",
+          "query": "query ReadyIssues { issues(filter: { state: { name: { in: [\"Ready\", \"Todo\"] } } }, first: 25) { nodes { id identifier title description state { name } team { key } assignee { name displayName } labels { nodes { name } } } } }",
           "variables": {}
         }
       },

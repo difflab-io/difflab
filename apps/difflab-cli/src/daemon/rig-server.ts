@@ -1,10 +1,19 @@
-import { lstat, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { worktreeRetentionSchema } from 'difflab-db'
-import { createGitWorktree, discoverGitRepository, gitHeadSha, removeGitWorktree } from 'utils/gitx'
+import { existsSync } from 'node:fs'
+import { copyFile, lstat, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
+import { harnessKindSchema, worktreeRetentionSchema, type HarnessKind } from 'difflab-db'
+import {
+  addPathToGitExcludes,
+  createGitWorktree,
+  discoverGitRepository,
+  gitHeadSha,
+  removeGitWorktree,
+} from 'utils/gitx'
 import { createHerdrClient } from 'utils/herdrx'
 import { assertMiseConfig } from 'utils/misex'
 import { z } from 'zod'
+import { parseFrozenFlowInstance } from '../flows/flow-markdown.js'
 import { appendProgressLog } from '../logs/store.js'
 import { ensureRepoStore } from '../projects/repo-store.js'
 import { userPaths } from '../store/user-store.js'
@@ -19,32 +28,9 @@ const rigExecuteSchema = z.object({
   storeFlowDir: z.string().min(1),
   flowName: z.string().min(1),
   definitionPath: z.string().min(1),
-  definitionSha256: z.string().min(1),
-  resolvedInputs: z.record(z.string(), z.string()),
-  enabledFlags: z.array(z.string()),
-  disabledFlags: z.array(z.string()),
-  omittedSteps: z.array(z.object({ stepId: z.string(), reason: z.string() })),
-  allSelectedSteps: z.array(
-    z.object({
-      seq: z.number().int().positive(),
-      stepId: z.string().min(1),
-      handler: z.string(),
-      requires: z.string(),
-      receivesTemplate: z.string(),
-      produces: z.string(),
-      instructionsTemplate: z.string(),
-      harness: z.string().optional(),
-    }),
-  ),
-  step: z.object({
-    stepId: z.string().min(1),
-    seq: z.number().int().positive(),
-    handler: z.string(),
-    harness: z.string().min(1),
-    receives: z.string(),
-    produces: z.string(),
-    instructions: z.string(),
-  }),
+  inputs: z.record(z.string(), z.string()),
+  flags: z.array(z.string()),
+  harness: harnessKindSchema,
   appUrl: z.string().url(),
   retention: worktreeRetentionSchema,
 })
@@ -66,26 +52,25 @@ export type RigServerOptions = {
   herdrBin?: string
 }
 
-type RunRigContext = {
+export type PreloadRigContextInput = {
   worktreePath: string
-  paneId: string
-  tabId: string
-  workspaceId?: string
-  agentName: string
-  agentStarted: boolean
+  repoRoot: string
+  difflabHome: string
+  storeRoot: string
+  appUrl?: string
+  runId?: string
 }
 
-type StepResultFile = {
-  handoff?: string
-  summary?: string
+type FlowResultFile = {
+  status?: 'done' | 'blocked' | 'failed'
   commitSha?: string
+  summary?: string
 }
 
 // API -------------------------------------------------------------------------
 export function startRigServer(options: RigServerOptions = {}) {
   const herdrSession = options.herdrSession ?? process.env.DIFFLAB_HERDR_SESSION
   const herdrBin = options.herdrBin ?? process.env.DIFFLAB_HERDR_BIN
-  const runContexts = new Map<string, RunRigContext>()
   const runQueues = new Map<string, Promise<void>>()
 
   const enqueueForRun = (runId: string, task: () => Promise<void>) => {
@@ -123,11 +108,10 @@ export function startRigServer(options: RigServerOptions = {}) {
         }
 
         enqueueForRun(parsed.data.runId, () =>
-          executeRigStep(parsed.data, {
+          executeRigFlow(parsed.data, {
             home: options.home,
             herdrSession,
             herdrBin,
-            runContexts,
           }),
         )
         return Response.json({ accepted: true }, { status: 202 })
@@ -161,7 +145,6 @@ export function startRigServer(options: RigServerOptions = {}) {
             removed = false
           }
         }
-        runContexts.delete(parsed.data.runId)
         runQueues.delete(parsed.data.runId)
         return Response.json({ removed })
       }
@@ -173,38 +156,131 @@ export function startRigServer(options: RigServerOptions = {}) {
   return server
 }
 
+export async function preloadAgentWorktreeContext(
+  input: PreloadRigContextInput,
+): Promise<{ rigBinDir: string; cliEntry: string }> {
+  const workspaceRoot = resolveWorkspaceRoot()
+  const cliEntry = resolveCliEntrypoint(workspaceRoot)
+  const skillsDir = join(workspaceRoot, 'skills')
+  const wtGit = discoverGitRepository(input.worktreePath)
+
+  await addPathToGitExcludes(wtGit.excludePath, '/.agents')
+
+  const agentsDir = join(input.worktreePath, '.agents')
+  const pluginDir = join(agentsDir, 'plugins', 'difflab-rig')
+  const rulesDir = join(pluginDir, 'rules')
+  await mkdir(rulesDir, { recursive: true })
+
+  await writeFile(
+    join(agentsDir, 'skills.json'),
+    JSON.stringify({ entries: [{ path: skillsDir }] }, null, 2),
+    'utf8',
+  )
+
+  await writeFile(join(pluginDir, 'plugin.json'), JSON.stringify({ name: 'difflab-rig' }, null, 2))
+
+  const mcpEnv: Record<string, string> = {
+    DIFFLAB_HOME_ROOT: input.difflabHome,
+    DIFFLAB_STORE_DIR: input.storeRoot,
+  }
+  if (input.appUrl) mcpEnv.DIFFLAB_APP_URL = input.appUrl
+  if (input.runId) mcpEnv.DIFFLAB_RUN_ID = input.runId
+
+  await writeFile(
+    join(pluginDir, 'mcp_config.json'),
+    JSON.stringify(
+      {
+        mcpServers: {
+          difflab: {
+            command: process.execPath,
+            args: [cliEntry, 'mcp', 'serve'],
+            env: mcpEnv,
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  )
+
+  await writeFile(
+    join(rulesDir, 'AGENTS.md'),
+    [
+      '# Difflab Rig Execution Rules',
+      '',
+      '- Use MCP server `difflab-rig_difflab` (when present) for Difflab MCP tools (`project_context`, `template_list`, `scaffold`, `log_append`, `flow_state_update`) so calls target this run store and live SSE stream.',
+      '- Do not add AI attributions, model names, `Generated via` footers, or AI `Co-authored-by` trailers to commits, pull requests, review files, or comments.',
+      '',
+    ].join('\n'),
+    'utf8',
+  )
+
+  const rigBinDir = join(input.storeRoot, 'bin')
+  await mkdir(rigBinDir, { recursive: true, mode: 0o700 })
+  const difflabShim = join(rigBinDir, 'difflab')
+  await writeFile(
+    difflabShim,
+    [
+      '#!/bin/sh',
+      `export DIFFLAB_HOME_ROOT="\${DIFFLAB_HOME_ROOT:-${shellQuote(input.difflabHome)}}"`,
+      `export DIFFLAB_STORE_DIR="\${DIFFLAB_STORE_DIR:-${shellQuote(input.storeRoot)}}"`,
+      ...(input.appUrl
+        ? [`export DIFFLAB_APP_URL="\${DIFFLAB_APP_URL:-${shellQuote(input.appUrl)}}"`]
+        : []),
+      ...(input.runId
+        ? [`export DIFFLAB_RUN_ID="\${DIFFLAB_RUN_ID:-${shellQuote(input.runId)}}"`]
+        : []),
+      `exec ${shellQuote(process.execPath)} ${shellQuote(cliEntry)} "$@"`,
+      '',
+    ].join('\n'),
+    { mode: 0o755 },
+  )
+
+  return { rigBinDir, cliEntry }
+}
+
+export function buildHarnessStartArgs(harness: HarnessKind, trustedWorkspaces: string[]): string[] {
+  if (harness === 'agy') {
+    const inlineSettings = JSON.stringify({
+      trustedWorkspaces,
+      allowNonWorkspaceAccess: true,
+    })
+    return ['--dangerously-skip-permissions', '--settings', inlineSettings]
+  }
+  if (harness === 'claude') {
+    return ['--dangerously-skip-permissions']
+  }
+  return []
+}
+
 // Helpers ---------------------------------------------------------------------
-async function executeRigStep(
+async function executeRigFlow(
   payload: z.infer<typeof rigExecuteSchema>,
   ctx: {
     home?: string
     herdrSession?: string
     herdrBin?: string
-    runContexts: Map<string, RunRigContext>
   },
 ): Promise<void> {
-  const paths = userPaths(ctx.home)
+  const effectiveDifflabHome =
+    ctx.home ?? process.env.DIFFLAB_HOME_ROOT ?? process.env.HOME ?? homedir()
+  const paths = userPaths(effectiveDifflabHome)
   const flowMdPath = join(payload.storeFlowDir, 'FLOW.md')
   const logsPath = join(payload.storeFlowDir, 'logs.txt')
+  const runStartedAtMs = Date.now()
 
   await mkdir(payload.storeFlowDir, { recursive: true, mode: 0o700 })
-  await ensureInitialFlowSnapshot(flowMdPath, payload)
 
   try {
     await assertMiseConfig(payload.repoRoot)
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    await recordFlowBlocker(flowMdPath, reason)
-    await appendProgressLog(logsPath, `Blocked before step ${payload.step.stepId}: ${reason}`)
+    await writeFallbackBlockerFlow(flowMdPath, payload, reason)
+    await appendProgressLog(logsPath, `Blocked before flow ${payload.flowName}: ${reason}`)
     await postStateCallback(payload.appUrl, payload.runId, {
       status: 'failed',
-      step: {
-        stepId: payload.step.stepId,
-        status: 'failed',
-        summary: reason,
-      },
       message: {
-        stepId: payload.step.stepId,
         level: 'blocker',
         text: reason,
       },
@@ -212,119 +288,128 @@ async function executeRigStep(
     return
   }
 
-  let runCtx = ctx.runContexts.get(payload.runId)
   const herdr = createHerdrClient({
     bin: ctx.herdrBin,
     session: ctx.herdrSession,
   })
 
+  let paneId: string | null = null
+  let stopWatcher: (() => void) | null = null
+
   try {
-    if (!runCtx) {
-      await mkdir(paths.worktrees, { recursive: true, mode: 0o700 })
-      const worktreeCandidate = join(paths.worktrees, payload.runId)
-      const exists = await lstat(worktreeCandidate).catch(() => null)
-      const worktreePath = exists
-        ? worktreeCandidate
-        : createGitWorktree(payload.repoRoot, worktreeCandidate, `flow/${payload.runId}`, 'HEAD')
+    await mkdir(paths.worktrees, { recursive: true, mode: 0o700 })
+    const worktreeCandidate = join(paths.worktrees, payload.runId)
+    const exists = await lstat(worktreeCandidate).catch(() => null)
+    const worktreePath = exists
+      ? worktreeCandidate
+      : createGitWorktree(payload.repoRoot, worktreeCandidate, `flow/${payload.runId}`, 'HEAD')
 
-      const wtGit = discoverGitRepository(worktreePath)
-      const repoStoreTarget = join(paths.projects, payload.projectKey, payload.repoSlug)
-      await ensureRepoStore(worktreePath, repoStoreTarget, wtGit.excludePath)
+    const wtGit = discoverGitRepository(worktreePath)
+    const repoStoreTarget = join(paths.projects, payload.projectKey, payload.repoSlug)
+    await ensureRepoStore(worktreePath, repoStoreTarget, wtGit.excludePath)
 
-      const envVars: Record<string, string> = {
-        DIFFLAB_RUN_ID: payload.runId,
-        DIFFLAB_APP_URL: payload.appUrl,
-        DIFFLAB_WORKTREE_PATH: worktreePath,
-        DIFFLAB_STORE_FLOW_DIR: payload.storeFlowDir,
-      }
-      if (ctx.home) {
-        envVars.HOME = ctx.home
-      }
-
-      const label = `flow:${payload.runId}`
-      await herdr.ensureServer()
-      let createdTab: { tabId: string; paneId: string; workspaceId?: string }
-      try {
-        createdTab = await herdr.createTab(worktreePath, label, { env: envVars })
-      } catch {
-        createdTab = await herdr.ensureWorkspace(worktreePath, label, envVars)
-      }
-
-      const safeSuffix = payload.runId
-        .replace(/[^a-z0-9_-]/gi, '-')
-        .toLowerCase()
-        .slice(-24)
-      runCtx = {
-        worktreePath,
-        paneId: createdTab.paneId,
-        tabId: createdTab.tabId,
-        workspaceId: createdTab.workspaceId,
-        agentName: `dl-${safeSuffix}`.slice(0, 32),
-        agentStarted: false,
-      }
-      ctx.runContexts.set(payload.runId, runCtx)
+    // Ensure uncommitted difflab.yaml in repoRoot is available in the worktree without dirtying git status.
+    const wtConfigPath = join(worktreePath, 'difflab.yaml')
+    const rootConfigPath = join(payload.repoRoot, 'difflab.yaml')
+    if (!existsSync(wtConfigPath) && existsSync(rootConfigPath)) {
+      await addPathToGitExcludes(wtGit.excludePath, '/difflab.yaml')
+      await copyFile(rootConfigPath, wtConfigPath)
     }
 
-    await writeHarnessSettings(payload, runCtx)
-    await appendProgressLog(
-      logsPath,
-      `Step ${payload.step.seq} started: ${payload.step.stepId} (${payload.step.harness})`,
-    )
+    const { rigBinDir } = await preloadAgentWorktreeContext({
+      worktreePath,
+      repoRoot: payload.repoRoot,
+      difflabHome: effectiveDifflabHome,
+      storeRoot: paths.root,
+      appUrl: payload.appUrl,
+      runId: payload.runId,
+    })
+
+    const trustedWorkspaces = [worktreePath, payload.repoRoot, paths.root, effectiveDifflabHome]
+    await writeHarnessSettings(payload, worktreePath, trustedWorkspaces, effectiveDifflabHome)
+
+    const mergedPath = `${rigBinDir}:${process.env.PATH ?? ''}`
+    const envVars: Record<string, string> = {
+      PATH: mergedPath,
+      DIFFLAB_HOME_ROOT: effectiveDifflabHome,
+      DIFFLAB_STORE_DIR: paths.root,
+      DIFFLAB_RUN_ID: payload.runId,
+      DIFFLAB_APP_URL: payload.appUrl,
+      DIFFLAB_WORKTREE_PATH: worktreePath,
+      DIFFLAB_STORE_FLOW_DIR: payload.storeFlowDir,
+      MISE_TRUSTED_CONFIG_PATHS: `${worktreePath}:${payload.repoRoot}`,
+    }
+    if (ctx.home) {
+      envVars.HOME = ctx.home
+    }
+
+    const label = `flow:${payload.runId}`
+    await herdr.ensureServer()
+    let createdTab: { tabId: string; paneId: string; workspaceId?: string }
+    try {
+      createdTab = await herdr.createTab(worktreePath, label, { env: envVars })
+    } catch {
+      createdTab = await herdr.ensureWorkspace(worktreePath, label, envVars)
+    }
+
+    paneId = createdTab.paneId
+    const safeSuffix = payload.runId
+      .replace(/[^a-z0-9_-]/gi, '-')
+      .toLowerCase()
+      .slice(-24)
+    const agentName = `dl-${safeSuffix}`.slice(0, 32)
 
     await herdr
-      .reportPaneMetadata(runCtx.paneId, {
-        title: `${payload.flowName}:${payload.step.stepId}`,
-        displayAgent: payload.step.harness,
+      .reportPaneMetadata(paneId, {
+        title: `flow:${payload.flowName}`,
+        displayAgent: payload.harness,
         stateLabel: 'running',
         tokens: {
           run: payload.runId,
-          step: payload.step.stepId,
+          flow: payload.flowName,
         },
       })
       .catch(() => undefined)
 
     await postStateCallback(payload.appUrl, payload.runId, {
       status: 'running',
-      worktreePath: runCtx.worktreePath,
+      worktreePath,
       herdrSession: herdr.session,
-      herdrPaneId: runCtx.paneId,
-      herdrAgentName: runCtx.agentName,
-      step: {
-        stepId: payload.step.stepId,
-        status: 'running',
-        harness: payload.step.harness,
-      },
+      herdrPaneId: paneId,
+      herdrAgentName: agentName,
       message: {
-        stepId: payload.step.stepId,
         level: 'info',
-        text: `Running step ${payload.step.seq} (${payload.step.stepId}) in Herdr pane ${runCtx.paneId}`,
+        text: `Starting /difflab-flow go ${payload.flowName} (${payload.harness}) in Herdr pane ${paneId}`,
       },
     })
 
-    const requestFile = join(
-      payload.storeFlowDir,
-      `step-${payload.step.seq}-${payload.step.stepId}.request.json`,
-    )
-    const resultFile = join(
-      payload.storeFlowDir,
-      `step-${payload.step.seq}-${payload.step.stepId}.result.json`,
-    )
+    stopWatcher = startFrozenFlowWatcher({
+      payload,
+      flowsRoot: join(paths.projects, payload.projectKey, payload.repoSlug, 'flows'),
+      runStartedAtMs,
+    })
+
+    const requestFile = join(payload.storeFlowDir, 'flow-request.json')
+    const resultFile = join(payload.storeFlowDir, 'flow-result.json')
     await writeFile(
       requestFile,
       JSON.stringify(
         {
           runId: payload.runId,
           flowName: payload.flowName,
+          definitionPath: payload.definitionPath,
           projectKey: payload.projectKey,
           repoSlug: payload.repoSlug,
-          worktreePath: runCtx.worktreePath,
+          repoRoot: payload.repoRoot,
+          worktreePath,
           storeFlowDir: payload.storeFlowDir,
           flowMdPath,
           logsPath,
           appUrl: payload.appUrl,
-          resolvedInputs: payload.resolvedInputs,
-          enabledFlags: payload.enabledFlags,
-          step: payload.step,
+          difflabHome: effectiveDifflabHome,
+          inputs: payload.inputs,
+          flags: payload.flags,
+          harness: payload.harness,
         },
         null,
         2,
@@ -333,29 +418,23 @@ async function executeRigStep(
     )
 
     const customHarnessCmd = process.env.DIFFLAB_HARNESS_CMD?.trim()
-    if (customHarnessCmd || payload.step.harness === 'mock') {
+    if (payload.harness === 'mock') {
       if (!customHarnessCmd) {
         throw new Error('Harness kind `mock` requires DIFFLAB_HARNESS_CMD to be configured')
       }
-      const tokenCore = `${payload.runId}_${payload.step.seq}_`
+      const tokenCore = `${payload.runId}_flow_`
       const sentinelMatch = `__DIFFLAB_EXIT_${tokenCore}:`
-      const envExports = [
-        `DIFFLAB_RUN_ID=${shellQuote(payload.runId)}`,
-        `DIFFLAB_STEP_ID=${shellQuote(payload.step.stepId)}`,
-        `DIFFLAB_APP_URL=${shellQuote(payload.appUrl)}`,
-        `DIFFLAB_WORKTREE_PATH=${shellQuote(runCtx.worktreePath)}`,
-        `DIFFLAB_STORE_FLOW_DIR=${shellQuote(payload.storeFlowDir)}`,
-        `MISE_TRUSTED_CONFIG_PATHS=${shellQuote(`${runCtx.worktreePath}:${payload.repoRoot}`)}`,
-        ...(ctx.home ? [`HOME=${shellQuote(ctx.home)}`] : []),
-      ].join(' ')
+      const envExports = Object.entries(envVars)
+        .map(([k, v]) => `${k}=${shellQuote(v)}`)
+        .join(' ')
 
-      // Write a short launcher script so Herdr PTY input stays well below macOS 1024-byte MAX_CANON.
-      const stepScriptPath = join(paths.worktrees, `${payload.runId}-s${payload.step.seq}.sh`)
+      // Short launcher script keeps PTY command well below macOS 1024-byte MAX_CANON.
+      const scriptPath = join(paths.worktrees, `${payload.runId}-flow.sh`)
       await writeFile(
-        stepScriptPath,
+        scriptPath,
         [
           '#!/bin/sh',
-          `cd ${shellQuote(runCtx.worktreePath)} || exit 1`,
+          `cd ${shellQuote(worktreePath)} || exit 1`,
           `export ${envExports}`,
           `mise exec -- ${customHarnessCmd} ${shellQuote(requestFile)} ${shellQuote(resultFile)}`,
           'rc=$?',
@@ -366,107 +445,109 @@ async function executeRigStep(
       )
 
       try {
-        await herdr.runInPane(runCtx.paneId, `sh ${shellQuote(stepScriptPath)}`)
-        const waitSnapshot = await herdr.waitPaneOutput(runCtx.paneId, sentinelMatch, 180_000)
+        await herdr.runInPane(paneId, `sh ${shellQuote(scriptPath)}`)
+        const waitSnapshot = await herdr.waitPaneOutput(paneId, sentinelMatch, 180_000)
         const paneSnapshot = waitSnapshot.includes(sentinelMatch)
           ? waitSnapshot
-          : await herdr.readPane(runCtx.paneId, 200)
+          : await herdr.readPane(paneId, 200)
         const exitCode = extractExitCode(paneSnapshot, sentinelMatch)
         if (exitCode !== 0) {
-          throw new Error(`Step ${payload.step.stepId} exited with status ${exitCode}`)
+          throw new Error(`Flow ${payload.flowName} exited with status ${exitCode}`)
         }
       } finally {
-        await rm(stepScriptPath, { force: true }).catch(() => undefined)
+        await rm(scriptPath, { force: true }).catch(() => undefined)
       }
     } else {
-      if (!runCtx.agentStarted) {
-        await herdr.startAgent(runCtx.agentName, payload.step.harness, runCtx.paneId)
-        runCtx.agentStarted = true
-      }
-      const prompt = buildAgentStepPrompt(
-        payload,
-        runCtx.worktreePath,
-        flowMdPath,
-        logsPath,
-        resultFile,
-      )
-      await herdr.promptAgent(runCtx.agentName, prompt, 600_000)
+      const startArgs = buildHarnessStartArgs(payload.harness, trustedWorkspaces)
+      await herdr.startAgent(agentName, payload.harness, paneId, startArgs)
+      const prompt = buildFlowGoPrompt(payload, worktreePath, flowMdPath, logsPath)
+      await herdr.promptAgent(agentName, prompt, 2_400_000)
     }
 
-    const stepResult = await readStepResult(resultFile)
-    const headSha = safeHeadSha(runCtx.worktreePath)
-    const handoff =
-      stepResult.handoff ??
-      `worktree=${runCtx.worktreePath}; step=${payload.step.stepId}${headSha ? `; commit=${headSha}` : ''}`
-    const summary = stepResult.summary ?? `Completed ${payload.step.stepId}`
-    const isFinalStep = payload.step.seq === payload.allSelectedSteps.length
+    stopWatcher()
+    stopWatcher = null
 
-    await markStepCompleteInFlowMd(
-      flowMdPath,
-      payload.step.seq,
-      payload.step.stepId,
-      payload.step.receives,
-      handoff,
-      isFinalStep,
+    // Reconcile final FLOW.md + logs.txt (including mirroring if the agent chose YYMMDD-<name>).
+    const actualFlowDir = await reconcileFlowArtifactsDir(
+      payload,
+      join(paths.projects, payload.projectKey, payload.repoSlug, 'flows'),
+      runStartedAtMs,
     )
-    await appendProgressLog(
-      logsPath,
-      `Step ${payload.step.seq} complete: ${payload.step.stepId} (${handoff})`,
-    )
+    const finalFlowRaw = await readFile(join(actualFlowDir, 'FLOW.md'), 'utf8').catch(() => '')
+    if (!finalFlowRaw.trim()) {
+      throw new Error(
+        `Agent finished without scaffolding frozen FLOW.md in ${payload.storeFlowDir}`,
+      )
+    }
+
+    const parsedFinal = parseFrozenFlowInstance(finalFlowRaw)
+    const resultMeta = await readFlowResult(resultFile)
+    const headSha = safeHeadSha(worktreePath)
+    const finalStatus = resultMeta.status ?? parsedFinal.runStatus
+    const terminalStatus =
+      finalStatus === 'done' || finalStatus === 'blocked' || finalStatus === 'failed'
+        ? finalStatus
+        : parsedFinal.steps.length > 0 && parsedFinal.steps.every((s) => s.status === 'done')
+          ? 'done'
+          : 'failed'
 
     await herdr
-      .reportPaneMetadata(runCtx.paneId, {
-        title: `${payload.flowName}:${payload.step.stepId}`,
-        displayAgent: payload.step.harness,
-        stateLabel: isFinalStep ? 'done' : 'idle',
+      .reportPaneMetadata(paneId, {
+        title: `flow:${payload.flowName}`,
+        displayAgent: payload.harness,
+        stateLabel: terminalStatus,
         tokens: {
           run: payload.runId,
-          step: payload.step.stepId,
+          flow: payload.flowName,
         },
       })
       .catch(() => undefined)
 
+    const summaryText =
+      terminalStatus === 'done'
+        ? (resultMeta.summary ??
+          `Completed flow ${payload.flowName} (${parsedFinal.steps.length} steps)`)
+        : (parsedFinal.blocker ??
+          resultMeta.summary ??
+          `Flow ${payload.flowName} ${terminalStatus}`)
+
     await postStateCallback(payload.appUrl, payload.runId, {
-      ...(headSha ? { commitSha: stepResult.commitSha ?? headSha } : {}),
-      step: {
-        stepId: payload.step.stepId,
-        status: 'done',
-        harness: payload.step.harness,
-        handoff,
-        summary,
-      },
+      status: terminalStatus,
+      ...(headSha || resultMeta.commitSha ? { commitSha: resultMeta.commitSha ?? headSha } : {}),
+      ...(parsedFinal.steps.length
+        ? {
+            steps: parsedFinal.steps.map((s) => ({
+              ...s,
+              harness: payload.harness,
+            })),
+          }
+        : {}),
       message: {
-        stepId: payload.step.stepId,
-        level: 'done',
-        text: summary,
+        level:
+          terminalStatus === 'done' ? 'done' : terminalStatus === 'blocked' ? 'blocker' : 'error',
+        text: summaryText,
       },
     })
   } catch (error) {
+    stopWatcher?.()
     const reason = error instanceof Error ? error.message : String(error)
-    await recordFlowBlocker(flowMdPath, reason)
-    await appendProgressLog(
-      logsPath,
-      `Step ${payload.step.seq} failed (${payload.step.stepId}): ${reason}`,
+    await recordOrWriteBlocker(flowMdPath, payload, reason)
+    await appendProgressLog(logsPath, `Flow ${payload.flowName} failed: ${reason}`).catch(
+      () => undefined,
     )
-    if (runCtx) {
+    if (paneId) {
       await herdr
-        .reportPaneMetadata(runCtx.paneId, {
-          title: `${payload.flowName}:${payload.step.stepId}`,
-          displayAgent: payload.step.harness,
+        .reportPaneMetadata(paneId, {
+          title: `flow:${payload.flowName}`,
+          displayAgent: payload.harness,
           stateLabel: 'failed',
-          tokens: { run: payload.runId, step: payload.step.stepId },
+          tokens: { run: payload.runId, flow: payload.flowName },
         })
         .catch(() => undefined)
     }
     await postStateCallback(payload.appUrl, payload.runId, {
       status: 'failed',
-      step: {
-        stepId: payload.step.stepId,
-        status: 'failed',
-        summary: reason,
-      },
       message: {
-        stepId: payload.step.stepId,
         level: 'error',
         text: reason,
       },
@@ -474,29 +555,155 @@ async function executeRigStep(
   }
 }
 
+function startFrozenFlowWatcher(options: {
+  payload: z.infer<typeof rigExecuteSchema>
+  flowsRoot: string
+  runStartedAtMs: number
+}): () => void {
+  let stopped = false
+  let lastSerialized = ''
+
+  const tick = async () => {
+    if (stopped) return
+    const dir = await locateActiveFlowDir(
+      options.payload.storeFlowDir,
+      options.flowsRoot,
+      options.payload.flowName,
+      options.runStartedAtMs,
+    )
+    if (!dir) return
+    const raw = await readFile(join(dir, 'FLOW.md'), 'utf8').catch(() => null)
+    if (!raw) return
+    const parsed = parseFrozenFlowInstance(raw)
+    if (!parsed.steps.length) return
+    const serialized = JSON.stringify(parsed.steps)
+    if (serialized === lastSerialized) return
+    lastSerialized = serialized
+    await postStateCallback(options.payload.appUrl, options.payload.runId, {
+      steps: parsed.steps.map((s) => ({
+        ...s,
+        harness: options.payload.harness,
+      })),
+    })
+  }
+
+  const timer = setInterval(() => {
+    void tick()
+  }, 600)
+
+  return () => {
+    stopped = true
+    clearInterval(timer)
+  }
+}
+
+async function locateActiveFlowDir(
+  expectedDir: string,
+  flowsRoot: string,
+  flowName: string,
+  runStartedAtMs: number,
+): Promise<string | null> {
+  if (existsSync(join(expectedDir, 'FLOW.md'))) {
+    return expectedDir
+  }
+  const entries = await readdir(flowsRoot, { withFileTypes: true }).catch(() => [])
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    if (!entry.name.includes(flowName)) continue
+    const candidateFlowMd = join(flowsRoot, entry.name, 'FLOW.md')
+    const stat = await lstat(candidateFlowMd).catch(() => null)
+    if (stat && stat.mtimeMs >= runStartedAtMs - 1_000) {
+      return join(flowsRoot, entry.name)
+    }
+  }
+  return null
+}
+
+async function reconcileFlowArtifactsDir(
+  payload: z.infer<typeof rigExecuteSchema>,
+  flowsRoot: string,
+  runStartedAtMs: number,
+): Promise<string> {
+  const located = await locateActiveFlowDir(
+    payload.storeFlowDir,
+    flowsRoot,
+    payload.flowName,
+    runStartedAtMs,
+  )
+  if (!located || located === payload.storeFlowDir) {
+    return payload.storeFlowDir
+  }
+  await mkdir(payload.storeFlowDir, { recursive: true, mode: 0o700 })
+  for (const filename of ['FLOW.md', 'logs.txt']) {
+    const src = join(located, filename)
+    const dst = join(payload.storeFlowDir, filename)
+    if (existsSync(src) && !existsSync(dst)) {
+      await copyFile(src, dst)
+    }
+  }
+  return payload.storeFlowDir
+}
+
+function buildFlowGoPrompt(
+  payload: z.infer<typeof rigExecuteSchema>,
+  worktreePath: string,
+  flowMdPath: string,
+  logsPath: string,
+): string {
+  const inputEntries = Object.entries(payload.inputs)
+  const inputsText = inputEntries.length
+    ? inputEntries.map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`).join('\n')
+    : '- (use flow defaults)'
+  const flagsText = payload.flags.length ? payload.flags.join(' ') : '(none)'
+  const hasMerge = payload.flags.includes('--merge')
+  const hasLocal = payload.flags.includes('--local')
+
+  return [
+    `/difflab-flow go ${payload.flowName}`,
+    '',
+    'Execute this non-interactive orchestrated Difflab workflow run end to end using the `difflab-flow` skill (`references/workflows/go.md`), `difflab-plan`, `difflab-review`, and `pr` skills:',
+    `- Repository checkout (already an isolated Git worktree — create or switch branches directly in place without creating another worktree): ${worktreePath}`,
+    `- Flow definition file: ${payload.definitionPath}`,
+    `- Exact Run ID: ${payload.runId}`,
+    `- Scaffold frozen FLOW.md at relative path \`.difflab/flows/${payload.runId}\` with filename \`FLOW.md\` (physical path: ${flowMdPath})`,
+    `- Append step start/completion logs via \`log_append\` to: ${logsPath}`,
+    `- Use MCP server \`difflab-rig_difflab\` for \`project_context\`, \`template_list\`, \`scaffold\`, \`log_append\`, and \`flow_state_update\`.`,
+    `- Bound inputs:\n${inputsText}`,
+    `- Selected flags: ${flagsText}`,
+    '- Explicit invocation permissions from the user:',
+    hasLocal
+      ? '  - Local-only run: file edits and local checks are authorized; do NOT commit, push, or access remote pull requests.'
+      : '  - Authorized for all capabilities required by selected steps in the definition Contract (including branch creation in this worktree, scoped local commits, pushing to origin, creating/updating draft PRs, inline review findings/replies/thread resolution, verifying CI, and marking PR ready when gates pass). Do not pause for routine confirmation prompts.',
+    hasMerge
+      ? '  - `--merge` was explicitly selected: final gated merge is authorized once all checks and review gates pass.'
+      : '  - `--merge` was NOT selected: stop before merge and leave any ready PR open.',
+    '  - Never add AI attributions, model names, `Generated via` footers, or AI `Co-authored-by` trailers anywhere (including REVIEW.md, commits, PR descriptions, or comments).',
+  ].join('\n')
+}
+
 async function writeHarnessSettings(
   payload: z.infer<typeof rigExecuteSchema>,
-  runCtx: RunRigContext,
+  worktreePath: string,
+  trustedWorkspaces: string[],
+  difflabHome: string,
 ): Promise<void> {
   const settingsPath = join(payload.storeFlowDir, 'harness-settings.json')
   await writeFile(
     settingsPath,
     JSON.stringify(
       {
+        trustedWorkspaces,
+        allowNonWorkspaceAccess: true,
         runId: payload.runId,
         flowName: payload.flowName,
-        activeStep: payload.step.stepId,
-        harness: payload.step.harness,
-        handler: payload.step.handler,
-        worktreePath: runCtx.worktreePath,
-        herdrPaneId: runCtx.paneId,
-        herdrAgentName: runCtx.agentName,
+        harness: payload.harness,
+        worktreePath,
         appUrl: payload.appUrl,
         mcp: {
           difflab: {
             env: {
+              DIFFLAB_HOME_ROOT: difflabHome,
               DIFFLAB_RUN_ID: payload.runId,
-              DIFFLAB_STEP_ID: payload.step.stepId,
               DIFFLAB_APP_URL: payload.appUrl,
             },
           },
@@ -509,120 +716,78 @@ async function writeHarnessSettings(
   )
 }
 
-async function ensureInitialFlowSnapshot(
+async function writeFallbackBlockerFlow(
   flowMdPath: string,
   payload: z.infer<typeof rigExecuteSchema>,
+  reason: string,
 ): Promise<void> {
-  const existing = await lstat(flowMdPath).catch(() => null)
-  if (existing) return
-
-  const inputRows = Object.entries(payload.resolvedInputs)
-    .map(([key, value]) => `| ${key} | ${value.replace(/\r?\n/g, ' ')} |`)
-    .join('\n')
-
-  const enabledText = payload.enabledFlags.length ? payload.enabledFlags.join(', ') : 'none'
-  const disabledText = payload.disabledFlags.length ? payload.disabledFlags.join(', ') : 'none'
-  const omittedText = payload.omittedSteps.length
-    ? payload.omittedSteps.map((s) => `${s.stepId} (${s.reason})`).join('; ')
-    : 'None omitted.'
-
-  const stepsBlock = payload.allSelectedSteps
-    .map(
-      (s) => `- [ ] ${s.seq}. ${s.stepId} — \`${s.handler}\`
-  - Requires: ${s.requires}
-  - Instructions: ${s.instructionsTemplate.replace(/\s*\r?\n\s*/g, ' ')}
-  - Receives: ${s.receivesTemplate.replace(/\s*\r?\n\s*/g, ' ')}
-  - Expected output: ${s.produces}
-  - Result/handoff: pending`,
-    )
-    .join('\n\n')
-
-  const content = `# Flow run: ${payload.flowName}
-
-- **Status:** in progress
-- **Definition:** ${payload.definitionPath}
-- **Definition SHA-256:** ${payload.definitionSha256}
-- **Repository:** ${payload.repoRoot}
-- **Run ID:** ${payload.runId}
-
-## Resolved inputs
-
-| Input | Value |
-| --- | --- |
-${inputRows || '| — | — |'}
-
-## Selected flags and permissions
-
-Enabled flags: ${enabledText}. Disabled flags: ${disabledText}.
-
-## Selection provenance
-
-${omittedText}
-
-## Steps
-
-${stepsBlock}
-
-## Blocker
-
-None.
-
-## Contract
-
-Frozen execution snapshot managed by difflab daemon for run ${payload.runId}.
-`
+  const content = [
+    `# Flow run: ${payload.flowName}`,
+    '',
+    '- **Status:** blocked',
+    `- **Definition:** ${payload.definitionPath}`,
+    `- **Repository:** ${payload.repoRoot}`,
+    `- **Run ID:** ${payload.runId}`,
+    '',
+    '## Steps',
+    '',
+    '## Blocker',
+    '',
+    reason,
+    '',
+    '## Contract',
+    '',
+    `Blocked before execution for run ${payload.runId}.`,
+    '',
+  ].join('\n')
   await writeFile(flowMdPath, content, 'utf8')
 }
 
-async function markStepCompleteInFlowMd(
+async function recordOrWriteBlocker(
   flowMdPath: string,
-  seq: number,
-  stepId: string,
-  resolvedReceives: string,
-  handoff: string,
-  isFinalStep: boolean,
+  payload: z.infer<typeof rigExecuteSchema>,
+  reason: string,
 ): Promise<void> {
-  let content = await readFile(flowMdPath, 'utf8')
-  const stepHeader = `- [ ] ${seq}. ${stepId} —`
-  const checkedHeader = `- [x] ${seq}. ${stepId} —`
-  if (content.includes(stepHeader)) {
-    const idx = content.indexOf(stepHeader)
-    const before = content.slice(0, idx)
-    const rest = content.slice(idx)
-    const nextStepIdx = rest.slice(stepHeader.length).search(/\n- \[[ x]\] \d+\. /)
-    const blockEnd = nextStepIdx === -1 ? rest.length : stepHeader.length + nextStepIdx
-    const updatedBlock = rest
-      .slice(0, blockEnd)
-      .replace(stepHeader, checkedHeader)
-      .replace(/  - Receives: [^\n]+/, `  - Receives: ${resolvedReceives.replace(/\r?\n/g, ' ')}`)
-      .replace('  - Result/handoff: pending', `  - Result/handoff: ${handoff}`)
-    content = before + updatedBlock + rest.slice(blockEnd)
+  const existing = await readFile(flowMdPath, 'utf8').catch(() => null)
+  if (!existing) {
+    await writeFallbackBlockerFlow(flowMdPath, payload, reason)
+    return
   }
-  if (isFinalStep) {
-    content = content.replace('- **Status:** in progress', '- **Status:** completed')
-  }
-  await writeFile(flowMdPath, content, 'utf8')
+  const updated = existing
+    .replace('- **Status:** in progress', '- **Status:** blocked')
+    .replace(/## Blocker\n\n[\s\S]*?(?=\n## Contract|$)/, `## Blocker\n\n${reason}\n`)
+  await writeFile(flowMdPath, updated, 'utf8').catch(() => undefined)
 }
 
-async function recordFlowBlocker(flowMdPath: string, reason: string): Promise<void> {
-  try {
-    let content = await readFile(flowMdPath, 'utf8')
-    content = content
-      .replace('- **Status:** in progress', '- **Status:** blocked')
-      .replace(/## Blocker\n\n[\s\S]*?\n\n## Contract/, `## Blocker\n\n${reason}\n\n## Contract`)
-    await writeFile(flowMdPath, content, 'utf8')
-  } catch {
-    // Ignore if FLOW.md could not be updated.
-  }
-}
-
-async function readStepResult(resultFile: string): Promise<StepResultFile> {
+async function readFlowResult(resultFile: string): Promise<FlowResultFile> {
   try {
     const raw = await readFile(resultFile, 'utf8')
-    return JSON.parse(raw) as StepResultFile
+    return JSON.parse(raw) as FlowResultFile
   } catch {
     return {}
   }
+}
+
+function resolveWorkspaceRoot(): string {
+  if (process.env.DIFFLAB_WORKSPACE_ROOT) {
+    return resolve(process.env.DIFFLAB_WORKSPACE_ROOT)
+  }
+  let dir = resolve(import.meta.dir)
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(dir, 'skills/difflab-flow/SKILL.md'))) {
+      return dir
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  throw new Error('Could not locate Difflab workspace root containing skills/')
+}
+
+function resolveCliEntrypoint(workspaceRoot: string): string {
+  const distEntry = join(workspaceRoot, 'apps/difflab-cli/dist/index.js')
+  if (existsSync(distEntry)) return distEntry
+  return join(workspaceRoot, 'apps/difflab-cli/src/index.ts')
 }
 
 function safeHeadSha(worktreePath: string): string | null {
@@ -642,25 +807,6 @@ function extractExitCode(snapshot: string, sentinelPrefix: string): number {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`
-}
-
-function buildAgentStepPrompt(
-  payload: z.infer<typeof rigExecuteSchema>,
-  worktreePath: string,
-  flowMdPath: string,
-  logsPath: string,
-  resultFile: string,
-): string {
-  return [
-    `Execute Difflab flow '${payload.flowName}' step ${payload.step.seq} (${payload.step.stepId}) inside ${worktreePath}.`,
-    `Handler: ${payload.step.handler}`,
-    `Receives: ${payload.step.receives}`,
-    `Expected output: ${payload.step.produces}`,
-    `Instructions: ${payload.step.instructions}`,
-    `Flow instance: ${flowMdPath}`,
-    `Progress log: ${logsPath}`,
-    `Write JSON {"handoff":"...","summary":"..."} to ${resultFile} when finished.`,
-  ].join('\n')
 }
 
 async function postStateCallback(

@@ -21,5 +21,6 @@ RELEASE_NOTES.md
 .tmp/
 target/
 e2e/outputs/
+e2e/recordings/flows/
 **/playwright-report/
 **/test-results/

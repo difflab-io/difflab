@@ -2,7 +2,7 @@ import { afterEach, beforeEach } from 'vitest'
 import { TestHarness } from './test-harness.js'
 
 // API -------------------------------------------------------------------------
-/** Owns an isolated Difflab home, fixture repository, daemon, and Herdr session per journey. */
+/** Owns an isolated Difflab store, fixture repository, daemon, and Herdr session per journey. */
 export function useTestHarness(suite: 'app' | 'cli', environment?: () => NodeJS.ProcessEnv) {
   let runtime: TestHarness | undefined
 

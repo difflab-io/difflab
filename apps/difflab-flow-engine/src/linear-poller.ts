@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 // Constants -------------------------------------------------------------------
 export const READY_ISSUES_QUERY = `query ReadyIssues {
-  issues(filter: { state: { name: { eqIgnoreCase: "Ready" } } }, first: 25) {
+  issues(filter: { state: { name: { in: ["Ready", "Todo"] } } }, first: 25) {
     nodes {
       id
       identifier

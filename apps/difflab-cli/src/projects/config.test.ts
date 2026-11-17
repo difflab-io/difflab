@@ -70,7 +70,7 @@ test('given difflab.yaml with Ready Linear trigger criteria, when parsed, then t
       'project:',
       '  id: DIFFLAB',
       'flows:',
-      '  defaultHarness: claude',
+      '  defaultHarness: agy',
       '  retention: on-success',
       '  triggers:',
       '    - on: linear.issue.ready',
@@ -90,7 +90,7 @@ test('given difflab.yaml with Ready Linear trigger criteria, when parsed, then t
     schemaVersion: 1,
     project: { id: 'DIFFLAB' },
     flows: {
-      defaultHarness: 'claude',
+      defaultHarness: 'agy',
       retention: 'on-success',
       triggers: [
         {

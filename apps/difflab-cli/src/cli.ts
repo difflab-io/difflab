@@ -141,7 +141,8 @@ export function createProgram(
 
   const templates = program.command('templates').description('List and scaffold documents')
   const service = async () =>
-    options.templateService ?? new (await import('./templates/service.js')).TemplateService()
+    options.templateService ??
+    new (await import('./templates/service.js')).TemplateService({ home: options.home })
 
   templates
     .command('list')

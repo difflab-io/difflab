@@ -19,15 +19,27 @@ export type CreateRunInput = {
   repoId: string
   flowName: string
   triggerKey?: string | null
+  status?: RunStatus
   harness: string
   storeFlowDir: string
   worktreePath?: string | null
+  commitSha?: string | null
+  createdAt?: string
+  updatedAt?: string
   steps: {
     stepId: string
     seq: number
+    status?: StepStatus
     harness?: string | null
+    handoff?: string | null
   }[]
   initialMessage?: string
+  messages?: {
+    stepId?: string | null
+    level: WorkerMessageLevel
+    text: string
+    createdAt?: string
+  }[]
 }
 
 export type UpdateRunStateInput = {
@@ -39,11 +51,20 @@ export type UpdateRunStateInput = {
   commitSha?: string | null
   step?: {
     stepId: string
+    seq?: number
     status: StepStatus
     harness?: string | null
     handoff?: string | null
     summary?: string | null
   }
+  steps?: {
+    stepId: string
+    seq: number
+    status: StepStatus
+    harness?: string | null
+    handoff?: string | null
+    summary?: string | null
+  }[]
   message?: {
     stepId?: string | null
     level: WorkerMessageLevel
@@ -54,6 +75,7 @@ export type UpdateRunStateInput = {
 export type UpdateRunStateResult = {
   run: FlowRun
   step?: FlowStep
+  steps?: FlowStep[]
   message?: WorkerMessage
 }
 
@@ -88,6 +110,8 @@ export function createRunQueries(db: Kysely<ProjectDatabase>, readonly: boolean,
     async createRun(input: CreateRunInput): Promise<FlowRunDetail> {
       assertWritable()
       const now = new Date().toISOString()
+      const createdAt = input.createdAt ?? now
+      const updatedAt = input.updatedAt ?? createdAt
       const triggerKey = input.triggerKey ?? null
       try {
         return await withDatabaseAccess(dbPath, () =>
@@ -107,20 +131,21 @@ export function createRunQueries(db: Kysely<ProjectDatabase>, readonly: boolean,
                   repo_id: input.repoId,
                   flow_name: input.flowName,
                   trigger_key: triggerKey,
-                  status: 'queued',
+                  status: input.status ?? 'queued',
                   harness: input.harness,
                   worktree_path: input.worktreePath ?? null,
                   store_flow_dir: input.storeFlowDir,
                   herdr_session: null,
                   herdr_pane_id: null,
                   herdr_agent_name: null,
-                  commit_sha: null,
-                  created_at: now,
-                  updated_at: now,
+                  commit_sha: input.commitSha ?? null,
+                  created_at: createdAt,
+                  updated_at: updatedAt,
                 })
                 .execute()
 
               for (const step of input.steps) {
+                const stepStatus = step.status ?? 'pending'
                 await tx
                   .insertInto('steps')
                   .values({
@@ -128,12 +153,13 @@ export function createRunQueries(db: Kysely<ProjectDatabase>, readonly: boolean,
                     run_id: input.id,
                     step_id: step.stepId,
                     seq: step.seq,
-                    status: 'pending',
+                    status: stepStatus,
                     harness: step.harness ?? input.harness,
-                    handoff: null,
+                    handoff: step.handoff ?? null,
                     summary: null,
-                    started_at: null,
-                    finished_at: null,
+                    started_at: stepStatus !== 'pending' ? createdAt : null,
+                    finished_at:
+                      stepStatus === 'done' || stepStatus === 'failed' ? updatedAt : null,
                   })
                   .execute()
               }
@@ -147,9 +173,25 @@ export function createRunQueries(db: Kysely<ProjectDatabase>, readonly: boolean,
                     step_id: null,
                     level: 'info',
                     message: input.initialMessage,
-                    created_at: now,
+                    created_at: createdAt,
                   })
                   .execute()
+              }
+
+              if (input.messages?.length) {
+                for (const msg of input.messages) {
+                  await tx
+                    .insertInto('worker_messages')
+                    .values({
+                      id: randomUUID(),
+                      run_id: input.id,
+                      step_id: msg.stepId ?? null,
+                      level: msg.level,
+                      message: msg.text,
+                      created_at: msg.createdAt ?? updatedAt,
+                    })
+                    .execute()
+                }
               }
 
               return readRunDetail(tx, input.id)
@@ -218,29 +260,56 @@ export function createRunQueries(db: Kysely<ProjectDatabase>, readonly: boolean,
 
             await tx.updateTable('runs').set(runUpdates).where('id', '=', runId).execute()
 
-            let updatedStep: FlowStep | undefined
-            if (patch.step) {
+            const upsertSingleStep = async (item: {
+              stepId: string
+              seq?: number
+              status: StepStatus
+              harness?: string | null
+              handoff?: string | null
+              summary?: string | null
+            }): Promise<FlowStep> => {
               const stepRow = await tx
                 .selectFrom('steps')
                 .selectAll()
                 .where('run_id', '=', runId)
-                .where('step_id', '=', patch.step.stepId)
+                .where('step_id', '=', item.stepId)
                 .executeTakeFirst()
               if (!stepRow) {
-                throw new DifflabDbError(`Step ${patch.step.stepId} not found in run ${runId}`)
+                const existingRows = await tx
+                  .selectFrom('steps')
+                  .select('seq')
+                  .where('run_id', '=', runId)
+                  .execute()
+                const maxSeq = existingRows.reduce((acc, r) => Math.max(acc, r.seq), 0)
+                const seq = item.seq ?? maxSeq + 1
+                const newRow: ProjectDatabase['steps'] = {
+                  id: randomUUID(),
+                  run_id: runId,
+                  step_id: item.stepId,
+                  seq,
+                  status: item.status,
+                  harness: item.harness ?? current.harness,
+                  handoff: item.handoff ?? null,
+                  summary: item.summary ?? null,
+                  started_at: item.status !== 'pending' ? now : null,
+                  finished_at: item.status === 'done' || item.status === 'failed' ? now : null,
+                }
+                await tx.insertInto('steps').values(newRow).execute()
+                return fromDbStep(newRow)
               }
               const stepUpdates: Partial<ProjectDatabase['steps']> = {
-                status: patch.step.status,
+                status: item.status,
               }
-              if (patch.step.harness !== undefined) stepUpdates.harness = patch.step.harness
-              if (patch.step.handoff !== undefined) stepUpdates.handoff = patch.step.handoff
-              if (patch.step.summary !== undefined) stepUpdates.summary = patch.step.summary
-              if (patch.step.status === 'running' && !stepRow.started_at) {
+              if (item.seq !== undefined) stepUpdates.seq = item.seq
+              if (item.harness !== undefined) stepUpdates.harness = item.harness
+              if (item.handoff !== undefined) stepUpdates.handoff = item.handoff
+              if (item.summary !== undefined) stepUpdates.summary = item.summary
+              if (item.status === 'running' && !stepRow.started_at) {
                 stepUpdates.started_at = now
               }
-              if (patch.step.status === 'done' || patch.step.status === 'failed') {
+              if (item.status === 'done' || item.status === 'failed') {
                 stepUpdates.started_at = stepRow.started_at ?? now
-                stepUpdates.finished_at = now
+                stepUpdates.finished_at = stepRow.finished_at ?? now
               }
               await tx.updateTable('steps').set(stepUpdates).where('id', '=', stepRow.id).execute()
               const refreshedStep = await tx
@@ -248,7 +317,20 @@ export function createRunQueries(db: Kysely<ProjectDatabase>, readonly: boolean,
                 .selectAll()
                 .where('id', '=', stepRow.id)
                 .executeTakeFirstOrThrow()
-              updatedStep = fromDbStep(refreshedStep)
+              return fromDbStep(refreshedStep)
+            }
+
+            let updatedStep: FlowStep | undefined
+            if (patch.step) {
+              updatedStep = await upsertSingleStep(patch.step)
+            }
+
+            let upsertedSteps: FlowStep[] | undefined
+            if (patch.steps?.length) {
+              upsertedSteps = []
+              for (const entry of patch.steps) {
+                upsertedSteps.push(await upsertSingleStep(entry))
+              }
             }
 
             let createdMessage: WorkerMessage | undefined
@@ -273,6 +355,7 @@ export function createRunQueries(db: Kysely<ProjectDatabase>, readonly: boolean,
             return {
               run: fromDbRun(refreshedRun),
               ...(updatedStep ? { step: updatedStep } : {}),
+              ...(upsertedSteps ? { steps: upsertedSteps } : {}),
               ...(createdMessage ? { message: createdMessage } : {}),
             }
           }),

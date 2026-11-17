@@ -157,6 +157,9 @@
                 <span class="flow-name">{run.flowName}</span>
                 <span class={`pill status-${run.status}`}>{run.status}</span>
               </div>
+              {#if data.repoLabels?.[run.repoId]}
+                <div class="run-repo">{data.repoLabels[run.repoId]}</div>
+              {/if}
               <div class="run-id">{run.id}</div>
             </button>
           {/each}
@@ -180,6 +183,9 @@
                 <span class="flow-name">{run.flowName}</span>
                 <span class={`pill status-${run.status}`}>{run.status}</span>
               </div>
+              {#if data.repoLabels?.[run.repoId]}
+                <div class="run-repo">{data.repoLabels[run.repoId]}</div>
+              {/if}
               <div class="run-id">{run.id}</div>
             </button>
           {/each}
@@ -213,6 +219,9 @@
           </div>
 
           <div class="badges" data-testid="herdr-badges">
+            {#if data.repoLabels?.[selectedRun.repoId]}
+              <span class="badge">{data.repoLabels[selectedRun.repoId]}</span>
+            {/if}
             <span class="badge">harness: {selectedRun.harness}</span>
             {#if selectedRun.herdrSession}
               <span class="badge badge-herdr" data-testid="herdr-session-badge">
@@ -410,6 +419,12 @@
   .flow-name {
     font-weight: 600;
     font-size: 14px;
+  }
+
+  .run-repo {
+    font-size: 11px;
+    color: #93c5fd;
+    margin-top: 3px;
   }
 
   .run-id {

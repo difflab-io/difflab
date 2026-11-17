@@ -78,7 +78,7 @@ export async function startDaemon(options: {
 
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    ...(options.home ? { HOME: options.home, DIFFLAB_HOME_ROOT: options.home } : {}),
+    ...(options.home ? { DIFFLAB_HOME_ROOT: options.home } : {}),
   }
 
   const child = spawn(process.execPath, args, {
@@ -171,7 +171,7 @@ async function runSupervisorForeground(
 
   const sharedEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    ...(home ? { HOME: home, DIFFLAB_HOME_ROOT: home } : {}),
+    ...(home ? { DIFFLAB_HOME_ROOT: home } : {}),
     DIFFLAB_STORE_DIR: paths.root,
     DIFFLAB_APP_URL: appUrl,
     DIFFLAB_DAEMON_RIG_URL: daemonRigUrl,

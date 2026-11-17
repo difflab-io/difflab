@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { lstat, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   DuplicateTriggerError,
@@ -17,22 +17,26 @@ import { discoverGitRepository } from 'utils/gitx'
 import { parseDocument } from 'yaml'
 import {
   dispatchCleanupToDaemon,
-  dispatchStepToDaemon,
+  dispatchFlowToDaemon,
   resolveDaemonUrls,
 } from './daemon-client.js'
 import { getAppDb, resolveStorePaths } from './db.js'
-import {
-  loadFlowDefinition,
-  resolveFlowExecutionPlan,
-  resolveStepHandoffTokens,
-  type ResolvedFlowPlan,
-} from './flow-parser.js'
 import { publishFlowEvent } from './hub.js'
 
 // Constants -------------------------------------------------------------------
-const activePlans = new Map<string, ActivePlanMeta>()
+const SAFE_FLOW_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+const READY_ISSUE_STATES = new Set(['ready', 'todo'])
+const TERMINAL_RUN_STATUSES = new Set(['done', 'failed', 'blocked'])
+const activeRunMeta = new Map<string, ActiveRunMeta>()
 
 // Types -----------------------------------------------------------------------
+export class FlowDefinitionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'FlowDefinitionError'
+  }
+}
+
 export type StartFlowRunRequest = {
   flowName: string
   repoId?: string
@@ -62,13 +66,9 @@ export type LinearTriggerOutcome = {
   runId?: string
 }
 
-type ActivePlanMeta = {
+type ActiveRunMeta = {
   repoRoot: string
-  projectKey: string
-  repoSlug: string
   retention: WorktreeRetention
-  plan: ResolvedFlowPlan
-  appOrigin: string
 }
 
 // API -------------------------------------------------------------------------
@@ -83,13 +83,10 @@ export async function startFlowRun(request: StartFlowRunRequest): Promise<FlowRu
     )
   }
 
+  const definitionPath = await verifyFlowDefinitionPath(paths.flows, request.flowName)
   const repoConfig = await loadRepoConfigIfPresent(repoRoot)
-  const defaultHarness: HarnessKind =
-    request.harness ?? repoConfig?.flows?.defaultHarness ?? 'claude'
+  const harness: HarnessKind = request.harness ?? repoConfig?.flows?.defaultHarness ?? 'agy'
   const retention: WorktreeRetention = repoConfig?.flows?.retention ?? 'on-success'
-
-  const definition = await loadFlowDefinition(paths.flows, request.flowName)
-  const plan = resolveFlowExecutionPlan(definition, request.inputs ?? {}, request.flags ?? [])
 
   const runId = generateRunId(request.flowName)
   const storeFlowDir = join(paths.projects, repo.projectId, repo.slug, 'flows', runId)
@@ -99,38 +96,44 @@ export async function startFlowRun(request: StartFlowRunRequest): Promise<FlowRu
     repoId: repo.id,
     flowName: request.flowName,
     triggerKey: request.triggerKey ?? null,
-    harness: defaultHarness,
+    harness,
     storeFlowDir,
-    steps: plan.selectedSteps.map((step) => ({
-      stepId: step.stepId,
-      seq: step.seq,
-      harness: step.harness ?? defaultHarness,
-    })),
-    initialMessage: `Queued ${request.flowName} (${plan.selectedSteps.length} step${plan.selectedSteps.length === 1 ? '' : 's'})`,
+    steps: [],
+    initialMessage: `Queued ${request.flowName} on ${harness}`,
   })
 
-  activePlans.set(runId, {
-    repoRoot,
-    projectKey: repo.projectId,
-    repoSlug: repo.slug,
-    retention,
-    plan,
-    appOrigin: request.appOrigin,
-  })
+  activeRunMeta.set(runId, { repoRoot, retention })
 
   publishFlowEvent({ type: 'run.updated', runId, run: created.run })
   if (created.messages[0]) {
     publishFlowEvent({ type: 'worker.message', runId, message: created.messages[0] })
   }
 
-  // Dispatch Step 1 asynchronously so HTTP callers receive 201 immediately while rig starts.
-  void dispatchNextPendingStep(runId, created).catch(async (error: unknown) => {
+  // Dispatch whole flow execution asynchronously so HTTP callers receive 201 immediately.
+  void (async () => {
+    const { daemonRigUrl, appUrl } = await resolveDaemonUrls(request.appOrigin)
+    await dispatchFlowToDaemon(daemonRigUrl, {
+      runId,
+      repoId: repo.id,
+      repoRoot,
+      projectKey: repo.projectId,
+      repoSlug: repo.slug,
+      storeFlowDir,
+      flowName: request.flowName,
+      definitionPath,
+      inputs: request.inputs ?? {},
+      flags: request.flags ?? [],
+      harness,
+      appUrl,
+      retention,
+    })
+  })().catch(async (error: unknown) => {
     const reason = error instanceof Error ? error.message : String(error)
     await applyRunStateUpdate(
       runId,
       {
         status: 'failed',
-        message: { level: 'error', text: `Failed to dispatch step: ${reason}` },
+        message: { level: 'error', text: `Failed to dispatch flow to daemon: ${reason}` },
       },
       request.appOrigin,
     ).catch(() => undefined)
@@ -143,7 +146,7 @@ export async function handleLinearReadyTrigger(
   issue: LinearCandidateIssue,
   appOrigin: string,
 ): Promise<LinearTriggerOutcome[]> {
-  if (issue.state.trim().toLowerCase() !== 'ready') {
+  if (!READY_ISSUE_STATES.has(issue.state.trim().toLowerCase())) {
     return [{ matched: false }]
   }
 
@@ -166,7 +169,7 @@ export async function handleLinearReadyTrigger(
           cwd: repo.localPath,
           inputs: { input: promptInput },
           flags: trigger.flags ?? [],
-          harness: trigger.harness ?? config?.flows?.defaultHarness,
+          harness: trigger.harness ?? config?.flows?.defaultHarness ?? 'agy',
           triggerKey,
           appOrigin,
         })
@@ -193,6 +196,11 @@ export async function applyRunStateUpdate(
   const updated = await db.runs.updateRunState(runId, patch)
 
   publishFlowEvent({ type: 'run.updated', runId, run: updated.run })
+  if (updated.steps?.length) {
+    for (const step of updated.steps) {
+      publishFlowEvent({ type: 'step.updated', runId, step })
+    }
+  }
   if (updated.step) {
     publishFlowEvent({ type: 'step.updated', runId, step: updated.step })
   }
@@ -200,167 +208,61 @@ export async function applyRunStateUpdate(
     publishFlowEvent({ type: 'worker.message', runId, message: updated.message })
   }
 
-  // Advance orchestration state machine when a step finishes or fails.
-  if (patch.step?.status === 'done') {
-    const full = await db.runs.getRun(runId)
-    const nextPending = full.steps.find((s) => s.status === 'pending')
-    if (nextPending) {
-      void dispatchNextPendingStep(runId, full, appOrigin).catch(async (error: unknown) => {
-        const reason = error instanceof Error ? error.message : String(error)
-        const failed = await db.runs.updateRunState(runId, {
-          status: 'failed',
-          message: { level: 'error', text: `Failed to dispatch ${nextPending.stepId}: ${reason}` },
-        })
-        publishFlowEvent({ type: 'run.updated', runId, run: failed.run })
-        if (failed.message) {
-          publishFlowEvent({ type: 'worker.message', runId, message: failed.message })
-        }
-      })
-    } else if (full.run.status !== 'done') {
-      const completed = await db.runs.updateRunState(runId, {
-        status: 'done',
-        message: { level: 'done', text: `Flow ${full.run.flowName} completed` },
-      })
-      publishFlowEvent({ type: 'run.updated', runId, run: completed.run })
-      if (completed.message) {
-        publishFlowEvent({ type: 'worker.message', runId, message: completed.message })
-      }
-      await triggerWorktreeCleanup(runId, completed.run.worktreePath, 'done', appOrigin)
-      activePlans.delete(runId)
-      return completed
-    }
-  } else if (
-    patch.step?.status === 'failed' ||
-    patch.status === 'failed' ||
-    patch.status === 'blocked'
-  ) {
-    const finalStatus = patch.status ?? 'failed'
-    if (updated.run.status !== finalStatus) {
-      const marked = await db.runs.updateRunState(runId, { status: finalStatus })
-      publishFlowEvent({ type: 'run.updated', runId, run: marked.run })
-      await triggerWorktreeCleanup(runId, marked.run.worktreePath, finalStatus, appOrigin)
-      activePlans.delete(runId)
-      return marked
-    }
-    await triggerWorktreeCleanup(runId, updated.run.worktreePath, finalStatus, appOrigin)
-    activePlans.delete(runId)
+  if (patch.status && TERMINAL_RUN_STATUSES.has(patch.status)) {
+    await triggerWorktreeCleanup(
+      runId,
+      updated.run.repoId,
+      updated.run.worktreePath,
+      patch.status,
+      appOrigin,
+    )
+    activeRunMeta.delete(runId)
   }
 
   return updated
 }
 
 // Helpers ---------------------------------------------------------------------
-async function dispatchNextPendingStep(
-  runId: string,
-  detail: FlowRunDetail,
-  fallbackOrigin?: string,
-): Promise<void> {
-  const meta = await ensurePlanMeta(runId, detail, fallbackOrigin ?? 'http://127.0.0.1:4317')
-  const nextStepRow = detail.steps.find((s) => s.status === 'pending')
-  if (!nextStepRow) return
-
-  const stepSpec = meta.plan.selectedSteps.find((s) => s.stepId === nextStepRow.stepId)
-  if (!stepSpec) {
-    throw new Error(`Selected step spec missing for ${nextStepRow.stepId}`)
+async function verifyFlowDefinitionPath(flowsDir: string, flowName: string): Promise<string> {
+  if (!SAFE_FLOW_NAME.test(flowName)) {
+    throw new FlowDefinitionError(`Unsafe flow name '${flowName}'; expected hyphenated lowercase`)
   }
-
-  const completedHandoffs: Record<string, string> = {}
-  for (const s of detail.steps) {
-    if (s.status === 'done' && s.handoff) {
-      completedHandoffs[s.stepId] = s.handoff
-    }
+  const flowsStat = await lstat(flowsDir).catch(() => null)
+  if (!flowsStat || flowsStat.isSymbolicLink() || !flowsStat.isDirectory()) {
+    throw new FlowDefinitionError(`Missing or invalid global flows directory: ${flowsDir}`)
   }
-
-  const { daemonRigUrl, appUrl } = await resolveDaemonUrls(meta.appOrigin)
-  await dispatchStepToDaemon(daemonRigUrl, {
-    runId,
-    repoId: detail.run.repoId,
-    repoRoot: meta.repoRoot,
-    projectKey: meta.projectKey,
-    repoSlug: meta.repoSlug,
-    storeFlowDir: detail.run.storeFlowDir,
-    flowName: detail.run.flowName,
-    definitionPath: meta.plan.definition.definitionPath,
-    definitionSha256: meta.plan.definition.sha256,
-    resolvedInputs: meta.plan.resolvedInputs,
-    enabledFlags: meta.plan.enabledFlags,
-    disabledFlags: meta.plan.disabledFlags,
-    omittedSteps: meta.plan.omittedSteps,
-    allSelectedSteps: meta.plan.selectedSteps,
-    step: {
-      stepId: stepSpec.stepId,
-      seq: stepSpec.seq,
-      handler: stepSpec.handler,
-      harness: nextStepRow.harness ?? detail.run.harness,
-      receives: resolveStepHandoffTokens(stepSpec.receivesTemplate, completedHandoffs),
-      produces: stepSpec.produces,
-      instructions: resolveStepHandoffTokens(stepSpec.instructionsTemplate, completedHandoffs),
-    },
-    appUrl,
-    retention: meta.retention,
-  })
-}
-
-async function ensurePlanMeta(
-  runId: string,
-  detail: FlowRunDetail,
-  appOrigin: string,
-): Promise<ActivePlanMeta> {
-  const cached = activePlans.get(runId)
-  if (cached) return cached
-
-  const db = await getAppDb()
-  const paths = resolveStorePaths()
-  const repo = await db.repositories.getRepositoryById(detail.run.repoId)
-  const repoRoot = repo.localPath
-  if (!repoRoot) throw new Error(`Repository ${repo.url} has no localPath`)
-  const config = await loadRepoConfigIfPresent(repoRoot)
-  const definition = await loadFlowDefinition(paths.flows, detail.run.flowName)
-  const selectedSteps = detail.steps.map((persisted) => {
-    const spec = definition.steps.find((candidate) => candidate.stepId === persisted.stepId)
-    if (!spec) {
-      throw new Error(`Definition ${detail.run.flowName} has no step '${persisted.stepId}'`)
-    }
-    return {
-      seq: persisted.seq,
-      stepId: persisted.stepId,
-      handler: spec.handler.replace(/^`|`$/g, ''),
-      requires: spec.requires.replace(/^`|`$/g, ''),
-      receivesTemplate: spec.receives,
-      produces: spec.produces,
-      instructionsTemplate: spec.instructions,
-      ...(persisted.harness ? { harness: persisted.harness } : {}),
-    }
-  })
-  const plan: ResolvedFlowPlan = {
-    definition,
-    resolvedInputs: { input: detail.run.flowName },
-    enabledFlags: [],
-    disabledFlags: [],
-    omittedSteps: [],
-    selectedSteps,
+  const definitionPath = join(flowsDir, `${flowName}.md`)
+  const defStat = await lstat(definitionPath).catch(() => null)
+  if (!defStat || defStat.isSymbolicLink() || !defStat.isFile()) {
+    throw new FlowDefinitionError(`Flow definition not found: ${definitionPath}`)
   }
-  const rebuilt: ActivePlanMeta = {
-    repoRoot,
-    projectKey: repo.projectId,
-    repoSlug: repo.slug,
-    retention: config?.flows?.retention ?? 'on-success',
-    plan,
-    appOrigin,
+  const raw = await readFile(definitionPath, 'utf8')
+  if (!raw.trim()) {
+    throw new FlowDefinitionError(`Flow definition is empty: ${definitionPath}`)
   }
-  activePlans.set(runId, rebuilt)
-  return rebuilt
+  return definitionPath
 }
 
 async function triggerWorktreeCleanup(
   runId: string,
+  repoId: string,
   worktreePath: string | null,
   finalStatus: string,
   appOrigin: string,
 ): Promise<void> {
-  const meta = activePlans.get(runId)
-  if (!meta || !worktreePath) return
+  if (!worktreePath) return
   try {
+    let meta = activeRunMeta.get(runId)
+    if (!meta) {
+      const db = await getAppDb()
+      const repo = await db.repositories.getRepositoryById(repoId)
+      if (!repo.localPath) return
+      const config = await loadRepoConfigIfPresent(repo.localPath)
+      meta = {
+        repoRoot: repo.localPath,
+        retention: config?.flows?.retention ?? 'on-success',
+      }
+    }
     const { daemonRigUrl } = await resolveDaemonUrls(appOrigin)
     await dispatchCleanupToDaemon(daemonRigUrl, {
       runId,

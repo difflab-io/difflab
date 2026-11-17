@@ -9,6 +9,15 @@ import { z } from 'zod'
 import { applyRunStateUpdate } from '$lib/server/orchestrator.js'
 
 // Constants -------------------------------------------------------------------
+const stepPatchSchema = z.object({
+  stepId: z.string().min(1),
+  seq: z.number().int().positive().optional(),
+  status: stepStatusSchema,
+  harness: z.string().nullable().optional(),
+  handoff: z.string().nullable().optional(),
+  summary: z.string().nullable().optional(),
+})
+
 const statePatchSchema = z.object({
   status: runStatusSchema.optional(),
   worktreePath: z.string().nullable().optional(),
@@ -16,14 +25,13 @@ const statePatchSchema = z.object({
   herdrPaneId: z.string().nullable().optional(),
   herdrAgentName: z.string().nullable().optional(),
   commitSha: z.string().nullable().optional(),
-  step: z
-    .object({
-      stepId: z.string().min(1),
-      status: stepStatusSchema,
-      harness: z.string().nullable().optional(),
-      handoff: z.string().nullable().optional(),
-      summary: z.string().nullable().optional(),
-    })
+  step: stepPatchSchema.optional(),
+  steps: z
+    .array(
+      stepPatchSchema.extend({
+        seq: z.number().int().positive(),
+      }),
+    )
     .optional(),
   message: z
     .object({

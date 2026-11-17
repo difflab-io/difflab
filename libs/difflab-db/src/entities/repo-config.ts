@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // Constants -------------------------------------------------------------------
-export const harnessKindSchema = z.enum(['claude', 'codex', 'agy', 'pi', 'mock'])
+export const harnessKindSchema = z.enum(['agy', 'claude', 'codex', 'pi', 'mock'])
 export const worktreeRetentionSchema = z.enum(['on-success', 'retain', 'always'])
 
 export const linearReadyTriggerSchema = z.strictObject({

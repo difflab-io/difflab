@@ -28,18 +28,18 @@ describe('given an initialized 002_loops_mvp database', () => {
         repoId: repo.id,
         flowName: 'autospec',
         triggerKey: 'linear:ENG-42:ready:autospec',
-        harness: 'claude',
+        harness: 'agy',
         storeFlowDir: '/tmp/store/flows/261116-autospec-a',
-        steps: [{ stepId: 'prepare-branch', seq: 1 }],
+        steps: [],
       }),
       second.runs.createRun({
         id: '261116-autospec-b',
         repoId: repo.id,
         flowName: 'autospec',
         triggerKey: 'linear:ENG-42:ready:autospec',
-        harness: 'claude',
+        harness: 'agy',
         storeFlowDir: '/tmp/store/flows/261116-autospec-b',
-        steps: [{ stepId: 'prepare-branch', seq: 1 }],
+        steps: [],
       }),
     ])
 
@@ -112,6 +112,72 @@ describe('given an initialized 002_loops_mvp database', () => {
     expect(detail.messages.map((m) => m.message)).toEqual([
       'Run queued',
       'Step 1 complete: local-review',
+    ])
+  })
+
+  test('when a run starts with empty steps and syncs frozen FLOW.md steps dynamically, then steps upsert in sequence order', async () => {
+    // Arrange
+    const { store, repo } = await seedRepository('/tmp/example-repo')
+    await store.runs.createRun({
+      id: '261116-autospec-dynamic',
+      repoId: repo.id,
+      flowName: 'autospec',
+      harness: 'agy',
+      storeFlowDir: '/tmp/store/flows/261116-autospec-dynamic',
+      steps: [],
+    })
+
+    // Act
+    await store.runs.updateRunState('261116-autospec-dynamic', {
+      status: 'running',
+      steps: [
+        {
+          seq: 1,
+          stepId: 'create-plan',
+          status: 'done',
+          handoff: '/tmp/store/plans/261116-demo/PLAN.md',
+        },
+        {
+          seq: 2,
+          stepId: 'execute-plan',
+          status: 'running',
+        },
+        {
+          seq: 3,
+          stepId: 'local-review',
+          status: 'pending',
+        },
+      ],
+    })
+    const detail = await store.runs.getRun('261116-autospec-dynamic')
+
+    // Assert
+    expect(
+      detail.steps.map((s) => ({
+        seq: s.seq,
+        stepId: s.stepId,
+        status: s.status,
+        handoff: s.handoff,
+      })),
+    ).toEqual([
+      {
+        seq: 1,
+        stepId: 'create-plan',
+        status: 'done',
+        handoff: '/tmp/store/plans/261116-demo/PLAN.md',
+      },
+      {
+        seq: 2,
+        stepId: 'execute-plan',
+        status: 'running',
+        handoff: null,
+      },
+      {
+        seq: 3,
+        stepId: 'local-review',
+        status: 'pending',
+        handoff: null,
+      },
     ])
   })
 })

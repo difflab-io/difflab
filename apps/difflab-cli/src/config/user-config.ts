@@ -8,7 +8,7 @@ export const userConfigSchema = z.object({
   appPort: z.number().int().min(0).max(65535).default(4317),
   enginePort: z.number().int().min(0).max(65535).default(4318),
   daemonRigPort: z.number().int().min(0).max(65535).default(4319),
-  defaultHarness: harnessKindSchema.default('claude'),
+  defaultHarness: harnessKindSchema.default('agy'),
   retention: worktreeRetentionSchema.default('on-success'),
   herdrSession: z.string().min(1).optional(),
   linearApiUrl: z.string().url().default('https://api.linear.app/graphql'),

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Difflab workflow system separates event ingress (`apps/difflab-flow-engine`), Central DB and step orchestration (`apps/difflab-app`), and rig execution (`difflab daemon` in `apps/difflab-cli`). `difflab-app` fronts the minimal Central DB (`projects`, `repositories`, `runs`, `steps`, and `worker_messages`) on `difflab.sqlite` locally or Postgres remotely. Each repository declares its project and ready-task triggers in `difflab.yaml`. `difflab-flow-engine` polls or receives Linear tasks marked ready and forwards candidates to `difflab-app`. `difflab-app` deduplicates each trigger via `runs.trigger_key`, advances the workflow state machine, and dispatches each step to `difflab daemon` locally or on a remote sandbox or VM (`TBD`). On the rig, `difflab daemon` validates `mise.toml`, prepares an isolated worktree, updates `FLOW.md`, and runs the step inside Herdr (`libs/utils/herdrx`) before posting the outcome back to `difflab-app`.
+The Difflab workflow system separates event ingress (`apps/difflab-flow-engine`), Central DB and run dispatch (`apps/difflab-app`), and rig execution (`difflab daemon` in `apps/difflab-cli`). `difflab-app` fronts the minimal Central DB (`projects`, `repositories`, `runs`, `steps`, and `worker_messages`) on `difflab.sqlite` locally or Postgres remotely. Each repository declares its project and ready-task triggers in `difflab.yaml`. `difflab-flow-engine` polls or receives Linear tasks marked ready and forwards candidates to `difflab-app`. `difflab-app` deduplicates each trigger via `runs.trigger_key` and dispatches the workflow run to `difflab daemon` locally or on a remote sandbox or VM (`TBD`). On the rig, `difflab daemon` validates `mise.toml`, prepares an isolated worktree with preloaded Difflab skills and MCP, launches `agy` (default) inside Herdr (`libs/utils/herdrx`), and delegates execution to `/difflab-flow go <name>` while syncing `FLOW.md` steps and `logs.txt` back to `difflab-app`.
 
 ## Requirement
 
@@ -45,7 +45,7 @@ Five boundaries keep workflow dispatch, UI visibility, and execution simple:
 
 ![Workflow dispatch, MCP updates, and worktree retention](./diagrams/workflow-control-flow.drawio.svg)
 
-When a ready Linear task matches `difflab.yaml` criteria or an engineer runs `difflab flows run`, `difflab-app` records the `run` and selected `steps` and dispatches Step 1 to `difflab daemon`. On the rig, `difflab daemon` prepares `~/.difflab/worktrees/<run-id>/`, links `.difflab`, checks `mise.toml`, freezes `FLOW.md`, and launches the step harness inside Herdr (`--no-focus`) with preloaded Difflab MCP and skills. Local interactive and dispatched runs both write `FLOW.md` and `logs.txt` in `~/.difflab/` and post updates to `POST /v1/runs/:id/state` on `difflab-app`. As each step finishes, `difflab-app` resolves handoff slots and dispatches the next step until completion, then calls `/v1/rig/cleanup` so `difflab daemon` applies worktree retention (`on-success` by default, `retain`, or `always`).
+When a ready Linear task matches `difflab.yaml` criteria or an engineer runs `difflab flows run`, `difflab-app` records the `run` and dispatches `/v1/rig/execute` to `difflab daemon`. On the rig, `difflab daemon` prepares `~/.difflab/worktrees/<run-id>/`, links `.difflab`, checks `mise.toml`, preloads Difflab skills (`difflab-flow`, `difflab-plan`, `difflab-review`, `pr`) and MCP into `.agents/`, and launches `agy` (default) inside Herdr (`--no-focus`) to execute `/difflab-flow go <name>` against `~/.difflab/flows/<name>.md`. Both interactive and daemon-dispatched runs scaffold and update `FLOW.md` and `logs.txt` in `~/.difflab/` and stream step and log updates to `POST /v1/runs/:id/state` on `difflab-app`. Once the run finishes, `difflab-app` calls `/v1/rig/cleanup` so `difflab daemon` applies worktree retention (`on-success` by default, `retain`, or `always`).
 
 ### Deployment Topologies
 
@@ -69,8 +69,8 @@ Purely local users run `difflab daemon up`, which supervises `difflab-app` (fron
 
 | Harness | Unattended Flags | Per-Run Preload Flags (`difflab`, MCP, skills) |
 | :-- | :-- | :-- |
+| `agy` (default) | `--dangerously-skip-permissions` | `--settings <run.json>` + `.agents/` (`skills.json` + `mcp_config.json`) |
 | `claude` | `--dangerously-skip-permissions` | `--settings <run.json>` `--session-id <uuid>` |
-| `agy` | `--dangerously-skip-permissions` | `--settings <run.json>` |
 | `codex` | `--dangerously-bypass-approvals-and-sandbox` `--no-daemon` | `-c <key=value>` |
 | `pi` | `--approve` | `--extension <difflab.ts>` `--session-dir <dir>` |
 

@@ -68,9 +68,9 @@ describe('Given a Linear cassette with Ready tasks and a repo configured for aut
     )
   })
 
-  describe('When a matching Ready Linear issue polls twice', () => {
+  describe('When a matching Ready Linear issue polls twice in smoke mode', () => {
     it(
-      'should orchestrate autospec once, keep commits inside ~/.difflab/worktrees/<run-id>/, and export FLOW.md, PLAN.md, REVIEW.md, logs.txt, and worktree git-log to e2e/outputs/',
+      'should deduplicate trigger_key, execute the real autospec.md contract in ~/.difflab/worktrees/<run-id>/, and export FLOW.md, PLAN.md, REVIEW.md, rubric.yaml, logs.txt, and worktree git-log',
       { tags: ['e2e', 'smoke', 'app', 'autospec', 'linear'] },
       async () => {
         // Arrange
@@ -106,7 +106,7 @@ describe('Given a Linear cassette with Ready tasks and a repo configured for aut
             appUrl: daemon.appUrl,
           })
 
-          // Act — poll twice to verify trigger_key deduplication while Ignoring ENG-41.
+          // Act — poll twice to verify trigger_key deduplication while ignoring ENG-41.
           const firstPoll = await fetch(`${daemon.engineUrl}/poll`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -129,7 +129,7 @@ describe('Given a Linear cassette with Ready tasks and a repo configured for aut
           const completed = await runtime.waitForRun(daemon.appUrl, runId, ['done'])
           await runtime.cli('flows', 'status', runId)
           await runtime.cli('flows', 'logs', runId)
-          const outDir = await runtime.exportArtifacts('autospec-linear-ready', {
+          const outDir = await runtime.exportArtifacts('autospec-linear-ready-replay', {
             appUrl: daemon.appUrl,
             runId,
           })
@@ -151,6 +151,7 @@ describe('Given a Linear cassette with Ready tasks and a repo configured for aut
           const flowMd = await readArtifactText(outDir, 'FLOW.md')
           const planMd = await readArtifactText(outDir, 'PLAN.md')
           const reviewMd = await readArtifactText(outDir, 'REVIEW.md')
+          const rubricYaml = await readArtifactText(outDir, 'rubric.yaml')
           const logsTxt = await readArtifactText(outDir, 'logs.txt')
           const gitLog = await readArtifactText(outDir, 'worktree-git-log.txt')
           const locations = JSON.parse(await readArtifactText(outDir, 'locations.json')) as {
@@ -160,17 +161,125 @@ describe('Given a Linear cassette with Ready tasks and a repo configured for aut
             worktreeHead: string
           }
 
+          expect(flowMd).toContain(
+            'eb88e37563a628773a7d701c4f71249e667a97c9bcb5f3a24ff3f5659ac1792b',
+          )
           expect(flowMd).toContain('- **Status:** completed')
           expect(flowMd).toContain('- [x] 1. prepare-branch')
           expect(flowMd).toContain('- [x] 6. publish-ready')
-          expect(planMd).toContain('ENG-42: Implement local workflow loops')
+          expect(planMd).toContain('ENG-42: Add normalizeSlug helper')
+          expect(planMd).toContain('## Design')
           expect(reviewMd).toContain(completed.run.commitSha!)
+          expect(reviewMd).toContain('## Verification and Limits')
+          expect(rubricYaml).toContain('version: 1')
           expect(logsTxt).toContain('Step 6 complete: publish-ready')
-          expect(gitLog).toContain('feat: implement orchestrated workflow changes')
+          expect(gitLog).toContain('feat(slug): add normalizeSlug helper')
           expect(locations.primaryCheckoutStatusPorcelain).toBe('')
           expect(locations.worktreePath).toContain('.difflab/worktrees/')
           expect(locations.worktreeHead).not.toBe(locations.primaryCheckoutHead)
-          expect(existsSync(join(runtime.repoDir, 'src/autospec-feature.ts'))).toBe(false)
+          expect(existsSync(join(runtime.repoDir, 'src/slug.ts'))).toBe(false)
+        } finally {
+          await cassette.close()
+        }
+      },
+    )
+  })
+
+  describe('When a matching Ready Linear issue triggers autospec with default agy harness', () => {
+    it(
+      'should run real agy in Herdr on ~/.difflab/flows/autospec.md using difflab-flow, difflab-plan, difflab-review, and pr skills, leaving the ready PR open without merging, and export artifacts to e2e/outputs/app/autospec-linear-ready/',
+      { tags: ['e2e', 'extended', 'app', 'autospec', 'linear'] },
+      async () => {
+        // Arrange — omit defaultHarness in difflab.yaml so it defaults to 'agy'
+        const { runtime } = getHarness()
+        await runtime.writeRepoConfig(
+          [
+            'schemaVersion: 1',
+            'project:',
+            '  id: DIFFLAB',
+            'flows:',
+            '  retention: retain',
+            '  triggers:',
+            '    - on: linear.issue.ready',
+            '      team: ENG',
+            '      agent: difflab',
+            '      labels:',
+            '        - COMP:difflab',
+            '      flow: autospec',
+            '',
+          ].join('\n'),
+        )
+        const cassette = await startCassetteServer(CASSETTE_PATH)
+
+        try {
+          const up = await runtime.cli('daemon', 'up', '--port', '0', '--json')
+          expect(up.exitCode).toBe(0)
+          const daemon = up.json<{ appUrl: string; engineUrl: string }>()
+
+          // Act
+          const pollRes = await fetch(`${daemon.engineUrl}/poll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              linearApiUrl: `${cassette.url}/graphql`,
+              linearApiKey: 'lin_cassette_token',
+              appUrl: daemon.appUrl,
+            }),
+          })
+          expect(pollRes.status).toBe(200)
+
+          const listed = await runtime.cli('flows', 'list', '--json')
+          const runs = listed.json<{
+            runs: { id: string; harness: string; triggerKey: string | null }[]
+          }>().runs
+          expect(runs).toHaveLength(1)
+          expect(runs[0]!.harness).toBe('agy')
+          expect(runs[0]!.triggerKey).toBe('linear:ENG-42:ready:autospec')
+          const runId = runs[0]!.id
+
+          const completed = await runtime.waitForRun(daemon.appUrl, runId, ['done'])
+          await runtime.cli('flows', 'status', runId)
+          await runtime.cli('flows', 'logs', runId)
+          const outDir = await runtime.exportArtifacts('autospec-linear-ready', {
+            appUrl: daemon.appUrl,
+            runId,
+          })
+
+          // Assert
+          expect(completed.run.status).toBe('done')
+          expect(completed.run.harness).toBe('agy')
+          expect(completed.steps.map((s) => s.stepId)).toEqual([
+            'prepare-branch',
+            'draft-plan',
+            'implement',
+            'remote-review',
+            'address-remote',
+            'publish-ready',
+          ])
+          expect(completed.run.commitSha).toMatch(/^[0-9a-f]{40}$/)
+
+          const flowMd = await readArtifactText(outDir, 'FLOW.md')
+          const planMd = await readArtifactText(outDir, 'PLAN.md')
+          const reviewMd = await readArtifactText(outDir, 'REVIEW.md')
+          const ghState = JSON.parse(await readArtifactText(outDir, 'gh-state.json')) as {
+            pullRequests: { number: number; state: string; isDraft: boolean }[]
+          }
+          const locations = JSON.parse(await readArtifactText(outDir, 'locations.json')) as {
+            primaryCheckoutHead: string
+            primaryCheckoutStatusPorcelain: string
+            worktreeHead: string
+          }
+
+          expect(flowMd).toContain('- **Status:** completed')
+          expect(planMd).toContain('## Intent')
+          expect(planMd).toContain('## Phases')
+          expect(reviewMd).toContain('## Intent Delivery')
+          expect(reviewMd).not.toContain('Generated via')
+          expect(ghState.pullRequests.length).toBeGreaterThanOrEqual(1)
+          expect(ghState.pullRequests.at(-1)!.state).toBe('OPEN')
+          expect(ghState.pullRequests.at(-1)!.isDraft).toBe(false)
+          expect(locations.primaryCheckoutStatusPorcelain).toBe('')
+          expect(locations.worktreeHead).not.toBe(locations.primaryCheckoutHead)
         } finally {
           await cassette.close()
         }

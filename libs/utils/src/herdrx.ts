@@ -213,7 +213,21 @@ export function createHerdrClient(options: HerdrClientOptions = {}) {
         String(timeoutMs),
       ]
       if (agentArgs.length > 0) args.push('--', ...agentArgs)
-      await invoke(args, timeoutMs + 5_000)
+
+      const shellReadyDeadline = Date.now() + 8_000
+      while (true) {
+        try {
+          await invoke(args, timeoutMs + 5_000)
+          return
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error)
+          if (msg.includes('agent_pane_busy') && Date.now() < shellReadyDeadline) {
+            await new Promise((r) => setTimeout(r, 250))
+            continue
+          }
+          throw error
+        }
+      }
     },
 
     async promptAgent(agentName: string, prompt: string, timeoutMs = 300_000): Promise<void> {

@@ -3,8 +3,8 @@ import { DuplicateTriggerError, harnessKindSchema, runStatusSchema } from 'diffl
 import { discoverGitRepository } from 'utils/gitx'
 import { z } from 'zod'
 import { getAppDb } from '$lib/server/db.js'
-import { FlowDefinitionError } from '$lib/server/flow-parser.js'
-import { startFlowRun } from '$lib/server/orchestrator.js'
+import { syncDiskFlowRunsToDb } from '$lib/server/disk-sync.js'
+import { FlowDefinitionError, startFlowRun } from '$lib/server/orchestrator.js'
 
 // Constants -------------------------------------------------------------------
 const createRunBodySchema = z.object({
@@ -19,6 +19,7 @@ const createRunBodySchema = z.object({
 
 // API -------------------------------------------------------------------------
 export const GET: RequestHandler = async ({ url }) => {
+  await syncDiskFlowRunsToDb()
   const db = await getAppDb()
   const rawStatus = url.searchParams.get('status')
   const statusParsed = rawStatus ? runStatusSchema.safeParse(rawStatus) : undefined
