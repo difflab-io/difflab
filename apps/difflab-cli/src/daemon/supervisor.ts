@@ -152,10 +152,13 @@ async function runSupervisorForeground(
   const workspaceRoot = resolveWorkspaceRoot()
   const herdrSession = process.env.DIFFLAB_HERDR_SESSION ?? config.herdrSession ?? null
 
+  const usedPorts = new Set<number>()
   const requestedAppPort = overridePort !== undefined ? overridePort : config.appPort
-  const appPort = requestedAppPort === 0 ? allocateFreePort() : requestedAppPort
+  const appPort = requestedAppPort === 0 ? allocateFreePort(usedPorts) : requestedAppPort
+  usedPorts.add(appPort)
   const enginePort =
-    overridePort === 0 || config.enginePort === 0 ? allocateFreePort() : config.enginePort
+    overridePort === 0 || config.enginePort === 0 ? allocateFreePort(usedPorts) : config.enginePort
+  usedPorts.add(enginePort)
   const rigPort = overridePort === 0 || config.daemonRigPort === 0 ? 0 : config.daemonRigPort
 
   const rigServer = startRigServer({
@@ -279,30 +282,51 @@ function resolveWorkspaceRoot(): string {
   throw new DifflabError('Could not locate Difflab workspace root for apps/difflab-app')
 }
 
-function allocateFreePort(): number {
-  const probe = Bun.serve({
-    port: 0,
-    hostname: '127.0.0.1',
-    fetch: () => new Response('ok'),
-  })
-  const port = probe.port ?? 4317
-  probe.stop(true)
-  return port
+function allocateFreePort(exclude: Set<number> = new Set()): number {
+  const held: ReturnType<typeof Bun.serve>[] = []
+  try {
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const probe = Bun.serve({
+        port: 0,
+        hostname: '127.0.0.1',
+        fetch: () => new Response('ok'),
+      })
+      held.push(probe)
+      const port = probe.port ?? 4317
+      if (!exclude.has(port)) {
+        return port
+      }
+    }
+    return held.at(-1)?.port ?? 4317
+  } finally {
+    for (const probe of held) {
+      probe.stop(true)
+    }
+  }
 }
 
 async function checkAllServicesHealthy(state: DaemonState): Promise<boolean> {
+  if (
+    (state.appPid > 0 && !isPidAlive(state.appPid)) ||
+    (state.enginePid > 0 && !isPidAlive(state.enginePid))
+  ) {
+    return false
+  }
   const checks = await Promise.all([
-    probeHealth(`${state.appUrl}/health`),
-    probeHealth(`${state.engineUrl}/health`),
+    probeHealth(`${state.appUrl}/health`, 'difflab-app'),
+    probeHealth(`${state.engineUrl}/health`, 'difflab-flow-engine'),
     probeHealth(`${state.daemonRigUrl}/health`),
   ])
   return checks.every(Boolean)
 }
 
-async function probeHealth(url: string): Promise<boolean> {
+async function probeHealth(url: string, expectedService?: string): Promise<boolean> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(1_500) })
-    return res.ok
+    if (!res.ok) return false
+    if (!expectedService) return true
+    const data = (await res.json().catch(() => null)) as { service?: string } | null
+    return data?.service === expectedService
   } catch {
     return false
   }

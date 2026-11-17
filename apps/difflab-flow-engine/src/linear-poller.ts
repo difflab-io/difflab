@@ -133,11 +133,7 @@ export async function pollLinearReadyIssues(options: PollOptions = {}): Promise<
     return { polled: 0, results: [] }
   }
 
-  const triggerRes = await fetch(`${appUrl}/v1/triggers/linear`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ issues }),
-  })
+  const triggerRes = await postTriggerWithRetry(`${appUrl}/v1/triggers/linear`, { issues })
   if (!triggerRes.ok) {
     const text = await triggerRes.text().catch(() => '')
     throw new Error(`difflab-app trigger ingress failed (${triggerRes.status}): ${text}`)
@@ -148,4 +144,26 @@ export async function pollLinearReadyIssues(options: PollOptions = {}): Promise<
     polled: issues.length,
     results: body.results ?? [],
   }
+}
+
+// Helpers ---------------------------------------------------------------------
+async function postTriggerWithRetry(url: string, payload: unknown): Promise<Response> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.status < 500 || attempt === 3) {
+        return res
+      }
+    } catch (error) {
+      lastError = error
+      if (attempt === 3) throw error
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 200 * (attempt + 1)))
+  }
+  throw lastError instanceof Error ? lastError : new Error('Trigger request failed')
 }
