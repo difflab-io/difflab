@@ -1,6 +1,6 @@
 <script lang="ts">
   import { BookOpen, CheckSquare, FileCode2, GitBranch, GitPullRequest } from 'lucide-svelte'
-  import { StatusPill } from 'ui'
+  import { MarkdownDocument, StatusPill } from 'ui'
   import type { ProjectWorkspaceData, WorkspacePlanItem } from '$lib/server/workspace-data.js'
 
   // Types ---------------------------------------------------------------------
@@ -230,9 +230,8 @@
                 {/if}
               </div>
             </header>
-            <article class="rounded-lg border border-border bg-card p-5">
-              <pre
-                class="m-0 overflow-x-auto font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground">{activePlan.markdown}</pre>
+            <article class="rounded-lg border border-border bg-card p-6">
+              <MarkdownDocument markdown={activePlan.markdown} stripTitle />
             </article>
           </div>
         {/if}
@@ -269,9 +268,8 @@
               {/if}
             </div>
           </header>
-          <article class="rounded-lg border border-border bg-card p-5">
-            <pre
-              class="m-0 overflow-x-auto font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground">{activeReview.markdown}</pre>
+          <article class="rounded-lg border border-border bg-card p-6">
+            <MarkdownDocument markdown={activeReview.markdown} stripTitle />
           </article>
         </div>
       {/if}

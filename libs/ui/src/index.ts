@@ -42,3 +42,7 @@ export type {
 export { default as FlowDagGraph } from './flow-dag/FlowDagGraph.svelte'
 export { flowDagNodeVariants, type FlowDagNodeVariants } from './flow-dag/styles.js'
 export type { FlowDagGraphProps, FlowDagStepNode } from './flow-dag/types.js'
+
+export { default as MarkdownDocument } from './markdown-view/MarkdownDocument.svelte'
+export { segmentMarkdown } from './markdown-view/parser.js'
+export type { MarkdownDocumentProps, MarkdownSegment } from './markdown-view/types.js'

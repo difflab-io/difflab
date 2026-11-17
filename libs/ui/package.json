@@ -23,7 +23,10 @@
     "@cloudvoyant/helical-svelte": "0.24.0",
     "@cloudvoyant/helical-ui": "0.24.0",
     "class-variance-authority": "0.7.1",
-    "lucide-svelte": "0.577.0"
+    "lucide-svelte": "0.577.0",
+    "marked": "17.0.6",
+    "mermaid": "11.16.0",
+    "shiki": "^3.0.0"
   },
   "peerDependencies": {
     "svelte": "^5.57.0"
