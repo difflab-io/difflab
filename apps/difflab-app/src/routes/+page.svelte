@@ -101,8 +101,6 @@
 
   const railItems = $derived<AppRailItem[]>([
     { id: 'home', label: 'Home' },
-    { id: 'wikis', label: 'Wikis' },
-    { id: 'tasks', label: 'Tasks' },
     { id: 'plans', label: 'Plans' },
     { id: 'reviews', label: 'Reviews' },
     { id: 'flows', label: 'Flows', live: activeFlowCount > 0 },
@@ -400,19 +398,7 @@
       <ProjectHomeView
         project={activeProject}
         projectRuns={projectScopedRuns}
-        repoLabels={data.repoLabels}
         onOpenApp={handleSelectApp}
-        onOpenFlow={(runId) => {
-          void selectRun(runId)
-        }}
-        onOpenPlan={(planId) => {
-          selectedPlanId = planId
-          handleSelectApp('plans')
-        }}
-        onOpenReview={(reviewId) => {
-          selectedReviewId = reviewId
-          handleSelectApp('reviews')
-        }}
       />
     {:else}
       <ArtifactExplorerView

@@ -25,19 +25,13 @@ export { default as ProjectSelector } from './project-selector/ProjectSelector.s
 export { projectKeyPillVariants, type ProjectKeyPillVariants } from './project-selector/styles.js'
 export type { ProjectSelectorOption, ProjectSelectorProps } from './project-selector/types.js'
 
-export { default as RepoComponentGraph } from './repo-graph/RepoComponentGraph.svelte'
+export { default as RepositoryTable } from './repository-table/RepositoryTable.svelte'
 export {
-  componentChipVariants,
-  repoGraphRowVariants,
-  repoNodeBoxVariants,
-  type RepoGraphRowVariants,
-} from './repo-graph/styles.js'
-export type {
-  ComponentTaxonomyKind,
-  RepoComponentGraphProps,
-  RepoComponentNode,
-  RepositoryGraphRow,
-} from './repo-graph/types.js'
+  repositoryTableCellVariants,
+  repositoryTableRowVariants,
+  type RepositoryTableRowVariants,
+} from './repository-table/styles.js'
+export type { RepositoryRow, RepositoryTableProps } from './repository-table/types.js'
 
 export { default as FlowDagGraph } from './flow-dag/FlowDagGraph.svelte'
 export { flowDagNodeVariants, type FlowDagNodeVariants } from './flow-dag/styles.js'

@@ -21,7 +21,8 @@ test.describe('Given difflab-app open in Playwright (1120x640)', () => {
       await expect(page.getByTestId('sse-status')).toContainText('SSE live', { timeout: 15_000 })
       await expect(page.getByTestId('project-selector')).toContainText('DIFFLAB')
       await expect(page.getByTestId('project-home')).toBeVisible()
-      await expect(page.getByTestId('repo-component-graph')).toBeVisible()
+      await expect(page.getByTestId('repositories-list')).toBeVisible()
+      await expect(page.getByTestId('repo-row-example/loops-demo')).toBeVisible()
 
       const homeShotBuffer = await page.screenshot({ fullPage: true })
 
@@ -50,6 +51,22 @@ test.describe('Given difflab-app open in Playwright (1120x640)', () => {
       await expect(page.getByTestId('herdr-agent-badge')).toBeVisible()
       await expect(page.getByTestId('step-local-review')).toContainText('done')
       await expect(page.getByTestId('step-address-local')).toContainText('done')
+      await expect(page.getByTestId('messages-table')).toBeVisible()
+
+      // Verify every column across header and successive log rows aligns to the exact pixel width & x-offset
+      const columnAlignment = await page.getByTestId('messages-table').evaluate((table) => {
+        const rows = Array.from(table.querySelectorAll('tr'))
+        return rows.map((row) =>
+          Array.from(row.children).map((cell) => {
+            const rect = cell.getBoundingClientRect()
+            return { x: Math.round(rect.x), width: Math.round(rect.width) }
+          }),
+        )
+      })
+      expect(columnAlignment.length).toBeGreaterThan(3)
+      for (const rowCols of columnAlignment.slice(1)) {
+        expect(rowCols).toEqual(columnAlignment[0])
+      }
 
       const outDir = await runtime.exportArtifacts('flows-ui-live', {
         appUrl: daemon.appUrl,

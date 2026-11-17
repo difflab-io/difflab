@@ -19,7 +19,7 @@
   {size}
   data-slot="markdown-document"
   class={cn(
-    'difflab-markdown [&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_td]:border [&_td]:border-border [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-border [&_th]:bg-secondary/60 [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-left [&_th]:font-semibold [&_input[type=checkbox]]:mr-1.5 [&_input[type=checkbox]]:accent-[var(--success)]',
+    'difflab-markdown [&_.difflab-table-scroll]:my-4 [&_.difflab-table-scroll]:w-full [&_.difflab-table-scroll]:overflow-x-auto [&_.difflab-table-scroll]:rounded-md [&_.difflab-table-scroll]:border [&_.difflab-table-scroll]:border-border [&_table]:my-0 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_thead]:bg-secondary/60 [&_th]:border-r [&_th]:border-b [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:align-top [&_th]:font-semibold [&_th]:whitespace-nowrap [&_th:last-child]:border-r-0 [&_th:not([align])]:text-left [&_td]:border-r [&_td]:border-b [&_td]:border-border/70 [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_td:last-child]:border-r-0 [&_td:not([align])]:text-left [&_tbody_tr:last-child_td]:border-b-0 [&_input[type=checkbox]]:mr-1.5 [&_input[type=checkbox]]:accent-[var(--success)]',
     className,
   )}
 >

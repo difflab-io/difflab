@@ -2,6 +2,10 @@ import { describe, expect, it } from 'bun:test'
 import { appRailButtonVariants } from './app-rail/styles.js'
 import { flowDagNodeVariants } from './flow-dag/styles.js'
 import { segmentMarkdown } from './markdown-view/parser.js'
+import {
+  repositoryTableCellVariants,
+  repositoryTableRowVariants,
+} from './repository-table/styles.js'
 import { inferStatusTone, statusPillVariants } from './status-pill/styles.js'
 import { themeToggleVariants } from './theme-toggle/styles.js'
 
@@ -20,30 +24,38 @@ describe('Given shared Difflab Helical UI style primitives', () => {
     })
   })
 
-  describe('When resolving CVA classes for rail, DAG, status, and theme controls', () => {
+  describe('When resolving CVA classes for rail, DAG, repository table, status, and theme controls', () => {
     it('Then emits non-empty class strings reflecting active and selected states', () => {
       // Arrange & Act
       const activeRail = appRailButtonVariants({ active: true })
       const selectedStep = flowDagNodeVariants({ selected: true, status: 'running' })
+      const repoRow = repositoryTableRowVariants()
+      const repoCell = repositoryTableCellVariants()
       const runningPill = statusPillVariants({ tone: 'info', size: 'sm' })
       const toggle = themeToggleVariants({ size: 'sm', variant: 'ghost' })
 
       // Assert
       expect(activeRail).toContain('bg-sidebar-accent')
       expect(selectedStep).toContain('border-[var(--info)]')
+      expect(repoRow).toContain('transition-colors')
+      expect(repoCell).toContain('align-middle')
       expect(runningPill).toContain('text-[var(--info)]')
       expect(toggle).toContain('helical-theme-toggle')
     })
   })
 
   describe('When segmenting PLAN.md or REVIEW.md Markdown for Helical Prose, Mermaid, and CodeBlock', () => {
-    it('Then strips the leading H1 title, extracts mermaid and code fences, and escapes angle-bracket placeholders', () => {
+    it('Then strips the leading H1 title, wraps GFM tables in a scroll container, extracts mermaid and code fences, and escapes angle-bracket placeholders', () => {
       // Arrange
       const sample = [
         '# Sample Plan Title',
         '',
         '- **Status:** completed',
         '- Path: ~/.difflab/projects/<KEY>/<repo-slug>',
+        '',
+        '| Step | Status |',
+        '| :--- | :---: |',
+        '| `prepare-branch` | done |',
         '',
         '```mermaid',
         'flowchart LR',
@@ -60,10 +72,11 @@ describe('Given shared Difflab Helical UI style primitives', () => {
 
       // Assert
       expect(segments.map((s) => s.kind)).toEqual(['prose', 'mermaid', 'code'])
-      expect(segments[0]?.kind === 'prose' ? segments[0].html : '').not.toContain(
-        'Sample Plan Title',
-      )
-      expect(segments[0]?.kind === 'prose' ? segments[0].html : '').toContain('&lt;KEY&gt;')
+      const proseHtml = segments[0]?.kind === 'prose' ? segments[0].html : ''
+      expect(proseHtml).not.toContain('Sample Plan Title')
+      expect(proseHtml).toContain('&lt;KEY&gt;')
+      expect(proseHtml).toContain('<div class="difflab-table-scroll"><table>')
+      expect(proseHtml).toContain('<code>prepare-branch</code>')
       expect(segments[1]).toEqual({ kind: 'mermaid', code: 'flowchart LR\n  A --> B' })
       expect(segments[2]).toEqual({
         kind: 'code',

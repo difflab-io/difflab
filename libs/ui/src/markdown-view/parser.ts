@@ -1,13 +1,18 @@
-import { Marked, type Token, type TokensList } from 'marked'
+import { Marked, Renderer, type Token, type TokensList } from 'marked'
 import type { MarkdownSegment } from './types.js'
 
 // Constants -------------------------------------------------------------------
+const baseRenderer = new Renderer()
+
 const markdownEngine = new Marked({
   gfm: true,
   breaks: false,
   renderer: {
     html({ text }) {
       return escapeHtml(text)
+    },
+    table(token) {
+      return `<div class="difflab-table-scroll">${baseRenderer.table.call(this, token).trim()}</div>\n`
     },
   },
 })

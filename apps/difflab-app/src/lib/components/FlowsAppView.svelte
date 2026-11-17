@@ -334,46 +334,109 @@
                 : 'Waiting for step messages...'}
             </p>
           {:else}
-            <ul
-              class="m-0 flex max-h-96 list-none flex-col divide-y divide-border/50 overflow-y-auto p-0 font-mono text-xs"
-            >
-              {#each visibleMessages as msg (msg.id)}
-                <li
-                  class={[
-                    'flex items-start gap-2.5 border-l-2 px-3.5 py-2 leading-relaxed',
-                    msg.level === 'done'
-                      ? 'border-l-[var(--success)] bg-[color-mix(in_oklab,var(--success)_4%,transparent)]'
-                      : msg.level === 'error' || msg.level === 'blocker'
-                        ? 'border-l-[var(--danger)] bg-[color-mix(in_oklab,var(--danger)_6%,transparent)]'
-                        : 'border-l-border',
-                  ].join(' ')}
+            <div class="max-h-96 overflow-x-auto overflow-y-auto">
+              <table
+                data-testid="messages-table"
+                class="w-full min-w-[38rem] table-fixed border-collapse font-mono text-xs"
+              >
+                <colgroup>
+                  <col class="w-24" />
+                  <col class="w-24" />
+                  <col class="w-40" />
+                  <col class="w-auto" />
+                </colgroup>
+                <thead
+                  class="sticky top-0 z-10 bg-secondary/90 backdrop-blur-xs shadow-[inset_0_-1px_0_0_var(--border)]"
                 >
-                  <span class="shrink-0 text-[11px] text-muted-foreground">
-                    {formatLogTime(msg.createdAt)}
-                  </span>
-                  <span
-                    class={[
-                      'shrink-0 uppercase text-[10px] font-semibold',
-                      msg.level === 'done'
-                        ? 'text-[var(--success)]'
-                        : msg.level === 'error' || msg.level === 'blocker'
-                          ? 'text-[var(--danger)]'
-                          : 'text-muted-foreground',
-                    ].join(' ')}
-                  >
-                    [{msg.level}]
-                  </span>
-                  {#if msg.stepId}
-                    <span
-                      class="shrink-0 rounded bg-secondary px-1.5 py-0 text-[10px] text-[var(--info)]"
+                  <tr>
+                    <th
+                      scope="col"
+                      class="border-l-2 border-l-transparent px-3.5 py-1.5 text-left font-sans text-[10px] font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase"
                     >
-                      {msg.stepId}
-                    </span>
-                  {/if}
-                  <span class="min-w-0 flex-1 break-words text-foreground">{msg.message}</span>
-                </li>
-              {/each}
-            </ul>
+                      Time
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-2.5 py-1.5 text-left font-sans text-[10px] font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase"
+                    >
+                      Level
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-2.5 py-1.5 text-left font-sans text-[10px] font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase"
+                    >
+                      Step
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-3.5 py-1.5 text-left font-sans text-[10px] font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase"
+                    >
+                      Message
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border/50">
+                  {#each visibleMessages as msg (msg.id)}
+                    <tr
+                      class={msg.level === 'done'
+                        ? 'bg-[color-mix(in_oklab,var(--success)_4%,transparent)]'
+                        : msg.level === 'error' || msg.level === 'blocker'
+                          ? 'bg-[color-mix(in_oklab,var(--danger)_6%,transparent)]'
+                          : ''}
+                    >
+                      <td
+                        class={[
+                          'border-l-2 px-3.5 py-2 align-top text-[11px] leading-5 whitespace-nowrap tabular-nums text-muted-foreground',
+                          msg.level === 'done'
+                            ? 'border-l-[var(--success)]'
+                            : msg.level === 'error' || msg.level === 'blocker'
+                              ? 'border-l-[var(--danger)]'
+                              : 'border-l-border',
+                        ].join(' ')}
+                      >
+                        {formatLogTime(msg.createdAt)}
+                      </td>
+                      <td class="px-2.5 py-2 align-top whitespace-nowrap">
+                        <span
+                          class={[
+                            'inline-block text-[10px] leading-5 font-semibold uppercase',
+                            msg.level === 'done'
+                              ? 'text-[var(--success)]'
+                              : msg.level === 'error' || msg.level === 'blocker'
+                                ? 'text-[var(--danger)]'
+                                : 'text-muted-foreground',
+                          ].join(' ')}
+                        >
+                          [{msg.level}]
+                        </span>
+                      </td>
+                      <td class="px-2.5 py-2 align-top whitespace-nowrap">
+                        {#if msg.stepId}
+                          <span
+                            title={msg.stepId}
+                            class="inline-block max-w-full truncate rounded bg-secondary px-1.5 py-0 align-top text-[10px] leading-5 text-[var(--info)]"
+                          >
+                            {msg.stepId}
+                          </span>
+                        {:else}
+                          <span
+                            aria-hidden="true"
+                            class="inline-block text-[11px] leading-5 text-muted-foreground/50 select-none"
+                          >
+                            —
+                          </span>
+                        {/if}
+                      </td>
+                      <td
+                        class="px-3.5 py-2 align-top text-xs leading-5 break-words text-foreground"
+                      >
+                        {msg.message}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           {/if}
         </section>
       </div>

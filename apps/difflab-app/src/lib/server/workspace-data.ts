@@ -1,9 +1,9 @@
 import { lstat, readdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { FlowRun, Project, Repository } from 'difflab-db'
-import type { ComponentTaxonomyKind, RepoComponentNode, RepositoryGraphRow } from 'ui'
+import type { RepositoryRow } from 'ui'
 import { getAppDb, resolveStorePaths } from './db.js'
 
 // Constants -------------------------------------------------------------------
@@ -48,13 +48,11 @@ export interface WorkspaceReviewItem {
 export interface ProjectWorkspaceData {
   id: string
   name: string
-  repositories: RepositoryGraphRow[]
+  repositories: RepositoryRow[]
   plans: WorkspacePlanItem[]
   reviews: WorkspaceReviewItem[]
   counts: {
     repositories: number
-    apps: number
-    libraries: number
     plans: number
     reviews: number
     flows: number
@@ -129,23 +127,18 @@ async function loadProjectSnapshot(
   projectsStoreRoot: string,
   localDirLookup: Map<string, string>,
 ): Promise<ProjectWorkspaceData> {
-  const repoRows: RepositoryGraphRow[] = []
+  const repoRows: RepositoryRow[] = []
   const plans: WorkspacePlanItem[] = []
   const reviews: WorkspaceReviewItem[] = []
 
   for (const repo of repos) {
     const shortName = formatShortRepoName(repo)
-    const resolvedLocalPath = await resolveLocalCheckout(repo, localDirLookup)
+    const repoStoreDir = join(projectsStoreRoot, project.id, repo.slug)
 
-    const [components, repoPlans, repoReviews] = await Promise.all([
-      resolvedLocalPath ? discoverRepoComponents(resolvedLocalPath) : Promise.resolve([]),
-      discoverPlans(project.id, repo.id, shortName, join(projectsStoreRoot, project.id, repo.slug)),
-      discoverReviews(
-        project.id,
-        repo.id,
-        shortName,
-        join(projectsStoreRoot, project.id, repo.slug),
-      ),
+    const [resolvedLocalPath, repoPlans, repoReviews] = await Promise.all([
+      resolveLocalCheckout(repo, localDirLookup),
+      discoverPlans(project.id, repo.id, shortName, repoStoreDir),
+      discoverReviews(project.id, repo.id, shortName, repoStoreDir),
     ])
 
     repoRows.push({
@@ -154,7 +147,6 @@ async function loadProjectSnapshot(
       shortName,
       url: repo.url,
       localPath: resolvedLocalPath,
-      components,
     })
 
     plans.push(...repoPlans)
@@ -163,15 +155,6 @@ async function loadProjectSnapshot(
 
   plans.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   reviews.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-
-  let apps = 0
-  let libraries = 0
-  for (const row of repoRows) {
-    for (const comp of row.components) {
-      if (comp.kind === 'App') apps++
-      else libraries++
-    }
-  }
 
   const activeStatuses = new Set(['queued', 'running', 'blocked'])
   const activeFlows = projectRuns.filter((r) => activeStatuses.has(r.status)).length
@@ -184,8 +167,6 @@ async function loadProjectSnapshot(
     reviews,
     counts: {
       repositories: repoRows.length,
-      apps,
-      libraries,
       plans: plans.length,
       reviews: reviews.length,
       flows: projectRuns.length,
@@ -251,112 +232,6 @@ async function resolveLocalCheckout(
     return candidate
   }
   return null
-}
-
-function classifyComponentPath(path: string, template?: string): ComponentTaxonomyKind {
-  if (path.startsWith('apps/') || path.startsWith('services/') || path.startsWith('cmd/')) {
-    return 'App'
-  }
-  if (path.startsWith('libs/') || path.startsWith('packages/') || path.startsWith('crates/')) {
-    return 'Library'
-  }
-  return template?.includes('lib') ? 'Library' : 'App'
-}
-
-async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNode[]> {
-  const premisePath = join(repoRoot, 'premise.yaml')
-  const premiseRaw = await readFile(premisePath, 'utf8').catch(() => '')
-  const seen = new Set<string>()
-  const nodes: RepoComponentNode[] = []
-
-  if (premiseRaw.trim()) {
-    try {
-      const parsed = parseYaml(premiseRaw) as {
-        workspace?: {
-          projects?: { name?: string; path?: string; template?: string }[]
-        }
-      }
-      for (const proj of parsed?.workspace?.projects ?? []) {
-        if (!proj.name || !proj.path) continue
-        seen.add(proj.path)
-        nodes.push({
-          name: proj.name,
-          kind: classifyComponentPath(proj.path, proj.template),
-          path: proj.path,
-          template: proj.template,
-        })
-      }
-    } catch {
-      // Ignore malformed premise.yaml and continue scanning directories.
-    }
-  }
-
-  const buckets: { dir: string; kind: ComponentTaxonomyKind }[] = [
-    { dir: 'apps', kind: 'App' },
-    { dir: 'services', kind: 'App' },
-    { dir: 'cmd', kind: 'App' },
-    { dir: 'libs', kind: 'Library' },
-    { dir: 'packages', kind: 'Library' },
-    { dir: 'crates', kind: 'Library' },
-  ]
-
-  for (const bucket of buckets) {
-    const bucketDir = join(repoRoot, bucket.dir)
-    const entries = await readdir(bucketDir, { withFileTypes: true }).catch(() => [])
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith('.')) continue
-      const relPath = `${bucket.dir}/${entry.name}`
-      if (seen.has(relPath)) continue
-      seen.add(relPath)
-      nodes.push({
-        name: entry.name,
-        kind: bucket.kind,
-        path: relPath,
-      })
-    }
-  }
-
-  if (nodes.length === 0) {
-    const pkgJsonRaw = await readFile(join(repoRoot, 'package.json'), 'utf8').catch(() => '')
-    if (pkgJsonRaw.trim()) {
-      try {
-        const pkg = JSON.parse(pkgJsonRaw) as {
-          name?: string
-          bin?: unknown
-          dependencies?: Record<string, string>
-        }
-        if (pkg.name) {
-          const isApp = Boolean(
-            pkg.bin || pkg.dependencies?.['@sveltejs/kit'] || pkg.dependencies?.astro,
-          )
-          nodes.push({
-            name: pkg.name,
-            kind: isApp ? 'App' : 'Library',
-            path: '.',
-          })
-        }
-      } catch {
-        // Ignore non-standard package.json.
-      }
-    } else if (await isRegularFile(join(repoRoot, 'Cargo.toml'))) {
-      const cargoRaw = await readFile(join(repoRoot, 'Cargo.toml'), 'utf8').catch(() => '')
-      const nameMatch = /^\s*name\s*=\s*"([^"]+)"/m.exec(cargoRaw)
-      const kind: ComponentTaxonomyKind = cargoRaw.includes('[[bin]]') ? 'App' : 'Library'
-      nodes.push({
-        name: nameMatch?.[1] ?? basename(repoRoot),
-        kind,
-        path: '.',
-      })
-    } else if (await isRegularFile(join(repoRoot, 'go.mod'))) {
-      nodes.push({
-        name: basename(repoRoot),
-        kind: 'Library',
-        path: '.',
-      })
-    }
-  }
-
-  return nodes
 }
 
 function normalizePlanStatus(rawStatus: string | undefined): string {
