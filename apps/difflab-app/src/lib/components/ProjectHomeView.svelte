@@ -23,20 +23,11 @@
     onOpenFlow: (runId: string) => void
     onOpenPlan: (planId: string) => void
     onOpenReview: (reviewId: string) => void
-    onOpenDocs: (repoId?: string, componentName?: string) => void
   }
 
   // API -----------------------------------------------------------------------
-  let {
-    project,
-    projectRuns,
-    repoLabels,
-    onOpenApp,
-    onOpenFlow,
-    onOpenPlan,
-    onOpenReview,
-    onOpenDocs,
-  }: Props = $props()
+  let { project, projectRuns, repoLabels, onOpenApp, onOpenFlow, onOpenPlan, onOpenReview }: Props =
+    $props()
 
   const recentPlans = $derived(project.plans.slice(0, 4))
   const recentReviews = $derived(project.reviews.slice(0, 4))
@@ -133,9 +124,7 @@
         <h2 class="m-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           Explore this project
         </h2>
-        <span class="text-xs text-muted-foreground"
-          >Documentation, ADRs, PRDs, and task triggers</span
-        >
+        <span class="text-xs text-muted-foreground">Project wikis and external task views</span>
       </div>
       <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Card class="border-border bg-card transition-colors hover:border-foreground/30">
@@ -143,7 +132,7 @@
             <button
               type="button"
               class="flex w-full items-start justify-between gap-3 p-3.5 text-left"
-              onclick={() => onOpenDocs()}
+              onclick={() => onOpenApp('wikis')}
             >
               <div class="flex items-start gap-3">
                 <div
@@ -152,11 +141,9 @@
                   <BookOpen size={15} strokeWidth={1.6} />
                 </div>
                 <div class="flex flex-col gap-0.5">
-                  <span class="text-sm font-semibold text-foreground">Wikis &amp; Docs</span>
+                  <span class="text-sm font-semibold text-foreground">Wikis</span>
                   <span class="text-xs text-muted-foreground">
-                    {project.counts.docs} indexed Markdown {project.counts.docs === 1
-                      ? 'document'
-                      : 'documents'} across PRDs, ADRs, and repository guides
+                    No wikis connected to {project.name} yet
                   </span>
                 </div>
               </div>
@@ -179,13 +166,9 @@
                   <CheckSquare size={15} strokeWidth={1.6} />
                 </div>
                 <div class="flex flex-col gap-0.5">
-                  <span class="text-sm font-semibold text-foreground"
-                    >Tasks &amp; Linear Triggers</span
-                  >
+                  <span class="text-sm font-semibold text-foreground">Tasks</span>
                   <span class="text-xs text-muted-foreground">
-                    {project.triggers.length > 0
-                      ? `${project.triggers.length} automated Linear flow ${project.triggers.length === 1 ? 'trigger' : 'triggers'} configured in difflab.yaml`
-                      : 'Inspect linked issue references and external tracker configuration'}
+                    No external task views connected to {project.name} yet
                   </span>
                 </div>
               </div>
@@ -206,10 +189,7 @@
           Repository boundaries mapped to discovered Apps and Libraries
         </span>
       </div>
-      <RepoComponentGraph
-        repositories={project.repositories}
-        onOpenDocs={(repoId, compName) => onOpenDocs(repoId, compName)}
-      />
+      <RepoComponentGraph repositories={project.repositories} />
     </section>
 
     <!-- Continue Work: Plans, Reviews, Flows -->

@@ -44,7 +44,6 @@
   let selectedRunId = $state<string | null>(null)
   let selectedPlanId = $state<string | null>(null)
   let selectedReviewId = $state<string | null>(null)
-  let selectedDocId = $state<string | null>(null)
 
   let stepsByRun = $state<Record<string, FlowStep[]>>({})
   let messagesByRun = $state<Record<string, WorkerMessage[]>>({})
@@ -102,16 +101,11 @@
 
   const railItems = $derived<AppRailItem[]>([
     { id: 'home', label: 'Home' },
-    { id: 'wikis', label: 'Wikis', badge: activeProject?.counts.docs ?? 0 },
-    { id: 'tasks', label: 'Tasks', badge: activeProject?.triggers.length ?? 0 },
-    { id: 'plans', label: 'Plans', badge: activeProject?.counts.plans ?? 0 },
-    { id: 'reviews', label: 'Reviews', badge: activeProject?.counts.reviews ?? 0 },
-    {
-      id: 'flows',
-      label: 'Flows',
-      badge: projectScopedRuns.length,
-      live: activeFlowCount > 0,
-    },
+    { id: 'wikis', label: 'Wikis' },
+    { id: 'tasks', label: 'Tasks' },
+    { id: 'plans', label: 'Plans' },
+    { id: 'reviews', label: 'Reviews' },
+    { id: 'flows', label: 'Flows', live: activeFlowCount > 0 },
   ])
 
   const breadcrumbLeaf = $derived.by(() => {
@@ -151,7 +145,6 @@
     selectedProjectId = projectId
     selectedPlanId = null
     selectedReviewId = null
-    selectedDocId = null
 
     const nextRuns = runs.filter((r) => data.workspace.repoProjectMap[r.repoId] === projectId)
     if (!showAllProjectsInFlows) {
@@ -221,21 +214,6 @@
     if (!stepsByRun[runId]) {
       await hydrateRunDetail(runId)
     }
-  }
-
-  function openDocsForRepo(repoId?: string, componentName?: string): void {
-    if (activeProject && repoId) {
-      const match =
-        (componentName
-          ? activeProject.docs.find(
-              (d) =>
-                d.repoId === repoId &&
-                d.relativePath.toLowerCase().includes(componentName.toLowerCase()),
-            )
-          : undefined) ?? activeProject.docs.find((d) => d.repoId === repoId)
-      if (match) selectedDocId = match.id
-    }
-    handleSelectApp('wikis')
   }
 
   onMount(() => {
@@ -339,7 +317,7 @@
     </div>
 
     <div class="flex shrink-0 items-center gap-2">
-      {#if activeApp !== 'home' && activeApp !== 'tasks'}
+      {#if activeApp === 'flows' || activeApp === 'plans' || activeApp === 'reviews'}
         <label class="relative hidden items-center sm:flex">
           <Search
             size={12}
@@ -435,28 +413,19 @@
           selectedReviewId = reviewId
           handleSelectApp('reviews')
         }}
-        onOpenDocs={openDocsForRepo}
       />
     {:else}
       <ArtifactExplorerView
         mode={activeApp}
         project={activeProject}
-        projectRuns={projectScopedRuns}
         {searchQuery}
         {selectedPlanId}
         {selectedReviewId}
-        {selectedDocId}
         onSelectPlan={(id) => {
           selectedPlanId = id
         }}
         onSelectReview={(id) => {
           selectedReviewId = id
-        }}
-        onSelectDoc={(id) => {
-          selectedDocId = id
-        }}
-        onOpenFlow={(runId) => {
-          void selectRun(runId)
         }}
       />
     {/if}

@@ -6,7 +6,6 @@ export interface RepoComponentNode {
   kind: ComponentTaxonomyKind
   path: string
   template?: string
-  hasDocs?: boolean
 }
 
 export interface RepositoryGraphRow {
@@ -15,12 +14,10 @@ export interface RepositoryGraphRow {
   shortName: string
   url: string
   localPath?: string | null
-  docCount: number
   components: RepoComponentNode[]
 }
 
 export interface RepoComponentGraphProps {
   repositories: RepositoryGraphRow[]
-  onOpenDocs?: (repoId: string, componentName?: string) => void
   class?: string
 }

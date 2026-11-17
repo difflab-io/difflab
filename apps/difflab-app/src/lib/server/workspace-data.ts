@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { FlowRun, Project, Repository } from 'difflab-db'
 import type { ComponentTaxonomyKind, RepoComponentNode, RepositoryGraphRow } from 'ui'
@@ -8,11 +8,9 @@ import { getAppDb, resolveStorePaths } from './db.js'
 
 // Constants -------------------------------------------------------------------
 const MAX_MARKDOWN_CHARS = 48_000
-const MAX_DOCS_PER_REPO = 24
 const HEADING_REGEX = /^#\s+(.+)$/m
 const STATUS_META_REGEX = /^-\s+\*\*Status:\*\*\s*(.+)$/im
 const BRANCH_META_REGEX = /^-\s+\*\*Branch:\*\*\s*(.+)$/im
-const ISSUE_META_REGEX = /^-\s+\*\*Issue:\*\*\s*(.+)$/im
 const REVISION_META_REGEX = /^-\s+\*\*Revision:\*\*\s*(.+)$/im
 const MODE_META_REGEX = /^-\s+\*\*Mode:\*\*\s*(.+)$/im
 const INTENT_META_REGEX = /^-\s+\*\*Intent:\*\*\s*(.+)$/im
@@ -26,7 +24,6 @@ export interface WorkspacePlanItem {
   title: string
   status: string
   branch: string | null
-  issue: string | null
   revisionCount: number
   summary: string
   markdown: string
@@ -48,43 +45,18 @@ export interface WorkspaceReviewItem {
   updatedAt: string
 }
 
-export interface WorkspaceDocItem {
-  id: string
-  projectId: string
-  repoId: string
-  repoShortName: string
-  category: 'PRD' | 'ADR' | 'Docs' | 'Overview'
-  relativePath: string
-  title: string
-  markdown: string
-  updatedAt: string
-}
-
-export interface RepoTriggerBinding {
-  repoId: string
-  repoShortName: string
-  flowName: string
-  team: string | null
-  labels: string[]
-  assignee: string | null
-  defaultHarness: string
-}
-
 export interface ProjectWorkspaceData {
   id: string
   name: string
   repositories: RepositoryGraphRow[]
   plans: WorkspacePlanItem[]
   reviews: WorkspaceReviewItem[]
-  docs: WorkspaceDocItem[]
-  triggers: RepoTriggerBinding[]
   counts: {
     repositories: number
     apps: number
     libraries: number
     plans: number
     reviews: number
-    docs: number
     flows: number
     activeFlows: number
   }
@@ -160,21 +132,13 @@ async function loadProjectSnapshot(
   const repoRows: RepositoryGraphRow[] = []
   const plans: WorkspacePlanItem[] = []
   const reviews: WorkspaceReviewItem[] = []
-  const docs: WorkspaceDocItem[] = []
-  const triggers: RepoTriggerBinding[] = []
 
   for (const repo of repos) {
     const shortName = formatShortRepoName(repo)
     const resolvedLocalPath = await resolveLocalCheckout(repo, localDirLookup)
 
-    const [repoDocs, components, repoTriggers, repoPlans, repoReviews] = await Promise.all([
-      resolvedLocalPath
-        ? discoverRepoDocs(project.id, repo.id, shortName, resolvedLocalPath)
-        : Promise.resolve([]),
+    const [components, repoPlans, repoReviews] = await Promise.all([
       resolvedLocalPath ? discoverRepoComponents(resolvedLocalPath) : Promise.resolve([]),
-      resolvedLocalPath
-        ? discoverRepoTriggers(repo.id, shortName, resolvedLocalPath)
-        : Promise.resolve([]),
       discoverPlans(project.id, repo.id, shortName, join(projectsStoreRoot, project.id, repo.slug)),
       discoverReviews(
         project.id,
@@ -190,23 +154,15 @@ async function loadProjectSnapshot(
       shortName,
       url: repo.url,
       localPath: resolvedLocalPath,
-      docCount: repoDocs.length,
       components,
     })
 
-    docs.push(...repoDocs)
-    triggers.push(...repoTriggers)
     plans.push(...repoPlans)
     reviews.push(...repoReviews)
   }
 
   plans.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   reviews.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  docs.sort((a, b) => {
-    const order = { PRD: 0, ADR: 1, Docs: 2, Overview: 3 }
-    if (order[a.category] !== order[b.category]) return order[a.category] - order[b.category]
-    return a.relativePath.localeCompare(b.relativePath)
-  })
 
   let apps = 0
   let libraries = 0
@@ -226,15 +182,12 @@ async function loadProjectSnapshot(
     repositories: repoRows,
     plans,
     reviews,
-    docs,
-    triggers,
     counts: {
       repositories: repoRows.length,
       apps,
       libraries,
       plans: plans.length,
       reviews: reviews.length,
-      docs: docs.length,
       flows: projectRuns.length,
       activeFlows,
     },
@@ -260,6 +213,24 @@ async function buildFallbackProjectsDirLookup(): Promise<Map<string, string>> {
       map.set(entry.name.toLowerCase(), join(userProjectsDir, entry.name))
     }
   }
+
+  // Prefer the currently running workspace checkout when serving from a monorepo worktree.
+  const candidateWorkspaceRoot = resolve(process.cwd(), '../..')
+  const premiseRaw = await readFile(join(candidateWorkspaceRoot, 'premise.yaml'), 'utf8').catch(
+    () => '',
+  )
+  if (premiseRaw.trim()) {
+    try {
+      const parsed = parseYaml(premiseRaw) as { workspace?: { name?: string } }
+      const workspaceName = parsed?.workspace?.name?.trim().toLowerCase()
+      if (workspaceName) {
+        map.set(workspaceName, candidateWorkspaceRoot)
+      }
+    } catch {
+      // Ignore non-standard premise.yaml.
+    }
+  }
+
   return map
 }
 
@@ -282,6 +253,16 @@ async function resolveLocalCheckout(
   return null
 }
 
+function classifyComponentPath(path: string, template?: string): ComponentTaxonomyKind {
+  if (path.startsWith('apps/') || path.startsWith('services/') || path.startsWith('cmd/')) {
+    return 'App'
+  }
+  if (path.startsWith('libs/') || path.startsWith('packages/') || path.startsWith('crates/')) {
+    return 'Library'
+  }
+  return template?.includes('lib') ? 'Library' : 'App'
+}
+
 async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNode[]> {
   const premisePath = join(repoRoot, 'premise.yaml')
   const premiseRaw = await readFile(premisePath, 'utf8').catch(() => '')
@@ -297,20 +278,12 @@ async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNo
       }
       for (const proj of parsed?.workspace?.projects ?? []) {
         if (!proj.name || !proj.path) continue
-        const kind: ComponentTaxonomyKind =
-          proj.path.startsWith('libs/') ||
-          proj.path.startsWith('packages/') ||
-          proj.template?.includes('lib')
-            ? 'Library'
-            : 'App'
-        const hasDocs = await isRegularFile(join(repoRoot, proj.path, 'README.md'))
         seen.add(proj.path)
         nodes.push({
           name: proj.name,
-          kind,
+          kind: classifyComponentPath(proj.path, proj.template),
           path: proj.path,
           template: proj.template,
-          hasDocs,
         })
       }
     } catch {
@@ -335,12 +308,10 @@ async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNo
       const relPath = `${bucket.dir}/${entry.name}`
       if (seen.has(relPath)) continue
       seen.add(relPath)
-      const hasDocs = await isRegularFile(join(bucketDir, entry.name, 'README.md'))
       nodes.push({
         name: entry.name,
         kind: bucket.kind,
         path: relPath,
-        hasDocs,
       })
     }
   }
@@ -352,7 +323,6 @@ async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNo
         const pkg = JSON.parse(pkgJsonRaw) as {
           name?: string
           bin?: unknown
-          exports?: unknown
           dependencies?: Record<string, string>
         }
         if (pkg.name) {
@@ -363,7 +333,6 @@ async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNo
             name: pkg.name,
             kind: isApp ? 'App' : 'Library',
             path: '.',
-            hasDocs: await isRegularFile(join(repoRoot, 'README.md')),
           })
         }
       } catch {
@@ -377,14 +346,12 @@ async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNo
         name: nameMatch?.[1] ?? basename(repoRoot),
         kind,
         path: '.',
-        hasDocs: await isRegularFile(join(repoRoot, 'README.md')),
       })
     } else if (await isRegularFile(join(repoRoot, 'go.mod'))) {
       nodes.push({
         name: basename(repoRoot),
         kind: 'Library',
         path: '.',
-        hasDocs: await isRegularFile(join(repoRoot, 'README.md')),
       })
     }
   }
@@ -392,44 +359,22 @@ async function discoverRepoComponents(repoRoot: string): Promise<RepoComponentNo
   return nodes
 }
 
-async function discoverRepoTriggers(
-  repoId: string,
-  repoShortName: string,
-  repoRoot: string,
-): Promise<RepoTriggerBinding[]> {
-  const raw = await readFile(join(repoRoot, 'difflab.yaml'), 'utf8').catch(() => '')
-  if (!raw.trim()) return []
-  try {
-    const parsed = parseYaml(raw) as {
-      flows?: {
-        defaultHarness?: string
-        triggers?: {
-          flow?: string
-          team?: string
-          labels?: string[]
-          assignee?: string
-          agent?: string
-        }[]
-      }
-    }
-    const defaultHarness = parsed?.flows?.defaultHarness ?? 'agy'
-    const list: RepoTriggerBinding[] = []
-    for (const trig of parsed?.flows?.triggers ?? []) {
-      if (!trig.flow) continue
-      list.push({
-        repoId,
-        repoShortName,
-        flowName: trig.flow,
-        team: trig.team ?? null,
-        labels: Array.isArray(trig.labels) ? trig.labels : [],
-        assignee: trig.assignee ?? trig.agent ?? null,
-        defaultHarness,
-      })
-    }
-    return list
-  } catch {
-    return []
+function normalizePlanStatus(rawStatus: string | undefined): string {
+  if (!rawStatus) return 'draft'
+  const stripped = rawStatus.replace(/\(.*$/, '').trim().toLowerCase()
+  if (stripped === 'complete' || stripped === 'completed' || stripped === 'done') {
+    return 'completed'
   }
+  if (stripped.startsWith('in progress') || stripped === 'in_progress' || stripped === 'active') {
+    return 'in progress'
+  }
+  if (stripped.startsWith('blocked')) {
+    return 'blocked'
+  }
+  if (stripped.startsWith('draft')) {
+    return 'draft'
+  }
+  return stripped.slice(0, 18) || 'draft'
 }
 
 async function discoverPlans(
@@ -456,9 +401,8 @@ async function discoverPlans(
     const revisionCount = revisions.filter((f) => f.endsWith('.md')).length
 
     const title = HEADING_REGEX.exec(raw)?.[1]?.trim() ?? entry.name
-    const status = STATUS_META_REGEX.exec(raw)?.[1]?.trim() ?? 'draft'
+    const status = normalizePlanStatus(STATUS_META_REGEX.exec(raw)?.[1])
     const branch = normalizeOptionalMeta(BRANCH_META_REGEX.exec(raw)?.[1])
-    const issue = normalizeOptionalMeta(ISSUE_META_REGEX.exec(raw)?.[1])
 
     items.push({
       id: `${repoId}:${entry.name}`,
@@ -468,7 +412,6 @@ async function discoverPlans(
       title,
       status,
       branch,
-      issue,
       revisionCount,
       summary: extractSectionSummary(raw, 'Intent') || entry.name,
       markdown: raw.slice(0, MAX_MARKDOWN_CHARS),
@@ -524,77 +467,6 @@ async function discoverReviews(
   }
 
   return items
-}
-
-async function discoverRepoDocs(
-  projectId: string,
-  repoId: string,
-  repoShortName: string,
-  repoRoot: string,
-): Promise<WorkspaceDocItem[]> {
-  const candidates: { relPath: string; category: WorkspaceDocItem['category'] }[] = [
-    { relPath: 'README.md', category: 'Overview' },
-    { relPath: 'AGENTS.md', category: 'Overview' },
-  ]
-
-  const docFolders: { dir: string; category: WorkspaceDocItem['category'] }[] = [
-    { dir: 'prd', category: 'PRD' },
-    { dir: 'adr', category: 'ADR' },
-    { dir: 'docs', category: 'Docs' },
-  ]
-
-  for (const folder of docFolders) {
-    const absFolder = join(repoRoot, folder.dir)
-    const entries = await readdir(absFolder, { withFileTypes: true }).catch(() => [])
-    for (const entry of entries) {
-      if (candidates.length >= MAX_DOCS_PER_REPO) break
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        candidates.push({ relPath: `${folder.dir}/${entry.name}`, category: folder.category })
-      } else if (entry.isDirectory() && !entry.name.startsWith('.')) {
-        const nestedReadme = `${folder.dir}/${entry.name}/README.md`
-        if (await isRegularFile(join(repoRoot, nestedReadme))) {
-          candidates.push({ relPath: nestedReadme, category: folder.category })
-        } else {
-          const subEntries = await readdir(join(absFolder, entry.name), {
-            withFileTypes: true,
-          }).catch(() => [])
-          for (const sub of subEntries) {
-            if (candidates.length >= MAX_DOCS_PER_REPO) break
-            if (sub.isFile() && sub.name.endsWith('.md')) {
-              candidates.push({
-                relPath: `${folder.dir}/${entry.name}/${sub.name}`,
-                category: folder.category,
-              })
-            }
-          }
-        }
-      }
-    }
-  }
-
-  const docs: WorkspaceDocItem[] = []
-  for (const cand of candidates.slice(0, MAX_DOCS_PER_REPO)) {
-    const absPath = join(repoRoot, cand.relPath)
-    const stat = await lstat(absPath).catch(() => null)
-    if (!stat || stat.isSymbolicLink() || !stat.isFile()) continue
-    const raw = await readFile(absPath, 'utf8').catch(() => '')
-    if (!raw.trim()) continue
-
-    const title = HEADING_REGEX.exec(raw)?.[1]?.trim() ?? cand.relPath
-    docs.push({
-      id: `${repoId}:${cand.relPath}`,
-      projectId,
-      repoId,
-      repoShortName,
-      category: cand.category,
-      relativePath: cand.relPath,
-      title,
-      markdown: raw.slice(0, MAX_MARKDOWN_CHARS),
-      updatedAt: stat.mtime.toISOString(),
-    })
-  }
-
-  return docs
 }
 
 function normalizeOptionalMeta(value: string | undefined): string | null {

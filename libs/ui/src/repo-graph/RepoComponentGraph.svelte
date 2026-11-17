@@ -6,7 +6,7 @@
   import type { RepoComponentGraphProps } from './types.js'
 
   // API -----------------------------------------------------------------------
-  let { repositories, onOpenDocs, class: className = '' }: RepoComponentGraphProps = $props()
+  let { repositories, class: className = '' }: RepoComponentGraphProps = $props()
 </script>
 
 <div
@@ -51,16 +51,6 @@
             <span class="truncate font-mono">
               {repo.localPath ? 'local linked' : 'remote'}
             </span>
-            {#if repo.docCount > 0 && onOpenDocs}
-              <button
-                type="button"
-                class="shrink-0 font-medium text-[var(--info)] hover:underline"
-                onclick={() => onOpenDocs(repo.id)}
-              >
-                {repo.docCount}
-                {repo.docCount === 1 ? 'doc' : 'docs'} ↗
-              </button>
-            {/if}
           </div>
         </div>
 
@@ -87,15 +77,6 @@
                   <span class="hidden font-mono text-[10px] text-muted-foreground sm:inline">
                     {comp.path}
                   </span>
-                {/if}
-                {#if (comp.hasDocs || repo.docCount > 0) && onOpenDocs}
-                  <button
-                    type="button"
-                    class="ml-0.5 text-[11px] font-medium text-[var(--info)] hover:underline"
-                    onclick={() => onOpenDocs(repo.id, comp.name)}
-                  >
-                    Docs ↗
-                  </button>
                 {/if}
               </div>
             {/each}
