@@ -1,23 +1,11 @@
 import { lstat, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { repoConfigSchema, type RepoConfig } from 'difflab-db'
 import { parseDocument, stringify } from 'yaml'
-import { z } from 'zod'
 import { InvalidRepoConfig } from '../errors.js'
 
-// Constants -------------------------------------------------------------------
-const repoConfigSchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  project: z.strictObject({
-    id: z
-      .string()
-      .regex(
-        /^[A-Z][A-Z0-9]{2,15}$/,
-        'must be 3-16 uppercase letters/digits and start with a letter',
-      ),
-  }),
-})
 // Types -----------------------------------------------------------------------
-export type RepoConfig = z.infer<typeof repoConfigSchema>
+export type { RepoConfig }
 type ParseResult = { config: RepoConfig } | { errors: string[] }
 
 // API -------------------------------------------------------------------------
@@ -54,8 +42,7 @@ export async function createRepoConfig(config: RepoConfig, root = process.cwd())
   })
 }
 
-// Helpers ---------------------------------------------------------------------
-function parseRepoDifflabDotYaml(source: string): ParseResult {
+export function parseRepoDifflabDotYaml(source: string): ParseResult {
   const document = parseDocument(source, { uniqueKeys: true, strict: true })
   const errors = document.errors.map((e) => e.message)
   let value: unknown

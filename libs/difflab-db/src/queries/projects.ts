@@ -136,6 +136,7 @@ function fromDbRepository(row: ProjectDatabase['repositories']): Repository {
     projectId: row.project_key,
     url: row.github_url,
     slug: row.slug,
+    ...(row.local_path ? { localPath: row.local_path } : {}),
   })
 }
 
@@ -145,5 +146,6 @@ function toDbRepository(repository: Repository): ProjectDatabase['repositories']
     project_key: repository.projectId,
     github_url: repository.url,
     slug: repository.slug,
+    local_path: repository.localPath ?? null,
   }
 }

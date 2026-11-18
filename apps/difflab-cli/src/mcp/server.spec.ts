@@ -90,6 +90,7 @@ describe('Difflab MCP over stdio', () => {
       // Assert
       expect(tools.map((tool) => tool.name).sort()).toEqual(
         [
+          'flow_state_update',
           'project_context',
           'log_append',
           'scaffold',
@@ -242,6 +243,94 @@ describe('Difflab MCP over stdio', () => {
       expect(
         await readFile(join(repositoryRoot, '.difflab/flows/261005-sample/FLOW.md'), 'utf8'),
       ).toContain('## Steps')
+    } finally {
+      await client.close()
+    }
+  }, 15_000)
+
+  test('dual-writes log_append messages and sends flow_state_update patches to DIFFLAB_APP_URL', async () => {
+    // Arrange
+    const directory = await createTempDirectory('difflab-mcp-dualwrite-')
+    cleanups.push(directory.cleanup)
+    const receivedRequests: { path: string; body: Record<string, unknown> }[] = []
+    const mockApp = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      async fetch(req) {
+        const url = new URL(req.url)
+        receivedRequests.push({
+          path: url.pathname,
+          body: (await req.json()) as Record<string, unknown>,
+        })
+        return Response.json({ run: { id: '261116-autospec-abcd', status: 'running' } })
+      },
+    })
+    cleanups.push(async () => {
+      mockApp.stop(true)
+    })
+
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [
+        process.env.DIFFLAB_MCP_TEST_ENTRY ?? join(import.meta.dir, '..', 'index.ts'),
+        'mcp',
+        'serve',
+      ],
+      stderr: 'pipe',
+      env: {
+        ...process.env,
+        HOME: directory.path,
+        DIFFLAB_APP_URL: `http://127.0.0.1:${mockApp.port}`,
+        DIFFLAB_RUN_ID: '261116-autospec-abcd',
+        DIFFLAB_STEP_ID: 'draft-plan',
+      },
+    })
+    const client = new Client({ name: 'difflab-dualwrite-test', version: '0.1.0' })
+
+    try {
+      // Act
+      await client.connect(transport)
+      const logFile = join(await realpath(directory.path), 'logs.txt')
+      const logResult = await client.callTool({
+        name: 'log_append',
+        arguments: { path: logFile, message: 'Drafted PLAN.md in worktree' },
+      })
+      const stateResult = await client.callTool({
+        name: 'flow_state_update',
+        arguments: {
+          stepStatus: 'done',
+          handoff: 'plan_path=/tmp/PLAN.md',
+          summary: 'Plan validated',
+        },
+      })
+
+      // Assert
+      expect(logResult.isError).toBeUndefined()
+      expect(stateResult.isError).toBeUndefined()
+      expect(await readFile(logFile, 'utf8')).toContain('Drafted PLAN.md in worktree')
+      expect(receivedRequests).toEqual([
+        {
+          path: '/v1/runs/261116-autospec-abcd/state',
+          body: {
+            message: {
+              stepId: 'draft-plan',
+              level: 'info',
+              text: 'Drafted PLAN.md in worktree',
+            },
+          },
+        },
+        {
+          path: '/v1/runs/261116-autospec-abcd/state',
+          body: {
+            step: {
+              stepId: 'draft-plan',
+              status: 'done',
+              handoff: 'plan_path=/tmp/PLAN.md',
+              summary: 'Plan validated',
+            },
+          },
+        },
+      ])
     } finally {
       await client.close()
     }

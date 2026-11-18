@@ -61,6 +61,50 @@ test('readRepoConfig rejects non-canonical project keys before database lookup',
   await expect(readRepoConfig(repo)).rejects.toMatchObject({ name: 'InvalidRepoConfig' })
 })
 
+test('given difflab.yaml with Ready Linear trigger criteria, when parsed, then triggers validate while v1 files stay valid', async () => {
+  // Arrange
+  await writeFile(
+    join(repo, 'difflab.yaml'),
+    [
+      'schemaVersion: 1',
+      'project:',
+      '  id: DIFFLAB',
+      'flows:',
+      '  defaultHarness: agy',
+      '  retention: on-success',
+      '  triggers:',
+      '    - on: linear.issue.ready',
+      '      team: ENG',
+      '      agent: difflab',
+      '      labels:',
+      '        - COMP:difflab',
+      '      flow: autospec',
+    ].join('\n'),
+  )
+
+  // Act
+  const parsed = await readRepoConfig(repo)
+
+  // Assert
+  expect(parsed).toEqual({
+    schemaVersion: 1,
+    project: { id: 'DIFFLAB' },
+    flows: {
+      defaultHarness: 'agy',
+      retention: 'on-success',
+      triggers: [
+        {
+          on: 'linear.issue.ready',
+          team: 'ENG',
+          agent: 'difflab',
+          labels: ['COMP:difflab'],
+          flow: 'autospec',
+        },
+      ],
+    },
+  })
+})
+
 // Cleanup ---------------------------------------------------------------------
 afterEach(async () => {
   await rm(temp, { recursive: true, force: true })

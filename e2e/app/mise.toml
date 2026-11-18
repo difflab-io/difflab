@@ -1,0 +1,28 @@
+[tasks.test]
+depends = ["//apps/difflab-cli:build"]
+description = "Readable TypeScript difflab-app orchestration E2E journeys"
+dir = "{{config_root}}/../.."
+run = "bun x vitest run --config e2e/app/vitest.config.ts"
+
+[tasks.smoke]
+depends = ["//apps/difflab-cli:build"]
+description = "Run representative difflab-app smoke E2E journeys"
+dir = "{{config_root}}/../.."
+run = "bun x vitest run --config e2e/app/vitest.config.ts --tags-filter=smoke --hideSkippedTests"
+
+[tasks.list]
+description = "List difflab-app BDD journeys without running them"
+dir = "{{config_root}}/../.."
+run = "bun x vitest list --config e2e/app/vitest.config.ts"
+
+[tasks.lint]
+dir = "{{config_root}}/../.."
+run = "bun x eslint e2e/app e2e/common"
+
+[tasks.format]
+dir = "{{config_root}}/../.."
+run = "bun x prettier --write 'e2e/app/**/*.ts' 'e2e/common/**/*.ts'"
+
+[tasks."format:check"]
+dir = "{{config_root}}/../.."
+run = "bun x prettier --check 'e2e/app/**/*.ts' 'e2e/common/**/*.ts'"

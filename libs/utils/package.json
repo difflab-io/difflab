@@ -13,6 +13,8 @@
       "import": "./src/gitx.ts"
     },
     "./fsx": "./src/fsx.ts",
+    "./herdrx": "./src/herdrx.ts",
+    "./misex": "./src/misex.ts",
     "./osx": "./src/osx.ts",
     "./pathx": "./src/pathx.ts",
     "./processx": "./src/processx.ts",

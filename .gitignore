@@ -13,6 +13,94 @@ build/
 **/build/
 coverage/
 **/coverage/
+
+# Mise local state
+.mise/
+**/.mise/
+.mise.local.toml
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Agent and editor state
+.claude/
+.codevoyant
+.pi/
+.idea/
+.vscode/
+*.swp
+
+# Operating system files
+.DS_Store
+
+# E2E isolated workspaces, reports, and inspectable output artifacts
+target/e2e/
+e2e/outputs/
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/
+# Bun dependencies and generated output
+node_modules/
+**/node_modules/
+bun.lock
+**/bun.lock
+dist/
+**/dist/
+.output/
+**/.output/
+.svelte-kit/
+**/.svelte-kit/
+build/
+**/build/
+coverage/
+**/coverage/
+
+# Mise local state
+.mise/
+**/.mise/
+.mise.local.toml
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Agent and editor state
+.claude/
+.codevoyant
+.pi/
+.idea/
+.vscode/
+*.swp
+
+# Operating system files
+.DS_Store
+
+# E2E isolated workspaces, reports, and inspectable output artifacts
+target/e2e/
+e2e/outputs/
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/
+# Bun dependencies and generated output
+node_modules/
+**/node_modules/
+bun.lock
+**/bun.lock
+dist/
+**/dist/
+.output/
+**/.output/
+.svelte-kit/
+**/.svelte-kit/
+build/
+**/build/
+coverage/
+**/coverage/
 .tmp/
 
 # Mise local state
@@ -34,3 +122,11 @@ coverage/
 
 # Operating system files
 .DS_Store
+
+# E2E isolated workspaces, reports, and inspectable output artifacts
+target/e2e/
+e2e/outputs/
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/

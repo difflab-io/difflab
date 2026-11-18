@@ -6,6 +6,7 @@ export const repositorySchema = z.object({
   projectId: z.string(),
   url: z.string().url(),
   slug: z.string(),
+  localPath: z.string().min(1).optional(),
 })
 
 // Types -----------------------------------------------------------------------

@@ -25,7 +25,9 @@ export class TemplateService {
   private readonly source: TemplateSource
 
   constructor(options: TemplateServiceOptions = {}) {
-    this.home = resolveHomeDirectory(options.home)
+    this.home = resolveHomeDirectory(
+      options.home ?? (process.env.DIFFLAB_HOME_ROOT || process.env.HOME),
+    )
     this.source = options.source ?? embeddedSource
   }
 

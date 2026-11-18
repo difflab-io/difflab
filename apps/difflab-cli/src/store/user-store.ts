@@ -28,7 +28,7 @@ export class MissingUserDatabase extends UserStoreError {
 
 // API -------------------------------------------------------------------------
 /** The database belongs to the user, not to any particular Project or repository. */
-export function userPaths(home = process.env.HOME || homedir()) {
+export function userPaths(home = process.env.DIFFLAB_HOME_ROOT || process.env.HOME || homedir()) {
   // Git returns the physical worktree path on systems such as macOS where
   // /var is a symlink; normalize the home as well for reliable link checks.
   let tilde: string
@@ -39,7 +39,15 @@ export function userPaths(home = process.env.HOME || homedir()) {
     tilde = resolve(home)
   }
   const root = join(tilde, '.difflab')
-  return { root, projects: join(root, 'projects'), database: join(root, 'difflab.sqlite') }
+  return {
+    root,
+    projects: join(root, 'projects'),
+    flows: join(root, 'flows'),
+    worktrees: join(root, 'worktrees'),
+    config: join(root, 'config.toml'),
+    daemonState: join(root, 'daemon.json'),
+    database: join(root, 'difflab.sqlite'),
+  }
 }
 
 /** Only expose user-wide project operations; each call closes its database handle. */

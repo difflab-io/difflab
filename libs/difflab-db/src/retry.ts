@@ -36,9 +36,10 @@ export function hasMigrationRace(error: unknown): boolean {
   return errorChain(error).some(
     (cause) =>
       cause instanceof Error &&
-      (/(?:table ["']?(?:projects|repositories)["']?|index ["']?repositories_project_slug_unique["']?) already exists/i.test(
+      (/(?:table ["']?(?:projects|repositories|runs|steps|worker_messages)["']?|index ["']?(?:repositories_project_slug_unique|runs_trigger_key_unique|steps_run_seq_unique|worker_messages_run_created_idx)["']?) already exists/i.test(
         cause.message,
       ) ||
+        /duplicate column name:\s*local_path/i.test(cause.message) ||
         /UNIQUE constraint failed: kysely_migration\.name/i.test(cause.message)),
   )
 }
