@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 
 // Types -----------------------------------------------------------------------
 export type CommandRunner = (command: string, args: string[], cwd: string) => void
@@ -11,6 +11,22 @@ export class CommandExecutionError extends Error {
 }
 
 // API -------------------------------------------------------------------------
+/** Probe `command --version` and return its first non-empty output line, or null on failure. */
+export function probeCommandVersion(
+  command: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const result = spawnSync(command, ['--version'], {
+    env,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 5000,
+  })
+  if (result.error || result.status !== 0) return null
+  const text = (result.stdout || result.stderr || '').trim()
+  return text.split(/\r?\n/)[0] || command
+}
+
 /**
  * Run `command` with `args` from `cwd` and translate execution failures to
  * CommandExecutionError while preserving the native error as `cause`.

@@ -1,7 +1,7 @@
 import { constants } from 'node:fs'
 import { lstat, open, rm } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
-import { ensurePathDirsExist } from 'utils/fsx'
+import { ensurePathDirsExist, lstatOrNull } from 'utils/fsx'
 import { resolveHomeDirectory, hasErrorCode } from 'utils/osx'
 import { resolvePath } from 'utils/pathx'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
@@ -13,6 +13,12 @@ import { embeddedSource, type TemplateInfo, type TemplateSource } from './source
 // Types -----------------------------------------------------------------------
 export type { TemplateInfo } from './source.js'
 export type TemplateServiceOptions = { home?: string; source?: TemplateSource }
+export type TemplateInspection = {
+  directory: string
+  total: number
+  missing: string[]
+  outdated: string[]
+}
 
 export class TemplateError extends Error {}
 export class UnknownTemplateError extends TemplateError {}
@@ -32,6 +38,28 @@ export class TemplateService {
   async listTemplates(): Promise<TemplateInfo[]> {
     await this.installMissing()
     return [...this.source.catalog]
+  }
+
+  async inspectTemplates(): Promise<TemplateInspection> {
+    const directory = join(userPaths(this.home).root, 'templates')
+    const missing: string[] = []
+    const outdated: string[] = []
+    for (const asset of this.source.assets) {
+      const installed = join(directory, asset)
+      const entry = await lstatOrNull(installed)
+      if (!entry || !entry.isFile() || entry.isSymbolicLink()) {
+        missing.push(asset)
+        continue
+      }
+      const [installedContent, bundledContent] = await Promise.all([
+        readTemplate(installed),
+        readSource(this.source, asset),
+      ])
+      if (installedContent !== bundledContent) {
+        outdated.push(asset)
+      }
+    }
+    return { directory, total: this.source.assets.length, missing, outdated }
   }
 
   async scaffoldFromTemplate(

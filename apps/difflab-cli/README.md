@@ -33,6 +33,16 @@ If initialization is interrupted, retry `difflab init <PROJECT_KEY>`; matching p
 
 The `project_context({ cwd })` MCP tool inspects initialized repositories without creating files or applying migrations. Existing `todo_*` MCP tools remain available.
 
+## Machine setup report
+
+Inspect missing global prerequisites (`git`, `bun`, `npx`, and `gh` or `glab`), unpacked `~/.difflab/templates`, and global hooks without modifying disk or client configuration:
+
+```bash
+difflab setup
+```
+
+`difflab setup` ignores repository state because repository linking runs on demand through `difflab init`. When items are missing, the output prints manual installation hints and instructs an invoking coding agent to ask the user before installing dependencies or configuring `~/.difflab/hooks/{on-request-worktree,on-remote-delegation,on-merge}/HOOK.md`.
+
 ## MCP setup
 
 After installing the CLI so `difflab-cli` is on your PATH, register it with the MCP clients you use:
@@ -74,7 +84,9 @@ Use `difflab-cli templates scaffold agents . AGENTS.md --cwd /absolute/project/p
 
 On first use, missing bundled templates and filled examples are copied to `~/.difflab/templates` and `~/.difflab/templates/examples`. Edit the installed templates to customize future documents. Later runs add missing files but never replace existing ones, even after an upgrade. Examples are for reference, not selectable templates. Copying is literal: prompts and placeholders are not substituted. An unknown name, missing or invalid source, unsafe path, symlink, or existing destination causes an error; destination files are never overwritten. The target directory must remain inside `cwd` and the filename must be a single file name without separators. The one symlink exception is an initialized repository's `.difflab` link to its own user project store: `templates scaffold spec-driven-plan .difflab/plans/YYMMDD-name PLAN.md --cwd /absolute/repo` works in Git worktrees as well. To restore a bundled default, move your installed copy aside before listing again.
 
-The portable `skills/difflab-plan`, `skills/difflab-review`, `skills/difflab-flow`, `skills/difflab-hooks`, `skills/difflab-bdd`, `skills/difflab-writing-style`, `skills/difflab-explore`, `skills/difflab-adr`, and `skills/difflab-poc` directories contain natural-language agent workflows for these templates. Install each skill in your client's Agent Skills directory. The MCP-only `log_append({"path":"/absolute/physical/project-store/plans/YYMMDD-name/logs.txt","message":"Phase started"})` tool creates an append-only progress log on first use; pass the physical path, not the `.difflab` symlink. There is no log CLI command.
+The portable `skills/difflab-plan`, `skills/difflab-review`, `skills/difflab-dispatch`, `skills/difflab-flow`, `skills/difflab-hooks`, `skills/difflab-bdd`, `skills/difflab-writing-style`, `skills/difflab-explore`, `skills/difflab-adr`, and `skills/difflab-poc` directories contain natural-language agent workflows. Install each skill in your client's Agent Skills directory. The MCP-only `log_append({"path":"/absolute/physical/project-store/plans/YYMMDD-name/logs.txt","message":"Phase started"})` tool creates an append-only progress log on first use; pass the physical path, not the `.difflab` symlink. There is no log CLI command.
+
+`difflab-dispatch` splits ready slices out of an open pull request through `on-request-worktree` or `on-remote-delegation` (`--remote`). It runs `plan new` (adding `## Automerge Checklist` to `PLAN.md`) and `plan go --commit`, opens and reviews the pull request, and merges only when diff-subset parity, module-wiring scope, pipeline integrity, and test coverage gates hold.
 
 The [plan authoring guide](../../skills/difflab-plan/references/authoring.md) applies `difflab-writing-style` and `difflab-bdd`. It requires component/process/artifact visuals, compact interfaces, and a directory-grouped `[M/A/D/R]` repo tree at the start of `Consequences`. Add a `Testing` subsection with a behavior flowchart and a matching `[M/A/D/R]` BDD test tree (`given`/`when`/`then`) mapped to existing suites or clearly labeled manual acceptance checks. Keep expected commit and green-CI gates, including for `plan go --commit`. That flag permits scoped commits. Push requires separate authorization. Write `N/A.` when infrastructure stays unchanged. Source examples live in the skill's `references/examples/` and are not CLI templates.
 

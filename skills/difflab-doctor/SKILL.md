@@ -1,18 +1,19 @@
 ---
 name: difflab-doctor
-description: Diagnose Difflab CLI, MCP tools, and repository setup; apply scoped repairs when the user requests doctor --fix.
-compatibility: Requires a local terminal for CLI diagnostics and repairs; exposed MCP tools are optional.
+description: Diagnose Difflab CLI, templates, MCP tools, hooks, and repository setup. Apply scoped repairs on confirmation or doctor --fix.
+compatibility: Requires a local terminal for CLI diagnostics and repairs. Exposed MCP tools are optional.
 ---
 
 # Difflab doctor
 
-Interpret `doctor` and `doctor --fix` as skill requests, not new CLI commands. Default to diagnosis only. Report the status, evidence, and next step for each relevant check:
+Interpret `doctor`, `doctor --fix`, and `difflab setup` as skill requests. Run read-only diagnosis first and report the status, evidence, and next step for each area:
 
-- CLI: check `difflab --version` and command availability.
-- MCP: check which Difflab tools the active session exposes. If missing, inspect the known client's registration; ask which client only when unclear. Distinguish absent configuration from registered tools that need reload or diagnosis.
-- Repository: when inside a Git repository, inspect its origin, `difflab.yaml`, `.difflab` link, and matching membership from `difflab project list`. Use `project_context` when available. Outside a repository, mark these checks inapplicable.
-- Workflow prerequisites: check requested capabilities such as `gh`/`glab` authentication or native background delegation when relevant. Do not infer successful access from installed binaries alone.
+- Prerequisites and hooks: run `difflab --version` and `difflab setup` to inspect `git`, `bun`, `npx`, `gh` or `glab`, and `~/.difflab/hooks/{on-request-worktree,on-remote-delegation,on-merge}/HOOK.md`.
+- Templates: inspect `Templates:` in `difflab setup` to make sure that `~/.difflab/templates` is unpacked and up to date with bundled templates.
+- MCP: inspect exposed Difflab MCP tools and client MCP configuration, separating missing registration from clients that need a reload.
+- Repository: inside a Git checkout, inspect `origin`, `difflab.yaml`, `.difflab`, `difflab project list`, and `project_context` when available.
+- Capabilities: test required `gh` or `glab` authentication and delegation directly instead of assuming installed binaries work.
 
-With `--fix`, apply only repairs needed by the diagnosis, using existing commands: `npm install -g @difflab/difflab-cli` for a missing CLI, `difflab mcp setup --client <client>` for missing registration, or `difflab init <PROJECT_KEY>` for a missing repository link with uniquely verified project membership. Use existing authorization; ask for unresolved client/project choices. Project creation belongs to [difflab-init](../difflab-init/SKILL.md).
+Ask before installing dependencies or changing files unless `--fix` was passed. Apply only scoped repairs: `npm install -g @difflab/difflab-cli` for a missing CLI, `difflab templates list` for missing templates, backing up and re-unpacking outdated templates after user confirmation, `difflab mcp setup --client <client>` for missing MCP registration, `difflab init <PROJECT_KEY>` for a missing repository link, and [difflab-hooks](../difflab-hooks/SKILL.md) (`hooks register`) for unset hooks. Use [difflab-init](../difflab-init/SKILL.md) to create new projects.
 
-Preserve working integrations and unrelated settings. Never overwrite conflicting configuration, delete shared stores, or bypass a denied action. Report failures with the concrete next step. Recheck after repairs; successful registration still requires client restart/reload and does not prove tools are available in this session. Report remaining limitations and return to the calling skill. A dry run shows intended commands without applying repairs. Do not commit, push, or start implementation as part of doctor.
+Never overwrite custom files without confirmation, delete shared stores, or commit or push changes. Rerun `difflab setup` after repairs and note when MCP changes need a client restart.

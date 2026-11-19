@@ -14,6 +14,7 @@ build/
 coverage/
 **/coverage/
 .tmp/
+e2e/outputs/
 
 # Mise local state
 .mise/
