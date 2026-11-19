@@ -1,35 +1,20 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely } from 'kysely'
-import { canonicalGitUrl, repositorySlug } from 'utils/gitx'
-import { isUniqueConstraintError } from '../dialects.js'
-import { ProjectConflictError, ProjectNotFoundError, ProjectValidationError } from '../errors.js'
+import { isUniqueConstraintError } from '../db.js'
+import { ProjectConflictError, ProjectNotFoundError } from '../errors.js'
 import {
-  DEFAULT_ACTOR,
-  type ActorContext,
+  GitRemoteEntity,
+  ProjectEntity,
+  validateWorkspaceId,
   type DifflabDatabase,
+  type GitRemote,
+  type GitRemoteRow,
   type Project,
-  type ProjectsTable,
-  type RepositoriesTable,
-  type Repository,
-} from '../schema.js'
+  type ProjectRow,
+} from '../schema/index.js'
+import { DEFAULT_ACTOR, type ActorContext } from '../types.js'
 
 // API -------------------------------------------------------------------------
-export function validateProjectKey(key: string): string {
-  const normalized = key.trim().toUpperCase()
-  if (!/^[A-Z][A-Z0-9]{2,15}$/.test(normalized)) {
-    throw new ProjectValidationError('Project key must be 3-16 uppercase letters or digits')
-  }
-  return normalized
-}
-
-export function validateWorkspaceId(workspaceId: string): string {
-  const trimmed = workspaceId.trim()
-  if (!trimmed || trimmed.length > 64) {
-    throw new ProjectValidationError('Workspace ID must be nonempty and at most 64 characters')
-  }
-  return trimmed
-}
-
 export function createProjectQueries(db: Kysely<DifflabDatabase>) {
   return {
     async createProject(
@@ -39,27 +24,16 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
       actor: ActorContext = DEFAULT_ACTOR,
     ): Promise<Project> {
       const workspaceId = validateWorkspaceId(actor.workspaceId)
-      const projectKey = validateProjectKey(key)
-      const trimmedName = name.trim()
-      if (!trimmedName || trimmedName.length > 100) {
-        throw new ProjectValidationError('Project name must be nonempty and at most 100 characters')
-      }
-      const urls = initialOrigins.map((origin) => {
-        try {
-          return canonicalGitUrl(origin)
-        } catch (error) {
-          throw new ProjectValidationError(
-            error instanceof Error ? error.message : `Invalid Git URL: ${origin}`,
-            { cause: error },
-          )
-        }
-      })
-      if (new Set(urls).size !== urls.length) {
-        throw new ProjectConflictError('Duplicate Git repository origins')
+      const projectKey = ProjectEntity.validateKey(key)
+      const trimmedName = ProjectEntity.validateName(name)
+      const normalizedRemotes = initialOrigins.map(GitRemoteEntity.normalizeUrl)
+      const uniqueUrls = new Set(normalizedRemotes.map((item) => item.url))
+      if (uniqueUrls.size !== normalizedRemotes.length) {
+        throw new ProjectConflictError('Duplicate Git remote URLs')
       }
 
       const now = new Date().toISOString()
-      const projectRow: ProjectsTable = {
+      const projectRow: ProjectRow = {
         id: randomUUID(),
         workspace_id: workspaceId,
         key: projectKey,
@@ -71,30 +45,28 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
       try {
         return await db.transaction().execute(async (tx) => {
           await tx.insertInto('projects').values(projectRow).execute()
-          const repositories: Repository[] = []
-          for (const url of urls) {
-            const repoRow: RepositoriesTable = {
+          const gitRemotes: GitRemote[] = []
+          for (const remote of normalizedRemotes) {
+            const remoteRow: GitRemoteRow = {
               id: randomUUID(),
               workspace_id: workspaceId,
               project_id: projectRow.id,
               project_key: projectKey,
-              github_url: url,
-              slug: repositorySlug(url),
+              remote_url: remote.url,
+              slug: remote.slug,
               created_by_user_id: actor.userId,
               created_at: new Date().toISOString(),
             }
-            await tx.insertInto('repositories').values(repoRow).execute()
-            repositories.push(toRepository(repoRow))
+            await tx.insertInto('git_remotes').values(remoteRow).execute()
+            gitRemotes.push(GitRemoteEntity.fromRow(remoteRow))
           }
-          return toProject(projectRow, repositories)
+          return ProjectEntity.fromRow(projectRow, gitRemotes)
         })
       } catch (error) {
         if (isUniqueConstraintError(error)) {
           throw new ProjectConflictError(
-            `Project key or repository already exists: ${projectKey}`,
-            {
-              cause: error,
-            },
+            `Project key or Git remote already exists: ${projectKey}`,
+            { cause: error },
           )
         }
         throw error
@@ -111,8 +83,8 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
           .orderBy('key', 'asc')
           .execute()
 
-        const repositoryRows = await tx
-          .selectFrom('repositories')
+        const remoteRows = await tx
+          .selectFrom('git_remotes')
           .selectAll()
           .where('workspace_id', '=', workspaceId)
           .orderBy('created_at', 'asc')
@@ -120,9 +92,11 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
           .execute()
 
         return projectRows.map((row) =>
-          toProject(
+          ProjectEntity.fromRow(
             row,
-            repositoryRows.filter((repo) => repo.project_id === row.id).map(toRepository),
+            remoteRows
+              .filter((remote) => remote.project_id === row.id)
+              .map(GitRemoteEntity.fromRow),
           ),
         )
       })
@@ -130,7 +104,7 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
 
     async getProjectById(key: string, actor: ActorContext = DEFAULT_ACTOR): Promise<Project> {
       const workspaceId = validateWorkspaceId(actor.workspaceId)
-      const projectKey = validateProjectKey(key)
+      const projectKey = ProjectEntity.validateKey(key)
       return db.transaction().execute(async (tx) => {
         const row = await tx
           .selectFrom('projects')
@@ -140,8 +114,8 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
           .executeTakeFirst()
         if (!row) throw new ProjectNotFoundError(projectKey)
 
-        const repositories = await tx
-          .selectFrom('repositories')
+        const remoteRows = await tx
+          .selectFrom('git_remotes')
           .selectAll()
           .where('workspace_id', '=', workspaceId)
           .where('project_id', '=', row.id)
@@ -149,30 +123,8 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
           .orderBy('id', 'asc')
           .execute()
 
-        return toProject(row, repositories.map(toRepository))
+        return ProjectEntity.fromRow(row, remoteRows.map(GitRemoteEntity.fromRow))
       })
     },
-  }
-}
-
-export function toRepository(row: RepositoriesTable): Repository {
-  return {
-    id: row.id,
-    projectId: row.project_key,
-    url: row.github_url,
-    slug: row.slug,
-    createdAt: row.created_at,
-  }
-}
-
-// Helpers ---------------------------------------------------------------------
-function toProject(row: ProjectsTable, repositories: Repository[]): Project {
-  return {
-    id: row.key,
-    name: row.name,
-    workspaceId: row.workspace_id,
-    createdByUserId: row.created_by_user_id,
-    createdAt: row.created_at,
-    repositories,
   }
 }

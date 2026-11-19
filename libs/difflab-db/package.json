@@ -2,7 +2,7 @@
   "name": "difflab-db",
   "version": "0.1.0",
   "private": true,
-  "description": "Dual-dialect Difflab database and migrations over SQLite and PostgreSQL",
+  "description": "Dual-dialect Difflab database, Zod entity schemas, and migrations over SQLite and PostgreSQL",
   "type": "module",
   "packageManager": "bun@1.4.2",
   "engines": {
@@ -18,9 +18,12 @@
     "lint": "tsc --noEmit",
     "lint:fix": "bun run format && bun run lint",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "migrate": "bun src/migrate-cli.ts"
   },
   "dependencies": {
+    "difflab-config": "workspace:*",
+    "difflab-db-legacy": "workspace:*",
     "kysely": "0.29.0",
     "kysely-bun-worker": "2.0.1",
     "pg": "^8.16.0",
@@ -31,6 +34,7 @@
     "@electric-sql/pglite": "^0.5.16",
     "@electric-sql/pglite-socket": "^0.2.19",
     "@types/bun": "1.4.2",
+    "@types/node": "26.6.6",
     "@types/pg": "^8.15.6",
     "prettier": "3.9.8",
     "typescript": "7.0.2"

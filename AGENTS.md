@@ -9,9 +9,12 @@
 
 ### Repository layout
 
-- Put reusable filesystem, process, OS, and other generic utilities in `src/extensions`. Use domain-neutral names such as `fsx`, `osx`, `processx`, and `pathx`.
+- Put reusable filesystem, process, OS, and other generic utilities in `src/extensions` or `libs/utils`. Use domain-neutral names such as `fsx`, `osx`, `processx`, `pathx`, and `logx`.
 - Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
 - Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module.
+- Put general package-wide types in `src/types.ts` rather than mixing non-database types into database schema modules.
+- Use `@logtape/logtape` via shared `libs/utils` logging helpers instead of bespoke logging; libraries acquire category loggers without configuring sinks, and applications configure sinks at startup.
+- [Proposed] Keep package `src/index.ts` entry points limited to re-exports and put implementation in dedicated modules.
 
 ### TypeScript files
 
@@ -38,6 +41,7 @@
 - Keep module APIs thin. Expose only the operations callers need.
 - Make section divider comments 80 columns wide, using `//`, the section name, and trailing hyphens. Use the same format in test files.
 - Use semantic exceptions for failures that callers need to catch and handle.
+- [Proposed] Define persisted domain entities with Zod schemas and colocated row-mapping helpers, and prefer domain names such as `git-remotes` over `repositories` to avoid confusion with data-access repositories.
 
 ## Testing
 

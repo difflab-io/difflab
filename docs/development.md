@@ -29,8 +29,8 @@ mise run //apps/difflab-api:generate
 
 ## Database Migrations
 
-- **Local SQLite (`local` mode):** Starting `difflab up` (or running a project-aware CLI command) creates `$DIFFLAB_HOME/local.sqlite`, applies `shared` migrations, and imports projects once from sibling `difflab.sqlite` if present. If an existing `local.sqlite` has unapplied migrations, run `mise run //apps/difflab-api:migrate` explicitly.
-- **Cloud PostgreSQL (`cloud` mode):** `difflab-api` never auto-migrates PostgreSQL at server startup. Apply `shared` and `cloud` migrations before starting or deploying `difflab-api`:
+- **Local SQLite (`local` mode):** Starting `difflab up` (or running any RPC-backed CLI command) invokes `openLocalDifflabDb`, which creates `$DIFFLAB_HOME/local.sqlite` when absent, applies `shared` migrations automatically, and imports projects once from sibling `difflab.sqlite` if present.
+- **Cloud PostgreSQL (`cloud` mode and Premise CI):** `difflab-api` never auto-migrates PostgreSQL at server startup. Premise's deployment lifecycle invokes `mise run //apps/difflab-api:migrate -- <environment>` (which resolves `DATABASE_URL` via `pm infra query` when unset and delegates to `mise run //libs/difflab-db:migrate`):
 
 ```sh
 DATABASE_URL="postgres://user:pass@host:5432/difflab" mise run //apps/difflab-api:migrate
@@ -42,9 +42,9 @@ Running `mise run e2e` (or `mise run e2e:api` / `mise run e2e:cli`) creates dete
 
 ```sh
 mise run e2e
-cd e2e/outputs/cli/init/init-write-config-symlink-exclude-and-link-origin
+cd e2e/outputs/cli/init/when-running-difflab-init--write-difflab-yaml-symlink-exclude-and-link-origin
 cat cli.log      # exact CLI invocations, working directories, exit codes, stdout, stderr
-cat api.log      # difflab-api startup JSON + Connect HTTP request and response bodies
+cat api.log      # difflab-api LogTape JSONL startup + Connect HTTP request and response bodies
 ls -la difflab-home/ workspace/
 ```
 

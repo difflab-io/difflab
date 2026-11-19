@@ -21,6 +21,12 @@ description = "Run the Bun test suite"
 depends = ["install"]
 run = "bun run test"
 
+[tasks.migrate]
+description = "Apply PostgreSQL database migrations using DATABASE_URL"
+depends = ["install"]
+dir = "{{ config_root }}"
+run = "bun run migrate"
+
 [tasks.lint]
 description = "Type-check the library and tests"
 depends = ["install"]

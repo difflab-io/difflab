@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { parse, stringify } from 'yaml'
 import { createTempDirectory, expectFailureWith } from 'utils/testx'
-import { resolveDifflabPaths as userPaths } from '../daemon/config.js'
+import { resolveDifflabPaths as userPaths } from 'difflab-config'
 import { TemplateService, UnknownTemplateError } from './service.js'
 import { embeddedSource } from './source.js'
 

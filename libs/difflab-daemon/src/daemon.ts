@@ -1,49 +1,97 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { openSync, closeSync } from 'node:fs'
+import { closeSync, existsSync, openSync } from 'node:fs'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { ConfigurationError, resolveDifflabPathsFromRoot } from 'difflab-config'
 import lockfile from 'proper-lockfile'
-import { lstatOrNull } from './fsx.js'
+import { lstatOrNull } from 'utils/fsx'
+import { getLogger } from 'utils/logx'
+import { DaemonLifecycleError } from './errors.js'
+import type {
+  DaemonRecord,
+  DaemonStartOptions,
+  DaemonStatus,
+  DifflabDaemonOptions,
+} from './types.js'
 
 // Constants -------------------------------------------------------------------
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
 const DAEMON_METADATA_FILE = 'daemon.json'
 const DAEMON_LOCK_FILE = 'daemon.lock'
 const DEFAULT_STARTUP_TIMEOUT_MS = 15_000
 const DEFAULT_STOP_TIMEOUT_MS = 5_000
 const POLL_INTERVAL_MS = 50
-
-// Types -----------------------------------------------------------------------
-export type DaemonRecord = {
-  pid: number
-  server_url: string
-  rpc_url: string
-  started_at: string
-}
-
-export type DaemonStatus =
-  { running: false } | { running: true; pid: number; server_url: string; rpc_url: string }
-
-export type DaemonStartOptions = {
-  stateDir: string
-  command: string
-  args: string[]
-  cwd?: string
-  env?: NodeJS.ProcessEnv
-  logPath?: string
-  startupTimeoutMs?: number
-}
-
-export class DaemonLifecycleError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options)
-    this.name = 'DaemonLifecycleError'
-  }
-}
+const logger = getLogger('daemon')
 
 // API -------------------------------------------------------------------------
 export function daemonMetadataPath(stateDir: string): string {
   return join(stateDir, DAEMON_METADATA_FILE)
+}
+
+export function resolveDifflabApiEntry(explicitEntry?: string): string {
+  const configured = explicitEntry?.trim() || process.env.DIFFLAB_API_ENTRY?.trim()
+  if (configured) return resolve(configured)
+
+  const scriptDir = process.argv[1] ? dirname(resolve(process.argv[1])) : MODULE_DIR
+  const candidates = [
+    resolve(scriptDir, './api.js'),
+    resolve(MODULE_DIR, '../../../apps/difflab-api/src/index.ts'),
+    resolve(MODULE_DIR, '../../../apps/difflab-api/dist/index.js'),
+    resolve(MODULE_DIR, './api.js'),
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate
+  }
+  throw new ConfigurationError('Unable to locate difflab-api server entrypoint')
+}
+
+export function buildDifflabDaemonOptions(options: DifflabDaemonOptions): DaemonStartOptions {
+  const port = options.port ?? 0
+  const apiEntry = resolveDifflabApiEntry(options.apiEntry)
+  const paths = resolveDifflabPathsFromRoot(options.stateDir)
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    DIFFLAB_HOME: options.stateDir,
+    DIFFLAB_MODE: 'local',
+  }
+  delete env.DATABASE_URL
+
+  return {
+    stateDir: options.stateDir,
+    command: process.execPath,
+    args: [apiEntry, '--port', String(port), '--state-dir', options.stateDir],
+    env,
+    logPath: options.logPath ?? paths.daemonLog,
+  }
+}
+
+export async function runDifflabDaemonForeground(options: DifflabDaemonOptions): Promise<void> {
+  const start = buildDifflabDaemonOptions(options)
+  await new Promise<void>((resolveRun, rejectRun) => {
+    const child = spawn(start.command, start.args, {
+      env: start.env,
+      stdio: 'inherit',
+    })
+    const forwardSigint = () => child.kill('SIGINT')
+    const forwardSigterm = () => child.kill('SIGTERM')
+    process.on('SIGINT', forwardSigint)
+    process.on('SIGTERM', forwardSigterm)
+    child.on('error', (error) => {
+      process.off('SIGINT', forwardSigint)
+      process.off('SIGTERM', forwardSigterm)
+      rejectRun(error)
+    })
+    child.on('exit', (code) => {
+      process.off('SIGINT', forwardSigint)
+      process.off('SIGTERM', forwardSigterm)
+      if (code && code !== 0) {
+        process.exitCode = code
+      }
+      resolveRun()
+    })
+  })
 }
 
 export async function writeDaemonMetadata(stateDir: string, record: DaemonRecord): Promise<void> {
@@ -103,7 +151,7 @@ export async function startDaemon(
     }
     await rm(daemonMetadataPath(options.stateDir), { force: true })
 
-    const logFile = options.logPath ?? join(options.stateDir, 'daemon.log')
+    const logFile = options.logPath ?? join(options.stateDir, 'api.log')
     await mkdir(dirname(logFile), { recursive: true })
     const logStat = await lstatOrNull(logFile)
     if (logStat?.isSymbolicLink()) {
@@ -137,13 +185,23 @@ export async function startDaemon(
     const deadline = Date.now() + (options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS)
     while (Date.now() < deadline) {
       if (childExitCode !== null || childSignal !== null) {
-        const tail = await readLogTail(logFile)
+        logger.error('Daemon exited during startup', {
+          pid: childPid,
+          exitCode: childExitCode,
+          signal: childSignal,
+          logFile,
+        })
         throw new DaemonLifecycleError(
-          `Daemon exited during startup (code=${childExitCode ?? 'null'}, signal=${childSignal ?? 'null'})${tail ? `:\n${tail}` : ''}`,
+          `Daemon exited during startup (code=${childExitCode ?? 'null'}, signal=${childSignal ?? 'null'}); see ${logFile}`,
         )
       }
       const record = await readDaemonRecord(options.stateDir)
       if (record && record.pid === childPid && (await probeHealth(record.server_url))) {
+        logger.info('Daemon started', {
+          pid: record.pid,
+          server_url: record.server_url,
+          rpc_url: record.rpc_url,
+        })
         return {
           running: true,
           pid: record.pid,
@@ -155,10 +213,7 @@ export async function startDaemon(
     }
 
     await terminateProcess(childPid, 1_000)
-    const tail = await readLogTail(logFile)
-    throw new DaemonLifecycleError(
-      `Timed out waiting for daemon health check${tail ? `:\n${tail}` : ''}`,
-    )
+    throw new DaemonLifecycleError(`Timed out waiting for daemon health check; see ${logFile}`)
   } finally {
     await release()
   }
@@ -272,15 +327,6 @@ async function terminateProcess(pid: number, timeoutMs: number): Promise<void> {
   }
 }
 
-async function readLogTail(logFile: string, maxLines = 25): Promise<string> {
-  try {
-    const content = await readFile(logFile, 'utf8')
-    return content.trim().split('\n').slice(-maxLines).join('\n')
-  } catch {
-    return ''
-  }
-}
-
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms))
 }

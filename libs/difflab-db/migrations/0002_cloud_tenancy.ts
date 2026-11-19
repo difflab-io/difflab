@@ -1,11 +1,10 @@
-import { sql, type Kysely } from 'kysely'
-import type { DifflabDatabase } from '../schema.js'
-import { defineCloudMigration } from './define.js'
+import { sql } from 'kysely'
+import { defineCloudMigration } from '../src/migrations.js'
 
 // API -------------------------------------------------------------------------
 export const migration0002CloudTenancy = defineCloudMigration({
   name: '0002_cloud_tenancy',
-  async up(db: Kysely<DifflabDatabase>) {
+  async up(db) {
     await db.schema
       .createTable('workspaces')
       .addColumn('id', 'text', (col) => col.primaryKey())
@@ -32,37 +31,39 @@ export const migration0002CloudTenancy = defineCloudMigration({
       )
       .addColumn('role', 'text', (col) => col.notNull())
       .addColumn('created_at', 'text', (col) => col.notNull())
-      .addPrimaryKeyConstraint('workspace_members_pkey', ['workspace_id', 'user_id'])
+      .addPrimaryKeyConstraint('workspace_members_pk', ['workspace_id', 'user_id'])
       .execute()
 
     await sql`ALTER TABLE projects ENABLE ROW LEVEL SECURITY`.execute(db)
-    await sql`ALTER TABLE repositories ENABLE ROW LEVEL SECURITY`.execute(db)
+    await sql`ALTER TABLE git_remotes ENABLE ROW LEVEL SECURITY`.execute(db)
+    await sql`ALTER TABLE workspace_members ENABLE ROW LEVEL SECURITY`.execute(db)
 
     await sql`
       CREATE POLICY workspace_isolation_projects ON projects
-      USING (
-        current_setting('difflab.workspace_id', true) IS NULL
-        OR current_setting('difflab.workspace_id', true) = ''
-        OR workspace_id = current_setting('difflab.workspace_id', true)
-      )
+      USING (workspace_id = current_setting('difflab.workspace_id', true))
+      WITH CHECK (workspace_id = current_setting('difflab.workspace_id', true))
     `.execute(db)
 
     await sql`
-      CREATE POLICY workspace_isolation_repositories ON repositories
-      USING (
-        current_setting('difflab.workspace_id', true) IS NULL
-        OR current_setting('difflab.workspace_id', true) = ''
-        OR workspace_id = current_setting('difflab.workspace_id', true)
-      )
+      CREATE POLICY workspace_isolation_git_remotes ON git_remotes
+      USING (workspace_id = current_setting('difflab.workspace_id', true))
+      WITH CHECK (workspace_id = current_setting('difflab.workspace_id', true))
+    `.execute(db)
+
+    await sql`
+      CREATE POLICY workspace_isolation_members ON workspace_members
+      USING (workspace_id = current_setting('difflab.workspace_id', true))
+      WITH CHECK (workspace_id = current_setting('difflab.workspace_id', true))
     `.execute(db)
   },
-  async down(db: Kysely<DifflabDatabase>) {
-    await sql`DROP POLICY IF EXISTS workspace_isolation_repositories ON repositories`.execute(db)
+  async down(db) {
+    await sql`DROP POLICY IF EXISTS workspace_isolation_members ON workspace_members`.execute(db)
+    await sql`DROP POLICY IF EXISTS workspace_isolation_git_remotes ON git_remotes`.execute(db)
     await sql`DROP POLICY IF EXISTS workspace_isolation_projects ON projects`.execute(db)
-    await sql`ALTER TABLE repositories DISABLE ROW LEVEL SECURITY`.execute(db)
     await sql`ALTER TABLE projects DISABLE ROW LEVEL SECURITY`.execute(db)
-    await db.schema.dropTable('workspace_members').ifExists().execute()
-    await db.schema.dropTable('users').ifExists().execute()
-    await db.schema.dropTable('workspaces').ifExists().execute()
+    await sql`ALTER TABLE git_remotes DISABLE ROW LEVEL SECURITY`.execute(db)
+    await db.schema.dropTable('workspace_members').execute()
+    await db.schema.dropTable('users').execute()
+    await db.schema.dropTable('workspaces').execute()
   },
 })

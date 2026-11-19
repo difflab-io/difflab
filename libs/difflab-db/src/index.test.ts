@@ -1,8 +1,8 @@
+import { Database as BunSqlite } from 'bun:sqlite'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'bun:test'
 import { PGlite } from '@electric-sql/pglite'
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
-import { Database as BunSqlite } from 'bun:sqlite'
-import { afterEach, describe, expect, it } from 'bun:test'
-import { join } from 'node:path'
 import pg from 'pg'
 import { lstatOrNull } from 'utils/fsx'
 import { createIsolatedTestHome } from 'utils/testx'
@@ -35,7 +35,7 @@ describe('when calling migrateDatabase', () => {
     // Assert
     expect(applied).toEqual(['0001_initial'])
     expect(tables).toContain('projects')
-    expect(tables).toContain('repositories')
+    expect(tables).toContain('git_remotes')
     expect(tables).not.toContain('workspaces')
     expect(tables).not.toContain('users')
   })
@@ -50,7 +50,7 @@ describe('when calling migrateDatabase', () => {
     await client.connect()
     cleanups.push(() => client.end())
     const rls = await client.query<{ relname: string; relrowsecurity: boolean }>(
-      "SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('projects', 'repositories') ORDER BY relname",
+      "SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('git_remotes', 'projects', 'workspace_members') ORDER BY relname",
     )
     const policies = await client.query<{ policyname: string }>(
       'SELECT policyname FROM pg_policies ORDER BY policyname',
@@ -59,12 +59,14 @@ describe('when calling migrateDatabase', () => {
     // Assert
     expect(applied).toEqual(['0001_initial', '0002_cloud_tenancy'])
     expect(rls.rows).toEqual([
+      { relname: 'git_remotes', relrowsecurity: true },
       { relname: 'projects', relrowsecurity: true },
-      { relname: 'repositories', relrowsecurity: true },
+      { relname: 'workspace_members', relrowsecurity: true },
     ])
     expect(policies.rows.map((row) => row.policyname)).toEqual([
+      'workspace_isolation_git_remotes',
+      'workspace_isolation_members',
       'workspace_isolation_projects',
-      'workspace_isolation_repositories',
     ])
   })
 })
@@ -110,7 +112,7 @@ describe('when calling createDifflabDb', () => {
   }
 })
 
-describe('when writing projects, repositories, and cloud memberships', () => {
+describe('when writing projects, git remotes, and cloud memberships', () => {
   for (const dialect of ['sqlite', 'postgres'] as const) {
     it(`should isolate identical keys and URLs across workspaces while throwing ProjectConflictError within one workspace on ${dialect}`, async () => {
       // Arrange
@@ -145,11 +147,7 @@ describe('when writing projects, repositories, and cloud memberships', () => {
         db.projects.createProject('CORE', 'Duplicate Key', [], alpha),
       ).rejects.toBeInstanceOf(ProjectConflictError)
       await expect(
-        db.repositories.linkRepositoryToProject(
-          'OTHER',
-          'https://github.com/difflab-io/core',
-          alpha,
-        ),
+        db.gitRemotes.linkGitRemoteToProject('OTHER', 'https://github.com/difflab-io/core', alpha),
       ).rejects.toBeInstanceOf(ProjectConflictError)
     })
   }

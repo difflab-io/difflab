@@ -2,7 +2,7 @@
   "name": "difflab-client-ts",
   "version": "0.1.0",
   "private": true,
-  "description": "Private Connect JSON-RPC TypeScript client for Difflab services",
+  "description": "Private Connect JSON-RPC TypeScript client and target resolver for Difflab services",
   "type": "module",
   "packageManager": "bun@1.4.2",
   "engines": {
@@ -23,10 +23,13 @@
   "dependencies": {
     "@bufbuild/protobuf": "2.17.0",
     "@connectrpc/connect": "2.3.0",
-    "@connectrpc/connect-web": "2.3.0"
+    "@connectrpc/connect-web": "2.3.0",
+    "difflab-config": "workspace:*",
+    "difflab-daemon": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
+    "@types/node": "26.6.6",
     "prettier": "3.9.8",
     "typescript": "7.0.2"
   }

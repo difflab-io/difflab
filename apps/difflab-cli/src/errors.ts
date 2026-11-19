@@ -1,15 +1,10 @@
 // API -------------------------------------------------------------------------
+export { ConfigurationError, InvalidRepoConfig, MissingRepoConfig } from 'difflab-config'
+
 export class DifflabError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
     this.name = 'DifflabError'
-  }
-}
-
-export class ConfigurationError extends DifflabError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options)
-    this.name = 'ConfigurationError'
   }
 }
 
@@ -27,18 +22,6 @@ export class RepoStoreError extends ProjectSetupError {
   }
 }
 
-export class MissingRepoConfig extends ProjectSetupError {
-  constructor(message: string) {
-    super(message)
-    this.name = 'MissingRepoConfig'
-  }
-}
-export class InvalidRepoConfig extends ProjectSetupError {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options)
-    this.name = 'InvalidRepoConfig'
-  }
-}
 export class MissingGlobalConfig extends ProjectSetupError {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)

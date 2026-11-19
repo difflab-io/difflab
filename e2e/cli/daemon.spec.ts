@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test'
-import type { DaemonStatus } from 'utils/daemonx'
+import type { DaemonStatus } from 'difflab-daemon'
 import { createE2EContext, type E2ETestContext } from '../common/test-harness.js'
 
 // Setup -----------------------------------------------------------------------

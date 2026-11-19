@@ -1,20 +1,24 @@
 import { join } from 'node:path'
 import { Command } from 'commander'
-import { ConnectError, type DifflabClient } from 'difflab-client-ts'
-import { getDaemonStatus, startDaemon, stopDaemon } from 'utils/daemonx'
+import { ConnectError, resolveDifflabClient, type DifflabClient } from 'difflab-client-ts'
+import {
+  createRepoConfig,
+  parsePortValue,
+  readRepoConfig,
+  resolveDifflabPaths,
+  validateProjectKeyFormat,
+} from 'difflab-config'
+import {
+  buildDifflabDaemonOptions,
+  getDaemonStatus,
+  runDifflabDaemonForeground,
+  startDaemon,
+  stopDaemon,
+} from 'difflab-daemon'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
 import { getProjectContext } from './context.js'
-import {
-  buildDaemonStartOptions,
-  parseDaemonPort,
-  resolveDifflabPaths,
-  runDaemonForeground,
-  validateProjectKey,
-} from './daemon/config.js'
 import { ProjectSetupError, RepoStoreError } from './errors.js'
-import { createRepoConfig, readRepoConfig } from './projects/config.js'
 import { ensureRepoStore, preflightRepoStore } from './projects/repo-store.js'
-import { resolveDifflabClient } from './rpc/target.js'
 import type { TemplateService } from './templates/service.js'
 
 // Types -----------------------------------------------------------------------
@@ -56,13 +60,13 @@ export function createProgram(
     .option('--foreground', 'Run the RPC server in the foreground')
     .option('--json', 'Format status output as JSON')
     .action(async (flags: { port: string; foreground?: boolean; json?: boolean }) => {
-      const port = parseDaemonPort(flags.port)
+      const port = parsePortValue(flags.port)
       const paths = resolveDifflabPaths(options.home)
       if (flags.foreground) {
-        await runDaemonForeground({ stateDir: paths.root, port })
+        await runDifflabDaemonForeground({ stateDir: paths.root, port })
         return
       }
-      const status = await startDaemon(buildDaemonStartOptions({ stateDir: paths.root, port }))
+      const status = await startDaemon(buildDifflabDaemonOptions({ stateDir: paths.root, port }))
       if (flags.json) {
         write(JSON.stringify(status, null, 2))
         return
@@ -119,7 +123,7 @@ export function createProgram(
           'project add requires a project key, --name, and at least one --repo; use project add <key> --name <name> --repo <origin>',
         )
       }
-      const key = validateProjectKey(projectKey)
+      const key = validateProjectKeyFormat(projectKey)
       repositories.forEach(canonicalGitUrl)
       const client = await resolveDifflabClient({ home: options.home, client: options.client })
       const response = await withRpcError(() =>
@@ -155,7 +159,7 @@ export function createProgram(
     .action(async (projectId: string) => {
       const cwd = options.cwd ?? process.cwd()
       const git = discoverGitRepository(cwd)
-      const key = validateProjectKey(projectId)
+      const key = validateProjectKeyFormat(projectId)
       const config = await readRepoConfig(git.root)
       if (config && config.project.id !== key) {
         throw new RepoStoreError(

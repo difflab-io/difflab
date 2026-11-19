@@ -2,10 +2,11 @@ import { lstat, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseDocument, stringify } from 'yaml'
 import { z } from 'zod'
-import { InvalidRepoConfig } from '../errors.js'
+import { InvalidRepoConfig } from './errors.js'
+import type { RepoConfig } from './types.js'
 
 // Constants -------------------------------------------------------------------
-const repoConfigSchema = z.strictObject({
+export const repoConfigSchema = z.strictObject({
   schemaVersion: z.literal(1),
   project: z.strictObject({
     id: z
@@ -16,12 +17,12 @@ const repoConfigSchema = z.strictObject({
       ),
   }),
 })
+
 // Types -----------------------------------------------------------------------
-export type RepoConfig = z.infer<typeof repoConfigSchema>
 type ParseResult = { config: RepoConfig } | { errors: string[] }
 
 // API -------------------------------------------------------------------------
-export function repoConfigPath(root = process.cwd()) {
+export function repoConfigPath(root = process.cwd()): string {
   return join(root, 'difflab.yaml')
 }
 
@@ -30,8 +31,9 @@ export async function readRepoConfig(root = process.cwd()): Promise<RepoConfig |
   let source: string
   try {
     const entry = await lstat(path)
-    if (!entry.isFile())
+    if (!entry.isFile()) {
       throw new InvalidRepoConfig(`Repository config is not a regular file: ${path}`)
+    }
     source = await readFile(path, 'utf8')
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null
@@ -42,8 +44,9 @@ export async function readRepoConfig(root = process.cwd()): Promise<RepoConfig |
     )
   }
   const result = parseRepoDifflabDotYaml(source)
-  if ('errors' in result)
+  if ('errors' in result) {
     throw new InvalidRepoConfig(`Invalid difflab.yaml at ${path}: ${result.errors.join('; ')}`)
+  }
   return result.config
 }
 
@@ -65,8 +68,9 @@ function parseRepoDifflabDotYaml(source: string): ParseResult {
     errors.push(e instanceof Error ? e.message : String(e))
   }
   const result = repoConfigSchema.safeParse(value)
-  if (!result.success)
+  if (!result.success) {
     errors.push(...result.error.issues.map((i) => `${i.path.join('.')} ${i.message}`))
+  }
   if (errors.length || !result.success) return { errors }
   return { config: result.data }
 }

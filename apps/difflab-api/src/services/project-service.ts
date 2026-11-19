@@ -5,10 +5,9 @@ import {
   ProjectNotFoundError,
   ProjectValidationError,
   type DifflabDb,
+  type GitRemote,
   type Project as DomainProject,
-  type Repository as DomainRepository,
 } from 'difflab-db'
-import { kActor } from '../context.js'
 import {
   CreateProjectResponseSchema,
   GetProjectResponseSchema,
@@ -20,12 +19,22 @@ import {
   type Project as ProtoProject,
   type Repository as ProtoRepository,
 } from '../gen/difflab/v1/project_pb.js'
+import type { AuthService } from './auth-service.js'
+
+// Types -----------------------------------------------------------------------
+export type ProjectServiceDeps = {
+  db: DifflabDb
+  authService: AuthService
+}
 
 // API -------------------------------------------------------------------------
-export function createProjectServiceImpl(db: DifflabDb): ServiceImpl<typeof ProjectService> {
+export function createProjectServiceImpl({
+  db,
+  authService,
+}: ProjectServiceDeps): ServiceImpl<typeof ProjectService> {
   return {
     async createProject(req, context: HandlerContext) {
-      const actor = context.values.get(kActor)
+      const actor = authService.resolveActor(context)
       const project = await withDomainErrors(() =>
         db.projects.createProject(req.key, req.name, req.repositoryUrls, actor),
       )
@@ -35,7 +44,7 @@ export function createProjectServiceImpl(db: DifflabDb): ServiceImpl<typeof Proj
     },
 
     async listProjects(_req, context: HandlerContext) {
-      const actor = context.values.get(kActor)
+      const actor = authService.resolveActor(context)
       const projects = await withDomainErrors(() => db.projects.listProjects(actor))
       return create(ListProjectsResponseSchema, {
         projects: projects.map(toProtoProject),
@@ -43,7 +52,7 @@ export function createProjectServiceImpl(db: DifflabDb): ServiceImpl<typeof Proj
     },
 
     async getProject(req, context: HandlerContext) {
-      const actor = context.values.get(kActor)
+      const actor = authService.resolveActor(context)
       const project = await withDomainErrors(() => db.projects.getProjectById(req.key, actor))
       return create(GetProjectResponseSchema, {
         project: toProtoProject(project),
@@ -51,12 +60,12 @@ export function createProjectServiceImpl(db: DifflabDb): ServiceImpl<typeof Proj
     },
 
     async linkRepository(req, context: HandlerContext) {
-      const actor = context.values.get(kActor)
-      const repository = await withDomainErrors(() =>
-        db.repositories.linkRepositoryToProject(req.projectKey, req.remoteUrl, actor),
+      const actor = authService.resolveActor(context)
+      const gitRemote = await withDomainErrors(() =>
+        db.gitRemotes.linkGitRemoteToProject(req.projectKey, req.remoteUrl, actor),
       )
       return create(LinkRepositoryResponseSchema, {
-        repository: toProtoRepository(repository, actor.workspaceId),
+        repository: toProtoRepository(gitRemote, actor.workspaceId),
       })
     },
   }
@@ -86,19 +95,21 @@ function toProtoProject(project: DomainProject): ProtoProject {
     workspaceId: project.workspaceId,
     key: project.id,
     name: project.name,
-    repositories: project.repositories.map((repo) => toProtoRepository(repo, project.workspaceId)),
+    repositories: project.gitRemotes.map((remote) =>
+      toProtoRepository(remote, project.workspaceId),
+    ),
     createdAt: project.createdAt,
     updatedAt: project.createdAt,
   })
 }
 
-function toProtoRepository(repository: DomainRepository, workspaceId: string): ProtoRepository {
+function toProtoRepository(remote: GitRemote, workspaceId: string): ProtoRepository {
   return create(RepositorySchema, {
-    id: repository.id,
+    id: remote.id,
     workspaceId,
-    projectKey: repository.projectId,
-    remoteUrl: repository.url,
-    slug: repository.slug,
-    createdAt: repository.createdAt,
+    projectKey: remote.projectId,
+    remoteUrl: remote.url,
+    slug: remote.slug,
+    createdAt: remote.createdAt,
   })
 }

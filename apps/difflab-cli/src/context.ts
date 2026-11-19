@@ -1,13 +1,11 @@
 import { join } from 'node:path'
-import { ConnectError, type DifflabClient } from 'difflab-client-ts'
-import { DaemonLifecycleError } from 'utils/daemonx'
+import { ConnectError, resolveDifflabClient, type DifflabClient } from 'difflab-client-ts'
+import { readRepoConfig, resolveDifflabPaths } from 'difflab-config'
+import { DaemonLifecycleError } from 'difflab-daemon'
 import { lstatOrNull } from 'utils/fsx'
 import { canonicalGitUrl, discoverGitRepository, type GitRepository } from 'utils/gitx'
-import { resolveDifflabPaths } from './daemon/config.js'
 import { MissingGlobalConfig, MissingRepoConfig, RepoStoreError } from './errors.js'
-import { readRepoConfig } from './projects/config.js'
 import { checkRepoStore } from './projects/repo-store.js'
-import { resolveDifflabClient } from './rpc/target.js'
 
 // Types -----------------------------------------------------------------------
 export type DifflabContext = {

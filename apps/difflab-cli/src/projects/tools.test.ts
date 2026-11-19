@@ -4,10 +4,10 @@ import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, test } from 'bun:test'
-import { stopDaemon } from 'utils/daemonx'
+import { resolveDifflabClient } from 'difflab-client-ts'
+import { resolveDifflabPaths } from 'difflab-config'
+import { stopDaemon } from 'difflab-daemon'
 import { createProgram } from '../cli.js'
-import { resolveDifflabPaths } from '../daemon/config.js'
-import { resolveDifflabClient } from '../rpc/target.js'
 import { createProjectTools } from './tools.js'
 
 // Setup -----------------------------------------------------------------------

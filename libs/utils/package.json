@@ -8,13 +8,13 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
-    "./daemonx": {
-      "types": "./src/daemonx.ts",
-      "import": "./src/daemonx.ts"
-    },
     "./gitx": {
       "types": "./src/gitx.ts",
       "import": "./src/gitx.ts"
+    },
+    "./logx": {
+      "types": "./src/logx.ts",
+      "import": "./src/logx.ts"
     },
     "./fsx": "./src/fsx.ts",
     "./osx": "./src/osx.ts",
@@ -24,7 +24,8 @@
     "./zodx": "./src/zodx.ts"
   },
   "dependencies": {
-    "proper-lockfile": "^4.1.2",
+    "@logtape/file": "^2.4.2",
+    "@logtape/logtape": "^2.4.2",
     "zod": "4.6.5"
   },
   "scripts": {
@@ -36,7 +37,6 @@
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
-    "@types/proper-lockfile": "^4.1.4",
     "typescript": "7.0.2"
   }
 }

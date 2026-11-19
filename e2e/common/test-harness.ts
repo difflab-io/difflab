@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
-import { stopDaemon } from 'utils/daemonx'
+import { stopDaemon } from 'difflab-daemon'
 import { assertIsolatedTestHome } from 'utils/testx'
 
 // Constants -------------------------------------------------------------------
@@ -14,7 +14,7 @@ export const E2E_ROOT = resolve(CURRENT_DIR, '..')
 export const REPO_ROOT = resolve(E2E_ROOT, '..')
 export const OUTPUTS_ROOT = join(E2E_ROOT, 'outputs')
 export const API_ENTRYPOINT = join(REPO_ROOT, 'apps', 'difflab-api', 'src', 'index.ts')
-export const API_MIGRATE_ENTRYPOINT = join(REPO_ROOT, 'apps', 'difflab-api', 'src', 'migrate.ts')
+export const API_MIGRATE_ENTRYPOINT = join(REPO_ROOT, 'libs', 'difflab-db', 'src', 'migrate-cli.ts')
 export const CLI_ENTRYPOINT = join(REPO_ROOT, 'apps', 'difflab-cli', 'src', 'index.ts')
 
 // Types -----------------------------------------------------------------------

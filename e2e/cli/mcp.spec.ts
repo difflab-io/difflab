@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { getDaemonStatus } from 'utils/daemonx'
+import { getDaemonStatus } from 'difflab-daemon'
 import { createGitRepository } from '../common/fixtures.js'
 import {
   buildCleanEnv,

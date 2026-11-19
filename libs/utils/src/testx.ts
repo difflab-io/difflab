@@ -1,7 +1,6 @@
-import { realpathSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
-import { join, resolve, sep } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 
 // Types -----------------------------------------------------------------------
 export class TestHomeIsolationError extends Error {
@@ -17,9 +16,8 @@ export function assertIsolatedTestHome(
   userHome = homedir(),
 ): void {
   if (!candidateHome?.trim()) return
-  const protectedRoot = canonicalizeMaybeExisting(join(userHome, '.difflab'))
-  const target = canonicalizeMaybeExisting(candidateHome)
-  if (target === protectedRoot || target.startsWith(`${protectedRoot}${sep}`)) {
+  const rel = relative(resolve(userHome, '.difflab'), resolve(candidateHome))
+  if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
     throw new TestHomeIsolationError(
       `Refusing to run tests against real ~/.difflab directory: ${candidateHome}`,
     )
@@ -59,15 +57,5 @@ export async function expectFailureWith(
   }
   if (!failure.message.includes(message)) {
     throw new Error(`Expected failure containing: ${message}; got: ${failure.message}`)
-  }
-}
-
-// Helpers ---------------------------------------------------------------------
-function canonicalizeMaybeExisting(target: string): string {
-  const resolved = resolve(target)
-  try {
-    return realpathSync(resolved)
-  } catch {
-    return resolved
   }
 }

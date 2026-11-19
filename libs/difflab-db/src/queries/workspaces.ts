@@ -1,15 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely } from 'kysely'
-import { isUniqueConstraintError, type DatabaseConfig } from '../dialects.js'
-import { DifflabDbError, ProjectConflictError, ProjectValidationError } from '../errors.js'
-import type {
-  DifflabDatabase,
-  Workspace,
-  WorkspaceMember,
-  WorkspaceMembersTable,
-  WorkspaceRole,
-  WorkspacesTable,
-} from '../schema.js'
+import { isUniqueConstraintError } from '../db.js'
+import { DifflabDbError, ProjectConflictError } from '../errors.js'
+import {
+  WorkspaceEntity,
+  WorkspaceMemberEntity,
+  type DifflabDatabase,
+  type Workspace,
+  type WorkspaceMember,
+  type WorkspaceMemberRow,
+  type WorkspaceRow,
+} from '../schema/index.js'
+import type { DatabaseConfig, WorkspaceRole } from '../types.js'
 
 // API -------------------------------------------------------------------------
 export function createWorkspaceQueries(
@@ -25,17 +27,9 @@ export function createWorkspaceQueries(
   return {
     async createWorkspace(input: { id?: string; slug: string; name: string }): Promise<Workspace> {
       assertCloudDialect()
-      const slug = input.slug.trim().toLowerCase()
-      const name = input.name.trim()
-      if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(slug)) {
-        throw new ProjectValidationError(
-          'Workspace slug must be 2-63 lowercase letters, digits, or hyphens',
-        )
-      }
-      if (!name) {
-        throw new ProjectValidationError('Workspace name must be nonempty')
-      }
-      const row: WorkspacesTable = {
+      const slug = WorkspaceEntity.validateSlug(input.slug)
+      const name = WorkspaceEntity.validateName(input.name)
+      const row: WorkspaceRow = {
         id: input.id ?? randomUUID(),
         slug,
         name,
@@ -43,7 +37,7 @@ export function createWorkspaceQueries(
       }
       try {
         await db.insertInto('workspaces').values(row).execute()
-        return toWorkspace(row)
+        return WorkspaceEntity.fromRow(row)
       } catch (error) {
         if (isUniqueConstraintError(error)) {
           throw new ProjectConflictError(`Workspace already exists: ${slug}`, { cause: error })
@@ -59,7 +53,7 @@ export function createWorkspaceQueries(
         .selectAll()
         .where('slug', '=', slug.trim().toLowerCase())
         .executeTakeFirst()
-      return row ? toWorkspace(row) : null
+      return row ? WorkspaceEntity.fromRow(row) : null
     },
 
     async upsertMember(input: {
@@ -68,7 +62,7 @@ export function createWorkspaceQueries(
       role: WorkspaceRole
     }): Promise<WorkspaceMember> {
       assertCloudDialect()
-      const candidate: WorkspaceMembersTable = {
+      const candidate: WorkspaceMemberRow = {
         workspace_id: input.workspaceId,
         user_id: input.userId,
         role: input.role,
@@ -82,7 +76,7 @@ export function createWorkspaceQueries(
         )
         .returningAll()
         .executeTakeFirstOrThrow()
-      return toWorkspaceMember(saved)
+      return WorkspaceMemberEntity.fromRow(saved)
     },
 
     async listMembers(workspaceId: string): Promise<WorkspaceMember[]> {
@@ -93,26 +87,7 @@ export function createWorkspaceQueries(
         .where('workspace_id', '=', workspaceId)
         .orderBy('created_at', 'asc')
         .execute()
-      return rows.map(toWorkspaceMember)
+      return rows.map(WorkspaceMemberEntity.fromRow)
     },
-  }
-}
-
-// Helpers ---------------------------------------------------------------------
-function toWorkspace(row: WorkspacesTable): Workspace {
-  return {
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    createdAt: row.created_at,
-  }
-}
-
-function toWorkspaceMember(row: WorkspaceMembersTable): WorkspaceMember {
-  return {
-    workspaceId: row.workspace_id,
-    userId: row.user_id,
-    role: row.role,
-    createdAt: row.created_at,
   }
 }

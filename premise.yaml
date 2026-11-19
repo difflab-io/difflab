@@ -26,6 +26,16 @@ workspace:
       path: libs/difflab-client-ts
       answers:
         name: difflab-client-ts
+    - name: difflab-config
+      template: cloudvoyant/premise-bun:premise-ts-lib
+      path: libs/difflab-config
+      answers:
+        name: difflab-config
+    - name: difflab-daemon
+      template: cloudvoyant/premise-bun:premise-ts-lib
+      path: libs/difflab-daemon
+      answers:
+        name: difflab-daemon
     - name: difflab-db
       template: cloudvoyant/premise-bun:premise-ts-lib
       path: libs/difflab-db

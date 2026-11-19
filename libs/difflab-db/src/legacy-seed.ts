@@ -1,7 +1,7 @@
-import { type DifflabDb } from 'difflab-db'
 import { createDifflabDb as createLegacyDifflabDb } from 'difflab-db-legacy'
 import { lstatOrNull } from 'utils/fsx'
-import { LOCAL_ACTOR } from './context.js'
+import type { DifflabDb } from './db.js'
+import { DEFAULT_ACTOR } from './types.js'
 
 // API -------------------------------------------------------------------------
 export async function seedFromLegacyIfPresent(
@@ -22,7 +22,7 @@ export async function seedFromLegacyIfPresent(
         project.id,
         project.name,
         project.repositories.map((repo) => repo.url),
-        LOCAL_ACTOR,
+        DEFAULT_ACTOR,
       )
     }
     return legacyProjects.length

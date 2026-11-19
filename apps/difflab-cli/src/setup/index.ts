@@ -1,7 +1,7 @@
 import { join } from 'node:path'
+import { resolveDifflabPaths } from 'difflab-config'
 import { lstatOrNull } from 'utils/fsx'
 import { probeCommandVersion } from 'utils/processx'
-import { resolveDifflabPaths } from '../daemon/config.js'
 import { TemplateService } from '../templates/service.js'
 
 // Constants -------------------------------------------------------------------

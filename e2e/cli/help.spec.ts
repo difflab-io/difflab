@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
-import { getDaemonStatus } from 'utils/daemonx'
+import { getDaemonStatus } from 'difflab-daemon'
 import { lstatOrNull } from 'utils/fsx'
 import { createE2EContext, type E2ETestContext } from '../common/test-harness.js'
 

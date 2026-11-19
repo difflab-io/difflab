@@ -34,10 +34,23 @@ diff -ru "$tmpdir/client" ../../libs/difflab-client-ts/src/gen
 '''
 
 [tasks.migrate]
-description = "Apply database migrations for PostgreSQL or local SQLite"
+description = "Apply remote PostgreSQL schema migrations in CI or deployment flows"
 depends = ["install"]
+shell = "bash -c"
+usage = 'arg "[environment]" default="dev"'
 dir = "{{ config_root }}"
-run = "bun run migrate"
+run = '''
+set -euo pipefail
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  scope=(--env "${usage_environment:-dev}")
+  if [[ "${usage_environment:-}" == preview && -n "${PM_BRANCH:-}" ]]; then
+    scope+=(--branch "$PM_BRANCH")
+  fi
+  DATABASE_URL="$(pm infra query "${scope[@]}" --output databaseUrl --show-secrets)"
+  export DATABASE_URL
+fi
+bun --cwd ../../libs/difflab-db run migrate
+'''
 
 [tasks.build]
 description = "Build the application"

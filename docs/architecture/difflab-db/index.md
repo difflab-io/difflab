@@ -2,22 +2,22 @@
 
 ## Overview
 
-`libs/difflab-db` is Difflab's greenfield dual-dialect persistence library built on Kysely (a type-safe TypeScript SQL query builder). It backs `difflab-api` over local SQLite (`$DIFFLAB_HOME/local.sqlite` via `bun:sqlite`) and cloud PostgreSQL (`pg.Pool`). Legacy `v0.13.0` SQLite access stays frozen in `libs/difflab-db-legacy` (`difflab.sqlite`) so installed `v0.13.0` and current CLI or MCP binaries coexist on the same machine without in-place schema changes.
+`libs/difflab-db` is Difflab's greenfield dual-dialect persistence library built on Kysely (a type-safe TypeScript SQL query builder) and Zod entity schemas. It backs `difflab-api` over local SQLite (`$DIFFLAB_HOME/local.sqlite` via `bun:sqlite`) and cloud PostgreSQL (`pg.Pool`). Legacy `v0.13.0` SQLite access stays frozen in `libs/difflab-db-legacy` (`difflab.sqlite`) and is encapsulated inside `openLocalDifflabDb` so installed `v0.13.0` and current CLI or MCP binaries coexist on the same machine without in-place schema changes.
 
 ## Requirement
 
 ### Functional
 
-- Callers run migrations explicitly against either a SQLite file path or a PostgreSQL connection string before opening a database handle.
+- Callers run migrations against either a SQLite file path or a PostgreSQL connection string, or open the local SQLite store via `openLocalDifflabDb` with automatic first-boot initialization and one-shot legacy import.
 - SQLite databases apply only shared migrations, while PostgreSQL databases apply both shared and cloud tenancy migrations in chronological order.
-- Opening an unmigrated or partially migrated database fails immediately without creating tables or sidecar files.
+- Opening an existing unmigrated or partially migrated database fails immediately without creating tables or sidecar files.
 - Opening a database whose migration history includes newer unknown migrations succeeds as long as all known applicable migrations are present.
 
 ### Non-Functional
 
 - Single-owner local SQLite access serves concurrent CLI and MCP requests through the local daemon without lock-contention failures or retry delays.
 - Concurrent PostgreSQL migration runs serialize safely without corrupting schema history, and cloud queries isolate tenant records even when non-superuser roles connect.
-- Production database configuration accepts only a SQLite file path or a PostgreSQL connection string so embedded test engines never ship in production runtime dependencies.
+- Production database configuration accepts a SQLite file path, a PostgreSQL connection string, or `DATABASE_URL` / `DIFFLAB_HOME` environment defaults without shipping embedded test engines in production runtime dependencies.
 
 ## Design
 
@@ -25,34 +25,37 @@
 
 ```mermaid
 flowchart LR
-  Caller["apps/difflab-api"] -->|"migrateDatabase / createDifflabDb"| Entry["src/index.ts"]
-  Entry --> Dialects["src/dialects.ts<br/>(BunSqliteDialect | PostgresDialect)"]
-  Entry --> Mig["src/migrations/index.ts<br/>(migrationType filter + assertSchemaReady)"]
-  Entry --> PQ["src/queries/projects.ts"]
-  Entry --> RQ["src/queries/repositories.ts"]
-  Entry --> WQ["src/queries/workspaces.ts"]
-  Entry --> UQ["src/queries/users.ts"]
-  Mig --> M1["0001_initial.ts<br/>(shared)"]
-  Mig --> M2["0002_cloud_tenancy.ts<br/>(cloud)"]
+  Caller["apps/difflab-api"] -->|"openLocalDifflabDb / createDifflabDb"| DB["src/db.ts<br/>(connect, connectSqlite, connectPg)"]
+  DB --> Mig["src/migrations.ts<br/>(migrateDatabase + assertSchemaReady)"]
+  DB --> Seed["src/legacy-seed.ts<br/>(readonly difflab-db-legacy)"]
+  DB --> Schema["src/schema/<br/>(Zod entities + table row types)"]
+  DB --> PQ["src/queries/projects.ts"]
+  DB --> GQ["src/queries/git-remotes.ts"]
+  DB --> WQ["src/queries/workspaces.ts"]
+  DB --> UQ["src/queries/users.ts"]
+  Mig --> M1["migrations/0001_initial.ts<br/>(shared)"]
+  Mig --> M2["migrations/0002_cloud_tenancy.ts<br/>(cloud)"]
 ```
 
-- `src/dialects.ts` opens `BunSqliteDialect` (configuring `WAL`, `foreign_keys = ON`, and `busy_timeout = 5000`) or `PostgresDialect` over `pg.Pool`, and normalizes SQLite and PostgreSQL (`23505`) unique-constraint errors.
-- `src/migrations/` stores a single chronological migration list tagged with `migrationType: 'shared' | 'cloud'`.
-- `src/queries/` groups thin domain query modules for projects, repositories, workspaces, and users.
+- `src/index.ts` is a pure re-export barrel; general non-table types live in `src/types.ts`.
+- `src/db.ts` provides `connect` (resolving explicit config or `DATABASE_URL` / `DIFFLAB_HOME`), `connectSqlite`, `connectPg`, `createDifflabDb`, and `openLocalDifflabDb`.
+- `src/schema/` (`common.ts`, `project.ts`, `git-remote.ts`, `user.ts`, `workspace.ts`) defines Zod row and domain schemas alongside colocated entity helpers (`ProjectEntity`, `GitRemoteEntity`, `UserEntity`, `WorkspaceEntity`, `WorkspaceMemberEntity`).
+- `src/migrations.ts` filters chronological migrations from top-level `libs/difflab-db/migrations/` by `migrationType: 'shared' | 'cloud'` and verifies schema readiness; `src/migrate-cli.ts` backs `mise run //libs/difflab-db:migrate` for CI and deployment flows.
+- `src/queries/` groups thin query modules for `projects`, `git-remotes`, `workspaces`, and `users`.
 
 ### Data and Control Flow
 
 ```mermaid
 flowchart LR
-  Config["DatabaseConfig"] --> Open["migrateDatabase(config)"]
-  Open --> Check{"config.dialect"}
+  Config["DatabaseConfig / Env"] --> Open["migrateDatabase(config)"]
+  Open --> Check{"resolved dialect"}
   Check -->|"sqlite"| SharedOnly["Select migrationType === 'shared'"]
   Check -->|"postgres"| All["Select shared + cloud migrations"]
   SharedOnly --> KyselyMig["Kysely Migrator -> kysely_migration"]
   All --> KyselyMig
 ```
 
-When `createDifflabDb(config)` runs, it opens the dialect without creating missing SQLite files and calls `assertSchemaReady`, which inspects `kysely_migration` read-only without constructing a `Migrator` (preventing accidental table creation on unmigrated files).
+When `createDifflabDb(config)` runs, `connect` opens the dialect without creating missing SQLite files and calls `assertSchemaReady`, which inspects `kysely_migration` read-only without constructing a `Migrator` (preventing accidental table creation on unmigrated files). For local daemon startup, `openLocalDifflabDb` creates `$DIFFLAB_HOME/local.sqlite` only when missing, runs shared migrations, and imports sibling `difflab.sqlite` once via internal `src/legacy-seed.ts`.
 
 ### Interfaces and Contracts
 
@@ -61,7 +64,7 @@ erDiagram
   workspaces ||--o{ workspace_members : "has"
   users ||--o{ workspace_members : "joins"
   workspaces ||--o{ projects : "scopes (logical on SQLite)"
-  projects ||--o{ repositories : "owns"
+  projects ||--o{ git_remotes : "owns"
 
   projects {
     text id PK
@@ -71,12 +74,12 @@ erDiagram
     text created_by_user_id
     text created_at
   }
-  repositories {
+  git_remotes {
     text id PK
     text workspace_id
     text project_id FK
     text project_key
-    text github_url
+    text remote_url
     text slug
     text created_by_user_id
     text created_at
@@ -108,26 +111,28 @@ export type ActorContext = { workspaceId: string; userId: string | null }
 export type DatabaseConfig =
   { dialect: 'sqlite'; path: string } | { dialect: 'postgres'; connectionString: string }
 
-export function migrateDatabase(config: DatabaseConfig): Promise<string[]>
-export function createDifflabDb(config: DatabaseConfig): Promise<DifflabDb>
+export function connect(config?: DatabaseConfig, options?: ConnectSqliteOptions): ConnectedDatabase
+export function migrateDatabase(config?: DatabaseConfig): Promise<string[]>
+export function createDifflabDb(config?: DatabaseConfig): Promise<DifflabDb>
+export function openLocalDifflabDb(options: LocalDatabaseOptions): Promise<DifflabDb>
 ```
 
 ## Implementation
 
-### Compile-Time Migration Type Safety
+### Compile-Time Migration Type Safety and Standalone Embedding
 
-`defineSharedMigration` types `up` and `down` against `Kysely<CoreDatabase>` (`projects` and `repositories` only), preventing shared SQLite migrations from referencing cloud-only tables at compile time. `defineCloudMigration` types against `Kysely<DifflabDatabase>` (`CoreDatabase & CloudDatabase`).
+`defineSharedMigration` types `up` and `down` against `Kysely<CoreDatabase>` (`projects` and `git_remotes` only), preventing shared SQLite migrations from referencing cloud-only tables at compile time. `defineCloudMigration` types against `Kysely<DifflabDatabase>` (`CoreDatabase & CloudDatabase`). Numbered migrations live at `libs/difflab-db/migrations/` outside `src/` following conventional layout while being statically imported by `src/migrations.ts` so `bun build` embeds them in standalone local bundles and runs them identically against remote PostgreSQL in CI.
 
-### Coexistence with `libs/difflab-db-legacy`
+### Encapsulated Legacy Seeding
 
-`libs/difflab-db` writes `$DIFFLAB_HOME/local.sqlite` and has zero dependency on `libs/difflab-db-legacy`. One-shot import from `$DIFFLAB_HOME/difflab.sqlite` lives in `apps/difflab-api/src/legacy-seed.ts` so removing v1 support later only deletes `libs/difflab-db-legacy` and `legacy-seed.ts`.
+`src/legacy-seed.ts` keeps `libs/difflab-db-legacy` hidden inside `libs/difflab-db` so `apps/difflab-api` and `apps/difflab-cli` have zero direct imports from the legacy v1 store.
 
 ### Dual-Dialect Testing with Wire-Protocol PGlite
 
-`src/index.test.ts` runs every shared behavior against both `bun:sqlite` and a real PostgreSQL wire socket backed by `@electric-sql/pglite` + `@electric-sql/pglite-socket`, exercising `pg.Pool` and PostgreSQL RLS without Docker or test-only branches in `src/dialects.ts`.
+`src/index.test.ts` runs every shared behavior against both `bun:sqlite` and a real PostgreSQL wire socket backed by `@electric-sql/pglite` + `@electric-sql/pglite-socket`, exercising `pg.Pool` and PostgreSQL RLS without Docker or test-only branches in `src/db.ts`.
 
 ## References
 
-- Project and repository queries and indexes: [projects.md](./projects.md)
+- Project and Git remote queries and indexes: [projects.md](./projects.md)
 - Cloud workspace, user, and membership queries and RLS: [workspaces-and-users.md](./workspaces-and-users.md)
 - API consumer architecture: [../difflab-api/index.md](../difflab-api/index.md)

@@ -14,16 +14,16 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "dev": "bun run --hot src/index.ts",
-    "start": "bun src/index.ts",
-    "migrate": "bun src/migrate.ts"
+    "start": "bun src/index.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.17.0",
     "@bufbuild/protovalidate": "1.3.0",
     "@connectrpc/connect": "2.3.0",
     "@connectrpc/validate": "0.2.0",
+    "difflab-config": "workspace:*",
+    "difflab-daemon": "workspace:*",
     "difflab-db": "workspace:*",
-    "difflab-db-legacy": "workspace:*",
     "hono": "4.13.8",
     "utils": "workspace:*"
   },

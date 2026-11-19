@@ -43,6 +43,8 @@
     "@modelcontextprotocol/sdk": "1.31.0",
     "commander": "15.0.0",
     "difflab-client-ts": "workspace:*",
+    "difflab-config": "workspace:*",
+    "difflab-daemon": "workspace:*",
     "utils": "workspace:*",
     "yaml": "2.9.1",
     "zod": "4.6.5"
