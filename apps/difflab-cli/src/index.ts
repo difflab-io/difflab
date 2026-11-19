@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { MigrationError, DifflabDbError } from 'difflab-db'
+import { MigrationError, DifflabDbError } from 'difflab-db-legacy'
 import { createProgram } from './cli.js'
 import { DifflabError } from './errors.js'
 

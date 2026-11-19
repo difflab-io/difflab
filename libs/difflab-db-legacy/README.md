@@ -1,9 +1,9 @@
-# difflab-db
+# difflab-db-legacy
 
 Internal Bun/TypeScript library for project metadata in one user-wide SQLite database. The caller supplies the database path. This library never chooses a home directory, creates parent directories, or scans project folders.
 
 ```ts
-import { openProjectStore } from 'difflab-db'
+import { openProjectStore } from 'difflab-db-legacy'
 
 const store = await openProjectStore(dbPath)
 try {
