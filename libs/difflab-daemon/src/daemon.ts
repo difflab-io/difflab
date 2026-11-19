@@ -47,51 +47,70 @@ export function resolveDifflabApiEntry(explicitEntry?: string): string {
   throw new ConfigurationError('Unable to locate difflab-api server entrypoint')
 }
 
-export function buildDifflabDaemonOptions(options: DifflabDaemonOptions): DaemonStartOptions {
-  const port = options.port ?? 0
-  const apiEntry = resolveDifflabApiEntry(options.apiEntry)
-  const paths = resolveDifflabPathsFromRoot(options.stateDir)
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    DIFFLAB_HOME: options.stateDir,
-    DIFFLAB_MODE: 'local',
-  }
-  delete env.DATABASE_URL
+export class DifflabDaemon {
+  readonly options: DifflabDaemonOptions
 
-  return {
-    stateDir: options.stateDir,
-    command: process.execPath,
-    args: [apiEntry, '--port', String(port), '--state-dir', options.stateDir],
-    env,
-    logPath: options.logPath ?? paths.daemonLog,
+  constructor(options: DifflabDaemonOptions) {
+    this.options = options
   }
-}
 
-export async function runDifflabDaemonForeground(options: DifflabDaemonOptions): Promise<void> {
-  const start = buildDifflabDaemonOptions(options)
-  await new Promise<void>((resolveRun, rejectRun) => {
-    const child = spawn(start.command, start.args, {
-      env: start.env,
-      stdio: 'inherit',
+  static withOptions(options: DifflabDaemonOptions): DifflabDaemon {
+    return new DifflabDaemon(options)
+  }
+
+  withOptions(overrides: Partial<DifflabDaemonOptions>): DifflabDaemon {
+    return new DifflabDaemon({ ...this.options, ...overrides })
+  }
+
+  async run(runOptions?: {
+    foreground?: boolean
+  }): Promise<Extract<DaemonStatus, { running: true }> | null> {
+    const foreground = runOptions?.foreground ?? this.options.foreground ?? false
+    if (foreground) {
+      await this.runForeground()
+      return null
+    }
+    return await this.runBackground()
+  }
+
+  async runForeground(): Promise<void> {
+    const start = toDaemonStartOptions(this.options)
+    await new Promise<void>((resolveRun, rejectRun) => {
+      const child = spawn(start.command, start.args, {
+        env: start.env,
+        stdio: 'inherit',
+      })
+      const forwardSigint = () => child.kill('SIGINT')
+      const forwardSigterm = () => child.kill('SIGTERM')
+      process.on('SIGINT', forwardSigint)
+      process.on('SIGTERM', forwardSigterm)
+      child.on('error', (error) => {
+        process.off('SIGINT', forwardSigint)
+        process.off('SIGTERM', forwardSigterm)
+        rejectRun(error)
+      })
+      child.on('exit', (code) => {
+        process.off('SIGINT', forwardSigint)
+        process.off('SIGTERM', forwardSigterm)
+        if (code && code !== 0) {
+          process.exitCode = code
+        }
+        resolveRun()
+      })
     })
-    const forwardSigint = () => child.kill('SIGINT')
-    const forwardSigterm = () => child.kill('SIGTERM')
-    process.on('SIGINT', forwardSigint)
-    process.on('SIGTERM', forwardSigterm)
-    child.on('error', (error) => {
-      process.off('SIGINT', forwardSigint)
-      process.off('SIGTERM', forwardSigterm)
-      rejectRun(error)
-    })
-    child.on('exit', (code) => {
-      process.off('SIGINT', forwardSigint)
-      process.off('SIGTERM', forwardSigterm)
-      if (code && code !== 0) {
-        process.exitCode = code
-      }
-      resolveRun()
-    })
-  })
+  }
+
+  async runBackground(): Promise<Extract<DaemonStatus, { running: true }>> {
+    return await startDaemon(toDaemonStartOptions(this.options))
+  }
+
+  status(): Promise<DaemonStatus> {
+    return getDaemonStatus(this.options.stateDir)
+  }
+
+  stop(timeoutMs?: number): Promise<{ stopped: boolean; pid?: number }> {
+    return stopDaemon(this.options.stateDir, timeoutMs)
+  }
 }
 
 export async function writeDaemonMetadata(stateDir: string, record: DaemonRecord): Promise<void> {
@@ -254,6 +273,26 @@ export async function stopDaemon(
 }
 
 // Helpers ---------------------------------------------------------------------
+function toDaemonStartOptions(options: DifflabDaemonOptions): DaemonStartOptions {
+  const port = options.port ?? 0
+  const apiEntry = resolveDifflabApiEntry(options.apiEntry)
+  const paths = resolveDifflabPathsFromRoot(options.stateDir)
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    DIFFLAB_HOME: options.stateDir,
+    DIFFLAB_MODE: 'local',
+  }
+  delete env.DATABASE_URL
+
+  return {
+    stateDir: options.stateDir,
+    command: process.execPath,
+    args: [apiEntry, '--port', String(port), '--state-dir', options.stateDir],
+    env,
+    logPath: options.logPath ?? paths.daemonLog,
+  }
+}
+
 async function ensureSafeStateDir(stateDir: string): Promise<void> {
   const existing = await lstatOrNull(stateDir)
   if (existing && (existing.isSymbolicLink() || !existing.isDirectory())) {

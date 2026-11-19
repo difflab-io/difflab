@@ -1,18 +1,32 @@
-import { createClient, type Interceptor } from '@connectrpc/connect'
+import { createClient, type Client, type Interceptor } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 import { resolveDifflabPaths, resolveRemoteTargetFromEnv } from 'difflab-config'
-import { buildDifflabDaemonOptions, ensureDaemon } from 'difflab-daemon'
+import { DifflabDaemon } from 'difflab-daemon'
 import { DifflabClientConfigError } from './errors.js'
 import { ProjectService } from './gen/difflab/v1/project_pb.js'
-import type {
-  ClientResolutionOptions,
-  DifflabClient,
-  DifflabClientTarget,
-  DifflabTransportOptions,
-} from './types.js'
 
 // Constants -------------------------------------------------------------------
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
+
+// Types -----------------------------------------------------------------------
+export type DifflabClientTarget =
+  | { mode: 'local'; rpcUrl: string }
+  | { mode: 'remote'; rpcUrl: string; token?: string; workspaceId?: string }
+
+export type DifflabTransportOptions = {
+  fetch?: typeof globalThis.fetch
+  timeoutMs?: number
+}
+
+export type DifflabClient = {
+  projects: Client<typeof ProjectService>
+}
+
+export type ClientResolutionOptions = {
+  home?: string
+  client?: DifflabClient
+  apiEntry?: string
+}
 
 // API -------------------------------------------------------------------------
 export function createDifflabClient(
@@ -64,9 +78,10 @@ export async function resolveDifflabClient(
   }
 
   const paths = resolveDifflabPaths(options.home)
-  const status = await ensureDaemon(
-    buildDifflabDaemonOptions({ stateDir: paths.root, apiEntry: options.apiEntry }),
-  )
+  const status = await DifflabDaemon.withOptions({
+    stateDir: paths.root,
+    apiEntry: options.apiEntry,
+  }).runBackground()
   return createDifflabClient({
     mode: 'local',
     rpcUrl: status.rpc_url,

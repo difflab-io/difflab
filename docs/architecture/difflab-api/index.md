@@ -38,9 +38,10 @@ flowchart LR
 ```
 
 - `apps/difflab-api/proto/` owns the `.proto` schemas and `buf.validate` field rules, generating server descriptors into `apps/difflab-api/src/gen/` and client descriptors into private `libs/difflab-client-ts/src/gen/`.
-- `apps/difflab-api/src/services/auth-service.ts` (`AuthService`) validates cloud startup credentials, enforces constant-time Bearer token checks and `x-difflab-workspace` headers in `requestGate`, and injects `requireActor` into RPC services.
-- `apps/difflab-api/src/app.ts` mounts `GET /health`, wraps Connect universal fetch handlers at `/rpc/*`, and logs structured JSON request and response transcripts via `libs/utils/logx` (`@logtape/logtape`).
-- `apps/difflab-api/src/server.ts` resolves startup configuration via `libs/difflab-config`, opens local SQLite via `openLocalDifflabDb` (including one-shot legacy import inside `libs/difflab-db`) or cloud PostgreSQL via `createDifflabDb`, and writes `daemon.json` via `libs/difflab-daemon`.
+- `apps/difflab-api/src/dtos/` defines Protobuf contract DTOs (`ProjectDTO`, `GitRemoteDTO`) grouping `schema`, `toProto`, and `fromProto` conversions.
+- `apps/difflab-api/src/services/auth-service.ts` (`AuthService`) validates cloud startup credentials, enforces constant-time Bearer token checks and `x-difflab-workspace` headers in `requestGate`, and tracks per-request authenticated `ActorContext` (`currentActor`) via `AsyncLocalStorage`.
+- `apps/difflab-api/src/app.ts` binds Hono typed context variables (`c.var`), wraps Connect handlers at `/rpc/*`, and emits one canonical wide-event JSONL record per RPC call via `runWithWideEvent` (`libs/utils/logx`, supporting multiple LogTape sinks).
+- `apps/difflab-api/src/server.ts` composes `AuthService`, `DifflabDb` (`openDifflabDb`), and `ProjectRpcService`, binds `Bun.serve`, and manages local `daemon.json` lifecycle via `libs/difflab-daemon`.
 
 ### Data and Control Flow
 
@@ -99,7 +100,7 @@ export function createApp(deps: AppDeps): Hono
 
 ### Code Generation and Private SDK Boundary
 
-`apps/difflab-api/buf.gen.yaml` runs `@bufbuild/protoc-gen-es` twice so server handlers and `libs/difflab-client-ts` stay in lockstep from one `.proto` source. `mise run //apps/difflab-api:lint` runs `check-codegen` to reject stale generated files in CI. `libs/difflab-client-ts` owns `createDifflabClient` and `resolveDifflabClient` (using `libs/difflab-config` and `libs/difflab-daemon`), keeps `"private": true` without `publishConfig`, and is bundled directly into `@difflab/difflab-cli`.
+`apps/difflab-api/buf.gen.yaml` runs `@bufbuild/protoc-gen-es` twice so server handlers and `libs/difflab-client-ts` stay in lockstep from one `.proto` source. `mise run //apps/difflab-api:lint` runs `codegen:check` to reject stale generated files in CI. `libs/difflab-client-ts` owns `createDifflabClient` and `resolveDifflabClient` (using `libs/difflab-config` and `DifflabDaemon.withOptions` from `libs/difflab-daemon`), keeps `"private": true` without `publishConfig`, and is bundled directly into `@difflab/difflab-cli`.
 
 ### Startup Modes, Migrations, and Daemon Metadata
 

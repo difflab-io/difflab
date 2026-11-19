@@ -22,6 +22,7 @@ export type DaemonStartOptions = {
 export type DifflabDaemonOptions = {
   stateDir: string
   port?: number
+  foreground?: boolean
   logPath?: string
   apiEntry?: string
 }

@@ -8,10 +8,11 @@ import {
   type ApiMode,
 } from 'difflab-config'
 import { daemonMetadataPath, writeDaemonMetadata } from 'difflab-daemon'
-import { createDifflabDb, openLocalDifflabDb, type DifflabDb } from 'difflab-db'
-import { configureLogging, getLogger, resolveLogLevel } from 'utils/logx'
+import { openDifflabDb, type DifflabDb } from 'difflab-db'
+import { configureLogging, getLogger, resolveLogLevel, type Sink } from 'utils/logx'
 import { createApp } from './app.js'
-import { createAuthService } from './services/auth-service.js'
+import { AuthService } from './services/auth-service.js'
+import { ProjectRpcService } from './services/project-service.js'
 
 // Constants -------------------------------------------------------------------
 const serverLogger = getLogger('api')
@@ -23,42 +24,48 @@ type CliFlags = {
   host?: string
 }
 
+export type ServerDeps = {
+  db?: DifflabDb
+  authService?: AuthService
+  projectService?: ProjectRpcService
+  sinks?: Record<string, Sink>
+}
+
 // API -------------------------------------------------------------------------
-export async function startServer(argv: string[] = process.argv.slice(2)): Promise<void> {
+export async function startServer(
+  argv: string[] = process.argv.slice(2),
+  deps: ServerDeps = {},
+): Promise<void> {
   configureLogging({
     level: resolveLogLevel(process.env, 'info'),
     format: 'jsonl',
+    sinks: deps.sinks,
   })
   const flags = parseFlags(argv)
-  const mode = resolveApiMode(process.env)
+  const mode = deps.authService?.mode ?? resolveApiMode(process.env)
   const port = flags.port ?? parsePortEnv(process.env.PORT) ?? (mode === 'local' ? 0 : 8787)
   const host = flags.host ?? process.env.HOST?.trim() ?? '127.0.0.1'
+  const stateDir =
+    mode === 'local'
+      ? flags.stateDir
+        ? resolve(flags.stateDir)
+        : resolveDifflabPaths().root
+      : undefined
 
-  if (mode === 'cloud') {
-    const apiToken = process.env.DIFFLAB_API_TOKEN?.trim()
-    const authService = createAuthService({ mode: 'cloud', apiToken })
-    const connectionString = process.env.DATABASE_URL?.trim()
-    if (!connectionString) {
-      throw new Error('DATABASE_URL must be set when starting difflab-api in cloud mode')
-    }
-    const db = await createDifflabDb({ dialect: 'postgres', connectionString })
-    await serveWithGracefulShutdown({
-      db,
-      mode: 'cloud',
-      authService,
-      host,
-      port,
+  const authService =
+    deps.authService ??
+    AuthService.withOptions({
+      mode,
+      apiToken: process.env.DIFFLAB_API_TOKEN,
     })
-    return
-  }
+  const db = deps.db ?? (await openDifflabDb({ mode, stateDir }))
+  const projectService = deps.projectService ?? new ProjectRpcService(db, authService)
 
-  const stateDir = flags.stateDir ? resolve(flags.stateDir) : resolveDifflabPaths().root
-  const authService = createAuthService({ mode: 'local' })
-  const db = await openLocalDifflabDb(stateDir)
   await serveWithGracefulShutdown({
     db,
-    mode: 'local',
+    mode,
     authService,
+    projectService,
     host,
     port,
     stateDir,
@@ -69,7 +76,8 @@ export async function startServer(argv: string[] = process.argv.slice(2)): Promi
 async function serveWithGracefulShutdown(options: {
   db: DifflabDb
   mode: ApiMode
-  authService: ReturnType<typeof createAuthService>
+  authService: AuthService
+  projectService: ProjectRpcService
   host: string
   port: number
   stateDir?: string
@@ -78,8 +86,8 @@ async function serveWithGracefulShutdown(options: {
   try {
     const app = createApp({
       db: options.db,
-      mode: options.mode,
       authService: options.authService,
+      projectService: options.projectService,
     })
     server = Bun.serve({
       hostname: options.host,

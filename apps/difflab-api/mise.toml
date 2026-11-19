@@ -7,7 +7,7 @@ description = "Install Bun workspace dependencies through the root task"
 depends = ["//:install"]
 run = 'echo "Workspace dependencies installed by //:install"'
 
-[tasks.generate]
+[tasks.codegen]
 description = "Lint Protobuf definitions and generate server and client descriptors"
 depends = ["install"]
 dir = "{{ config_root }}"
@@ -16,7 +16,7 @@ run = [
   "buf generate",
 ]
 
-[tasks.check-codegen]
+[tasks."codegen:check"]
 description = "Verify generated Protobuf descriptors match proto definitions"
 depends = ["install"]
 dir = "{{ config_root }}"
@@ -68,7 +68,7 @@ run = "bun run test"
 
 [tasks.lint]
 description = "Lint Protobuf codegen and type-check the application"
-depends = ["install", "check-codegen"]
+depends = ["install", "codegen:check"]
 dir = "{{ config_root }}/.."
 run = [
   "bunx --no-install eslint --config ../eslint.config.js \"$MISE_PROJECT_ROOT\" --no-warn-ignored",

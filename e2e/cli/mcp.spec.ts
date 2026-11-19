@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath } from 'node:fs/promises'
+import { mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -121,17 +121,28 @@ describe('given a difflab mcp serve session on an uninitialized workspace', () =
     )
   })
 
-  it('project_context should return an error guiding the caller to difflab-init', async () => {
+  it('project_context should return skill-directed errors for missing difflab.yaml, relative cwd, or missing global setup without creating local.sqlite', async () => {
     // Arrange
     const ctx = await openContext('mcp-uninitialized--project-context-returns-init-hint')
+    const repoDir = await createGitRepository(ctx.workspaceDir, {
+      subpath: 'repo',
+      originUrl: 'https://github.com/difflab-io/uninitialized.git',
+    })
     const mcp = await connectMcp(ctx)
 
     // Act
-    const response = await mcp.callTool('project_context', { cwd: ctx.workspaceDir })
+    const missingYaml = await mcp.callTool('project_context', { cwd: await realpath(repoDir) })
+    const relativeCwd = await mcp.callTool('project_context', { cwd: 'relative/path' })
+    await writeFile(join(repoDir, 'difflab.yaml'), 'schemaVersion: 1\nproject:\n  id: UNINIT\n')
+    await symlink(join(ctx.workspaceDir, 'missing-store'), join(repoDir, '.difflab'))
+    const missingGlobal = await mcp.callTool('project_context', { cwd: await realpath(repoDir) })
 
     // Assert
-    expect(response.isError).toBe(true)
-    expect(parseMcpJson(response).error).toContain('difflab-init')
+    expect(missingYaml.isError).toBe(true)
+    expect(parseMcpJson(missingYaml).error).toContain('difflab-init')
+    expect(relativeCwd.isError).toBe(true)
+    expect(missingGlobal.isError).toBe(true)
+    expect(parseMcpJson(missingGlobal).error).toContain('difflab-init')
   })
 
   it('todo tools should persist and update tasks in workspace/todos.json', async () => {
@@ -264,6 +275,54 @@ describe('given a difflab mcp serve session on an initialized repository with a 
         localPath: await realpath(repoDir),
       },
     })
+  })
+
+  it('project_context should reject mismatched .difflab symlinks or unregistered project manifests without mutating links', async () => {
+    // Arrange
+    const ctx = await openContext('mcp-initialized--rejects-wrong-symlink-or-manifest')
+    const repoDir = await createGitRepository(ctx.workspaceDir, {
+      subpath: 'repo',
+      originUrl: 'https://github.com/difflab-io/mcp-first.git',
+    })
+    await ctx.runCli([
+      'project',
+      'add',
+      'FIR',
+      '--name',
+      'First',
+      '--repo',
+      'https://github.com/difflab-io/mcp-first.git',
+    ])
+    await ctx.runCli([
+      'project',
+      'add',
+      'SEC',
+      '--name',
+      'Second',
+      '--repo',
+      'https://github.com/difflab-io/mcp-second.git',
+    ])
+    await ctx.runCli(['init', 'FIR'], { cwd: repoDir })
+    const mcp = await connectMcp(ctx)
+
+    // Act: wrong symlink
+    await rm(join(repoDir, '.difflab'))
+    await symlink(ctx.workspaceDir, join(repoDir, '.difflab'))
+    const wrongLink = await mcp.callTool('project_context', { cwd: await realpath(repoDir) })
+
+    // Act: manifest pointing to another project without registered origin
+    const secStore = join(ctx.difflabHome, 'projects', 'SEC', 'github.com--difflab-io--mcp-first')
+    await mkdir(secStore, { recursive: true })
+    await rm(join(repoDir, '.difflab'))
+    await symlink(secStore, join(repoDir, '.difflab'))
+    await writeFile(join(repoDir, 'difflab.yaml'), 'schemaVersion: 1\nproject:\n  id: SEC\n')
+    const unregistered = await mcp.callTool('project_context', { cwd: await realpath(repoDir) })
+
+    // Assert
+    expect(wrongLink.isError).toBe(true)
+    expect(parseMcpJson(wrongLink).error).toContain('links elsewhere')
+    expect(unregistered.isError).toBe(true)
+    expect(parseMcpJson(unregistered).error).toContain('not registered')
   })
 })
 

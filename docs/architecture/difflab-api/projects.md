@@ -33,7 +33,8 @@ flowchart LR
 ```
 
 - `apps/difflab-api/proto/difflab/v1/project.proto` defines `ProjectService`, message schemas, and `buf.validate` constraints.
-- `apps/difflab-api/src/services/project-service.ts` resolves the caller's `ActorContext` via injected `AuthService`, invokes `libs/difflab-db` queries (`db.projects` and `db.gitRemotes`), converts domain entities to Protobuf messages, and maps domain exceptions to Connect status codes.
+- `apps/difflab-api/src/dtos/project.ts` defines `ProjectDTO` and `GitRemoteDTO` (`DTO` mappers with `schema`, `toProto`, and `fromProto`).
+- `apps/difflab-api/src/services/project-service.ts` (`ProjectRpcService`) resolves the caller's `ActorContext` via injected `AuthService`, invokes `libs/difflab-db` queries (`db.projects` and `db.gitRemotes`), maps domain entities through `ProjectDTO` and `GitRemoteDTO`, and translates domain exceptions to Connect status codes.
 
 ### Data and Control Flow
 

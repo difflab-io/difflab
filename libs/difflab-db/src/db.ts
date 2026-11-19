@@ -1,6 +1,11 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { resolveDifflabPaths, resolveDifflabPathsFromRoot } from 'difflab-config'
+import {
+  resolveApiMode,
+  resolveDifflabPaths,
+  resolveDifflabPathsFromRoot,
+  type ApiMode,
+} from 'difflab-config'
 import { Kysely, PostgresDialect, sql } from 'kysely'
 import { BunSqliteDialect } from 'kysely-bun-worker/normal'
 import pg from 'pg'
@@ -92,6 +97,21 @@ export async function openLocalDifflabDb(stateDir?: string): Promise<DifflabDb> 
   }
 
   return await createDifflabDb({ dialect: 'sqlite', path: paths.database })
+}
+
+export async function openDifflabDb(
+  options: { mode?: ApiMode; stateDir?: string; env?: NodeJS.ProcessEnv } = {},
+): Promise<DifflabDb> {
+  const env = options.env ?? process.env
+  const mode = options.mode ?? resolveApiMode(env)
+  if (mode === 'cloud') {
+    const connectionString = env.DATABASE_URL?.trim()
+    if (!connectionString) {
+      throw new DifflabDbError('DATABASE_URL must be set when starting difflab-api in cloud mode')
+    }
+    return await createDifflabDb({ dialect: 'postgres', connectionString })
+  }
+  return await openLocalDifflabDb(options.stateDir)
 }
 
 export function isUniqueConstraintError(error: unknown): boolean {

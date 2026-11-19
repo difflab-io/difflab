@@ -13,8 +13,10 @@
 - Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
 - Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module.
 - Put general package-wide types in `src/types.ts` rather than mixing non-database types into database schema modules.
-- Use `@logtape/logtape` via shared `libs/utils` logging helpers instead of bespoke logging; libraries acquire category loggers without configuring sinks, and applications configure sinks at startup.
+- Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto`.
+- Use `@logtape/logtape` via shared `libs/utils` logging helpers with multi-sink support and `AsyncLocalStorage` request context so services emit structured wide-event request logs instead of bespoke log lines; libraries acquire category loggers without configuring sinks, and applications configure sinks at startup.
 - [Proposed] Keep package `src/index.ts` entry points limited to re-exports and put implementation in dedicated modules.
+- [Proposed] Name code generation tasks `codegen` and `codegen:check` consistently with `format` and `format:check`.
 
 ### TypeScript files
 
@@ -41,6 +43,7 @@
 - Keep module APIs thin. Expose only the operations callers need.
 - Make section divider comments 80 columns wide, using `//`, the section name, and trailing hyphens. Use the same format in test files.
 - Use semantic exceptions for failures that callers need to catch and handle.
+- [Proposed] Prefer class or factory configuration methods named `withOptions(...)` over standalone `build*Options` helpers.
 - [Proposed] Define persisted domain entities with Zod schemas and colocated row-mapping helpers, and prefer domain names such as `git-remotes` over `repositories` to avoid confusion with data-access repositories.
 
 ## Testing

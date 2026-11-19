@@ -8,13 +8,7 @@ import {
   resolveDifflabPaths,
   validateProjectKeyFormat,
 } from 'difflab-config'
-import {
-  buildDifflabDaemonOptions,
-  getDaemonStatus,
-  runDifflabDaemonForeground,
-  startDaemon,
-  stopDaemon,
-} from 'difflab-daemon'
+import { DifflabDaemon } from 'difflab-daemon'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
 import { getProjectContext } from './context.js'
 import { ProjectSetupError, RepoStoreError } from './errors.js'
@@ -29,13 +23,32 @@ type ProgramOptions = {
   client?: DifflabClient
 }
 
+class DifflabCommand extends Command {
+  override createCommand(name?: string): Command {
+    return new DifflabCommand(name)
+  }
+
+  override action(fn: Parameters<Command['action']>[0]): this {
+    return super.action(async (...args: unknown[]) => {
+      try {
+        await fn.apply(this, args)
+      } catch (error) {
+        if (error instanceof ConnectError) {
+          throw new ProjectSetupError(error.rawMessage || error.message, { cause: error })
+        }
+        throw error
+      }
+    })
+  }
+}
+
 // API -------------------------------------------------------------------------
 export function createProgram(
   write: (message: string) => void = console.log,
   version = '0.1.0',
   options: ProgramOptions = {},
 ): Command {
-  const program = new Command()
+  const program = new DifflabCommand()
     .name('difflab')
     .description('Difflab CLI and local MCP server')
     .version(version)
@@ -62,11 +75,12 @@ export function createProgram(
     .action(async (flags: { port: string; foreground?: boolean; json?: boolean }) => {
       const port = parsePortValue(flags.port)
       const paths = resolveDifflabPaths(options.home)
-      if (flags.foreground) {
-        await runDifflabDaemonForeground({ stateDir: paths.root, port })
-        return
-      }
-      const status = await startDaemon(buildDifflabDaemonOptions({ stateDir: paths.root, port }))
+      const status = await DifflabDaemon.withOptions({
+        stateDir: paths.root,
+        port,
+        foreground: Boolean(flags.foreground),
+      }).run()
+      if (!status) return
       if (flags.json) {
         write(JSON.stringify(status, null, 2))
         return
@@ -80,7 +94,7 @@ export function createProgram(
     .option('--json', 'Format status output as JSON')
     .action(async (flags: { json?: boolean }) => {
       const paths = resolveDifflabPaths(options.home)
-      const status = await getDaemonStatus(paths.root)
+      const status = await DifflabDaemon.withOptions({ stateDir: paths.root }).status()
       if (flags.json) {
         write(JSON.stringify(status, null, 2))
         return
@@ -97,7 +111,7 @@ export function createProgram(
     .description('Stop the local Difflab background server')
     .action(async () => {
       const paths = resolveDifflabPaths(options.home)
-      const result = await stopDaemon(paths.root)
+      const result = await DifflabDaemon.withOptions({ stateDir: paths.root }).stop()
       write(
         result.stopped
           ? `Stopped Difflab daemon (pid ${result.pid}).`
@@ -126,13 +140,11 @@ export function createProgram(
       const key = validateProjectKeyFormat(projectKey)
       repositories.forEach(canonicalGitUrl)
       const client = await resolveDifflabClient({ home: options.home, client: options.client })
-      const response = await withRpcError(() =>
-        client.projects.createProject({
-          key,
-          name: name.trim(),
-          repositoryUrls: repositories,
-        }),
-      )
+      const response = await client.projects.createProject({
+        key,
+        name: name.trim(),
+        repositoryUrls: repositories,
+      })
       const created = response.project!
       write(`Created project ${created.name} (${created.key})`)
     })
@@ -142,7 +154,7 @@ export function createProgram(
     .description('List projects and associated Git repositories')
     .action(async () => {
       const client = await resolveDifflabClient({ home: options.home, client: options.client })
-      const { projects } = await withRpcError(() => client.projects.listProjects({}))
+      const { projects } = await client.projects.listProjects({})
       if (!projects.length) {
         write('No projects yet.')
         return
@@ -171,15 +183,11 @@ export function createProgram(
       await preflightRepoStore(git.root, target)
 
       const client = await resolveDifflabClient({ home: options.home, client: options.client })
-      const { project: foundProject } = await withRpcError(() =>
-        client.projects.getProject({ key }),
-      )
-      await withRpcError(() =>
-        client.projects.linkRepository({
-          projectKey: foundProject!.key,
-          remoteUrl: origin,
-        }),
-      )
+      const { project: foundProject } = await client.projects.getProject({ key })
+      await client.projects.linkRepository({
+        projectKey: foundProject!.key,
+        remoteUrl: origin,
+      })
 
       await ensureRepoStore(git.root, target, git.excludePath)
       if (!config) {
@@ -252,16 +260,4 @@ export function createProgram(
     })
 
   return program
-}
-
-// Helpers ---------------------------------------------------------------------
-async function withRpcError<T>(operation: () => Promise<T>): Promise<T> {
-  try {
-    return await operation()
-  } catch (error) {
-    if (error instanceof ConnectError) {
-      throw new ProjectSetupError(error.rawMessage || error.message, { cause: error })
-    }
-    throw error
-  }
 }

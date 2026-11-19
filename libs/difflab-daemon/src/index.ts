@@ -1,11 +1,10 @@
 // API -------------------------------------------------------------------------
 export {
-  buildDifflabDaemonOptions,
   daemonMetadataPath,
+  DifflabDaemon,
   ensureDaemon,
   getDaemonStatus,
   resolveDifflabApiEntry,
-  runDifflabDaemonForeground,
   startDaemon,
   stopDaemon,
   writeDaemonMetadata,

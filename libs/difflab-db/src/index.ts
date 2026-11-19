@@ -3,6 +3,7 @@ export {
   connect,
   createDifflabDb,
   isUniqueConstraintError,
+  openDifflabDb,
   openLocalDifflabDb,
   resolveDatabaseConfig,
   type DifflabDb,

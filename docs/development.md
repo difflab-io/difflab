@@ -22,10 +22,10 @@ Root `mise.toml` sets `DIFFLAB_HOME = "{{config_root}}/.tmp/difflab-home"`. Any 
 `apps/difflab-api/proto/difflab/v1/project.proto` is the source of truth for RPC messages, services, and `buf.validate` rules. After editing any `.proto` file, regenerate both server (`apps/difflab-api/src/gen/`) and private client (`libs/difflab-client-ts/src/gen/`) descriptors:
 
 ```sh
-mise run //apps/difflab-api:generate
+mise run //apps/difflab-api:codegen
 ```
 
-`mise run //apps/difflab-api:lint` executes `check-codegen` to ensure committed descriptors match `buf generate`.
+`mise run //apps/difflab-api:lint` executes `codegen:check` to ensure committed descriptors match `buf generate`.
 
 ## Database Migrations
 
