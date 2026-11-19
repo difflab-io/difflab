@@ -19,13 +19,10 @@ describe('given an unconfigured HOME and a restricted PATH missing gh, glab, and
     it('then it exits 0, lists missing items with the agent prompt note in stdout and cli.log, and leaves HOME/.difflab absent on disk', async () => {
       // Arrange
       const ctx = await createSetupTestContext('unconfigured-home-and-restricted-path')
-      const binDir = join(ctx.rootDir, 'bin')
-      await mkdir(binDir, { recursive: true })
-      await writeExecutable(join(binDir, 'git'), '#!/bin/sh\necho "git version 2.45.0"\n')
-      await writeExecutable(join(binDir, 'bun'), '#!/bin/sh\necho "1.4.2"\n')
+      await ctx.stubTools({ git: 'git version 2.45.0', bun: '1.4.2' })
 
       // Act
-      const result = await ctx.runCli(['setup'], { PATH: binDir })
+      const result = await ctx.runCli(['setup'])
       const cliLog = await readFile(ctx.cliLogPath, 'utf8')
       const storeStat = await lstatOrNull(join(ctx.difflabHome, '.difflab'))
 
@@ -56,12 +53,12 @@ describe('given available prerequisites, unpacked templates, and configured HOOK
     it('then it exits 0 and reports ok across prerequisites, store, and hooks without missing prompts', async () => {
       // Arrange
       const ctx = await createSetupTestContext('configured-store-and-hooks')
-      const binDir = join(ctx.rootDir, 'bin')
-      await mkdir(binDir, { recursive: true })
-      await writeExecutable(join(binDir, 'git'), '#!/bin/sh\necho "git version 2.45.0"\n')
-      await writeExecutable(join(binDir, 'bun'), '#!/bin/sh\necho "1.4.2"\n')
-      await writeExecutable(join(binDir, 'npx'), '#!/bin/sh\necho "10.8.0"\n')
-      await writeExecutable(join(binDir, 'gh'), '#!/bin/sh\necho "gh version 2.60.0"\n')
+      await ctx.stubTools({
+        git: 'git version 2.45.0',
+        bun: '1.4.2',
+        npx: '10.8.0',
+        gh: 'gh version 2.60.0',
+      })
       const storeRoot = join(ctx.difflabHome, '.difflab')
       await mkdir(join(storeRoot, 'templates'), { recursive: true })
       for (const hook of ['on-request-worktree', 'on-remote-delegation', 'on-merge']) {
@@ -71,7 +68,7 @@ describe('given available prerequisites, unpacked templates, and configured HOOK
       }
 
       // Act
-      const result = await ctx.runCli(['setup'], { PATH: binDir })
+      const result = await ctx.runCli(['setup'])
       const cliLog = await readFile(ctx.cliLogPath, 'utf8')
 
       // Assert
@@ -97,6 +94,7 @@ type SetupTestContext = {
   rootDir: string
   difflabHome: string
   cliLogPath: string
+  stubTools: (versions: Record<string, string>) => Promise<void>
   runCli: (
     args: string[],
     envOverrides?: Record<string, string>,
@@ -106,21 +104,28 @@ type SetupTestContext = {
 async function createSetupTestContext(slug: string): Promise<SetupTestContext> {
   const rootDir = join(OUTPUTS_ROOT, slug)
   const difflabHome = join(rootDir, 'difflab-home')
+  const binDir = join(rootDir, 'bin')
   const cliLogPath = join(rootDir, 'cli.log')
   assertIsolatedHome(difflabHome)
 
   await rm(rootDir, { recursive: true, force: true })
   await mkdir(difflabHome, { recursive: true })
+  await mkdir(binDir, { recursive: true })
   await writeFile(cliLogPath, '', 'utf8')
 
   return {
     rootDir,
     difflabHome,
     cliLogPath,
+    async stubTools(versions) {
+      for (const [name, output] of Object.entries(versions)) {
+        await writeExecutable(join(binDir, name), `#!/bin/sh\necho "${output}"\n`)
+      }
+    },
     async runCli(args, envOverrides = {}) {
       const result = spawnSync(process.execPath, [CLI_ENTRYPOINT, ...args], {
         cwd: rootDir,
-        env: { ...process.env, HOME: difflabHome, ...envOverrides },
+        env: { ...process.env, HOME: difflabHome, PATH: binDir, ...envOverrides },
         encoding: 'utf8',
         timeout: 15000,
       })
