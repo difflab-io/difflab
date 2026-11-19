@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { lstatOrNull } from 'utils/fsx'
 import { probeCommandVersion } from 'utils/processx'
-import { userPaths } from '../store/user-store.js'
+import { resolveDifflabPaths } from '../daemon/config.js'
 import { TemplateService } from '../templates/service.js'
 
 // Constants -------------------------------------------------------------------
@@ -23,7 +23,7 @@ export async function runSetupReport(
   options: SetupReportOptions = {},
 ): Promise<void> {
   const env = options.env ?? process.env
-  const root = userPaths(options.home).root
+  const root = resolveDifflabPaths(options.home).root
   let hasMissing = false
 
   write('Prerequisites:')

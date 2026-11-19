@@ -1,0 +1,65 @@
+[tools]
+bun = "1.4.2"
+
+[tasks.install]
+description = "Install Bun workspace dependencies through the root task"
+depends = ["//:install"]
+run = 'echo "Workspace dependencies installed by //:install"'
+
+[tasks.build]
+description = "No-op build for E2E API test suite"
+depends = ["install"]
+run = 'echo "E2E API suite executes TypeScript specs directly"'
+
+[tasks.clean]
+description = "Remove retained E2E API outputs"
+dir = "{{ config_root }}"
+run = "rm -rf ../outputs/api"
+
+[tasks.test]
+description = "Run outside-in E2E specs for difflab-api"
+depends = ["install"]
+dir = "{{ config_root }}"
+run = "bun test --timeout 30000 ."
+
+[tasks.lint]
+description = "Lint and type-check E2E API specs"
+depends = ["install"]
+dir = "{{ config_root }}/../.."
+run = [
+  "bunx --no-install eslint --config eslint.config.js e2e/common e2e/api --no-warn-ignored",
+  "bunx --no-install tsc -p e2e/tsconfig.json --noEmit",
+]
+
+[tasks."lint:fix"]
+description = "Format and lint E2E API specs"
+depends = ["install", "format"]
+dir = "{{ config_root }}/../.."
+run = [
+  "bunx --no-install eslint --config eslint.config.js e2e/common e2e/api --fix --no-warn-ignored",
+  "mise run -C \"$MISE_PROJECT_ROOT\" lint",
+]
+
+[tasks.format]
+description = "Format E2E API specs and shared harness"
+depends = ["install"]
+dir = "{{ config_root }}/.."
+run = "bunx --no-install prettier --ignore-path ../.prettierignore --write common api tsconfig.json"
+
+[tasks."format:check"]
+description = "Check formatting of E2E API specs and shared harness"
+depends = ["install"]
+dir = "{{ config_root }}/.."
+run = "bunx --no-install prettier --ignore-path ../.prettierignore --check common api tsconfig.json"
+
+[tasks.env-pull]
+description = "Pull external environment configuration"
+run = 'echo "env-pull: nothing to pull"'
+
+[tasks."publish:rc"]
+description = "Skip internal release candidate publication"
+run = 'echo "publish:rc: e2e suite is internal; nothing to publish"'
+
+[tasks.publish]
+description = "Skip internal stable publication"
+run = 'echo "publish: e2e suite is internal; nothing to publish"'

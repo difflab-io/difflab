@@ -1,22 +1,14 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { execFileSync } from 'node:child_process'
-import {
-  lstat,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rename,
-  rm,
-  symlink,
-  writeFile,
-} from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, expect, test } from 'bun:test'
+import { stopDaemon } from 'utils/daemonx'
 import { createProgram } from '../cli.js'
+import { resolveDifflabPaths } from '../daemon/config.js'
+import { resolveDifflabClient } from '../rpc/target.js'
 import { createProjectTools } from './tools.js'
-import { createUserStore, userPaths } from '../store/user-store.js'
 
 // Setup -----------------------------------------------------------------------
 let temp: string
@@ -47,25 +39,26 @@ test('missing setup and invalid cwd produce skill-directed errors without creati
   await expect(lstat(home)).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
-test('returns typed context without writing database sidecars or migrating old schemas', async () => {
+test('returns typed context and fails without migrating when local.sqlite loses migration rows', async () => {
   // Arrange
   await mkdir(home)
-  const project = await createProject('MYA', 'My Project')
-  await initialize({ cwd: repo, home, projectId: project.id })
+  await createProject('MYA', 'My Project', 'https://github.com/example/one')
+  await initialize({ cwd: repo, home, projectId: 'MYA' })
   const tool = createProjectTools(home)[0]!
-  const paths = userPaths(home)
-  const before = await readdir(paths.root)
+  const paths = resolveDifflabPaths(home)
 
   // Act
   const ready = await tool.callback({ cwd: repo })
 
   // Assert
-  expect(await readdir(paths.root)).toEqual(before)
   expect(ready.isError).toBeUndefined()
-  expect(ready.structuredContent).toMatchObject({ project: { id: project.id } })
+  expect(ready.structuredContent).toMatchObject({ project: { id: 'MYA' } })
+
+  await stopDaemon(paths.root)
   const db = new Database(paths.database)
   db.run('DELETE FROM kysely_migration')
   db.close()
+
   const outdated = await tool.callback({ cwd: repo })
   expect(outdated.isError).toBe(true)
   expect(JSON.stringify(outdated.content)).toContain('difflab-init')
@@ -80,11 +73,15 @@ test('returns typed context without writing database sidecars or migrating old s
 test('rejects a manifest for another project rather than auto-linking the origin', async () => {
   // Arrange
   await mkdir(home)
-  const project = await createProject('FIR', 'First')
-  const second = await createProject('SEC', 'Second')
-  await initialize({ cwd: repo, home, projectId: project.id })
-  const path = join(repo, 'difflab.yaml')
-  await writeFile(path, (await readFile(path, 'utf8')).replace(project.id, second.id))
+  await createProject('FIR', 'First', 'https://github.com/example/one')
+  await createProject('SEC', 'Second', 'https://github.com/example/two')
+  await initialize({ cwd: repo, home, projectId: 'FIR' })
+  const configPath = join(repo, 'difflab.yaml')
+  await writeFile(configPath, (await readFile(configPath, 'utf8')).replace('FIR', 'SEC'))
+  const wrongStore = join(resolveDifflabPaths(home).projects, 'SEC', 'github.com--example--one')
+  await mkdir(wrongStore, { recursive: true })
+  await rm(join(repo, '.difflab'))
+  await symlink(wrongStore, join(repo, '.difflab'))
 
   // Act
   const result = await createProjectTools(home)[0]!.callback({ cwd: repo })
@@ -92,15 +89,20 @@ test('rejects a manifest for another project rather than auto-linking the origin
   // Assert
   expect(result.isError).toBe(true)
   expect(JSON.stringify(result.content)).toContain('not registered')
-  expect((await createUserStore(home).getProjectById(second.id)).repositories).toHaveLength(0)
+  const client = await resolveDifflabClient({ home })
+  const second = await client.projects.getProject({ key: 'SEC' })
+  expect(second.project?.repositories.map((r) => r.remoteUrl)).toEqual([
+    'https://github.com/example/two',
+  ])
 })
 
-test('rejects missing databases and wrong symlinks without repairing either', async () => {
+test('rejects wrong symlinks and missing projects without repairing either', async () => {
   // Arrange
   await mkdir(home)
-  const project = await createProject('FIR', 'First')
-  await initialize({ cwd: repo, home, projectId: project.id })
+  await createProject('FIR', 'First', 'https://github.com/example/one')
+  await initialize({ cwd: repo, home, projectId: 'FIR' })
   const tool = createProjectTools(home)[0]!
+  const paths = resolveDifflabPaths(home)
   const link = join(repo, '.difflab')
   await rm(link)
   await symlink(temp, link)
@@ -109,19 +111,27 @@ test('rejects missing databases and wrong symlinks without repairing either', as
   const mismatch = await tool.callback({ cwd: repo })
   expect(mismatch.isError).toBe(true)
   expect(JSON.stringify(mismatch.content)).toContain('links elsewhere')
+
   await rm(link)
-  await symlink(join(userPaths(home).projects, project.id, 'example--one'), link)
-  const file = userPaths(home).database
-  await rename(file, `${file}.missing`)
+  const validStore = join(paths.projects, 'FIR', 'github.com--example--one')
+  await symlink(validStore, link)
+  await stopDaemon(paths.root)
+  await rm(paths.database, { force: true })
+  await rm(`${paths.database}-wal`, { force: true })
+  await rm(`${paths.database}-shm`, { force: true })
+
   const missing = await tool.callback({ cwd: repo })
   expect(missing.isError).toBe(true)
   expect(JSON.stringify(missing.content)).toContain('difflab-init')
-  await expect(lstat(file)).rejects.toMatchObject({ code: 'ENOENT' })
-  expect(await readdir(userPaths(home).root)).not.toContain('difflab.sqlite-wal')
 })
 
 // Cleanup ---------------------------------------------------------------------
 afterEach(async () => {
+  try {
+    await stopDaemon(resolveDifflabPaths(home).root)
+  } catch {
+    // Ignore when home was never created.
+  }
   await rm(temp, { recursive: true, force: true })
 })
 
@@ -135,6 +145,16 @@ async function initialize(options: { cwd: string; home: string; projectId: strin
   ])
 }
 
-function createProject(key: string, name: string) {
-  return createUserStore(home).createProject(key, name)
+async function createProject(key: string, name: string, origin: string) {
+  await createProgram(() => {}, '0.1.0', { home }).parseAsync([
+    'node',
+    'difflab',
+    'project',
+    'add',
+    key,
+    '--name',
+    name,
+    '--repo',
+    origin,
+  ])
 }

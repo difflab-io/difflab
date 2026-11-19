@@ -1,0 +1,85 @@
+# Difflab DB Workspaces and Users: software architecture
+
+## Overview
+
+The `workspaces` and `users` query modules and the `0002_cloud_tenancy` cloud migration provide tenant identity, user directory records, role-based workspace membership, and PostgreSQL row-level security (RLS) for cloud deployments. These tables exist only on PostgreSQL and are never created on local SQLite.
+
+## Requirement
+
+### Functional
+
+- Cloud services create and fetch workspaces by ID or lowercase URL-safe slug (`2..48` characters) and manage `owner`, `admin`, and `member` memberships.
+- Re-adding an existing workspace member updates their role while preserving their original `created_at` timestamp.
+- Cloud services upsert users by normalized lowercase email address, updating `display_name` on repeat sign-in while preserving the user's `id` and `created_at` timestamp.
+
+### Non-Functional
+
+- PostgreSQL row-level security policies on `projects`, `repositories`, and `workspace_members` restrict tenant rows to `current_setting('difflab.workspace_id', true)` when non-superuser roles query the database.
+- Email addresses and workspace slugs are normalized and indexed uniquely so concurrent sign-ins or workspace creation calls cannot create duplicate tenant identities.
+
+## Design
+
+### Components and Responsibilities
+
+```mermaid
+flowchart LR
+  Cloud["Cloud Auth / Provisioning"] --> WS["createWorkspaceQueries<br/>(src/queries/workspaces.ts)"]
+  Cloud --> US["createUserQueries<br/>(src/queries/users.ts)"]
+  WS --> WSTables[("workspaces & workspace_members")]
+  US --> USTable[("users")]
+  RLS["0002_cloud_tenancy.ts<br/>(PostgreSQL RLS Policies)"] -.->|"difflab.workspace_id"| Scoped[("projects, repositories, workspace_members")]
+```
+
+- `src/migrations/0002_cloud_tenancy.ts` (`migrationType: 'cloud'`) creates `workspaces`, `users`, and `workspace_members` and enables PostgreSQL RLS policies.
+- `src/queries/workspaces.ts` exposes `createWorkspace`, `getWorkspaceById`, `getWorkspaceBySlug`, `upsertMember`, and `listMembers`.
+- `src/queries/users.ts` exposes `upsertUserByEmail` and `getUserById`.
+
+### Data and Control Flow
+
+1. `upsertUserByEmail` normalizes the email to lowercase, inserts the candidate row, and updates `display_name` via `ON CONFLICT (email) DO UPDATE` before returning the persisted user row.
+2. `upsertMember` validates `role` (`owner | admin | member`), inserts into `workspace_members`, and updates `role` on `(workspace_id, user_id)` conflict without touching `created_at`.
+
+### Interfaces and Contracts
+
+```ts
+export type WorkspaceRole = 'owner' | 'admin' | 'member'
+
+export type Workspace = {
+  id: string
+  slug: string
+  name: string
+  createdAt: string
+}
+
+export type User = {
+  id: string
+  email: string
+  displayName: string
+  createdAt: string
+}
+
+export type WorkspaceMember = {
+  workspaceId: string
+  userId: string
+  role: WorkspaceRole
+  createdAt: string
+}
+```
+
+| Constraint / Policy | Target | Rule |
+| --- | --- | --- |
+| `workspaces.slug` unique | `workspaces` | Lowercase alphanumeric + hyphen slug (`^[a-z0-9][a-z0-9-]{1,47}$`). |
+| `users.email` unique | `users` | Normalized lowercase email address. |
+| `workspace_members_pk` | `workspace_members` | Primary key `(workspace_id, user_id)` with cascading foreign keys to `workspaces` and `users`. |
+| `*_workspace_isolation` RLS | `projects`, `repositories`, `workspace_members` | `USING` and `WITH CHECK` require `workspace_id = current_setting('difflab.workspace_id', true)`. |
+
+## Implementation
+
+### Defense-in-Depth Tenant Isolation
+
+Query modules always filter explicitly by `.where('workspace_id', '=', workspaceId)` on both SQLite and PostgreSQL, while PostgreSQL RLS policies in `0002_cloud_tenancy.ts` add database-enforced tenant isolation whenever sessions bind `SET LOCAL difflab.workspace_id`.
+
+## References
+
+- Dual-dialect database overview and ERD: [index.md](./index.md)
+- Cloud tenancy migration: `libs/difflab-db/src/migrations/0002_cloud_tenancy.ts`

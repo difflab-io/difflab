@@ -1,0 +1,135 @@
+[tools]
+bun = "1.4.2"
+buf = "1.75.0"
+
+[tasks.install]
+description = "Install Bun workspace dependencies through the root task"
+depends = ["//:install"]
+run = 'echo "Workspace dependencies installed by //:install"'
+
+[tasks.generate]
+description = "Lint Protobuf definitions and generate server and client descriptors"
+depends = ["install"]
+dir = "{{ config_root }}"
+run = [
+  "buf lint",
+  "buf generate",
+]
+
+[tasks.check-codegen]
+description = "Verify generated Protobuf descriptors match proto definitions"
+depends = ["install"]
+dir = "{{ config_root }}"
+run = '''
+set -eu
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+mkdir -p "$tmpdir/server" "$tmpdir/client"
+if [ -d src/gen ]; then cp -R src/gen/. "$tmpdir/server/"; fi
+if [ -d ../../libs/difflab-client-ts/src/gen ]; then cp -R ../../libs/difflab-client-ts/src/gen/. "$tmpdir/client/"; fi
+buf lint
+buf generate
+diff -ru "$tmpdir/server" src/gen
+diff -ru "$tmpdir/client" ../../libs/difflab-client-ts/src/gen
+'''
+
+[tasks.migrate]
+description = "Apply database migrations for PostgreSQL or local SQLite"
+depends = ["install"]
+dir = "{{ config_root }}"
+run = "bun run migrate"
+
+[tasks.build]
+description = "Build the application"
+depends = ["install"]
+run = "bun run build"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "bun run clean"
+
+[tasks.test]
+description = "Run the Bun test suite"
+depends = ["install"]
+run = "bun run test"
+
+[tasks.lint]
+description = "Lint Protobuf codegen and type-check the application"
+depends = ["install", "check-codegen"]
+dir = "{{ config_root }}/.."
+run = [
+  "bunx --no-install eslint --config ../eslint.config.js \"$MISE_PROJECT_ROOT\" --no-warn-ignored",
+  "mise run -C \"$MISE_PROJECT_ROOT\" typecheck",
+]
+
+[tasks."lint:fix"]
+description = "Format and type-check the application"
+depends = ["install", "format"]
+dir = "{{ config_root }}/.."
+run = [
+  "bunx --no-install eslint --config ../eslint.config.js \"$MISE_PROJECT_ROOT\" --fix --no-warn-ignored",
+  "mise run -C \"$MISE_PROJECT_ROOT\" lint",
+]
+
+[tasks.format]
+description = "Format project files"
+depends = ["install"]
+dir = "{{ config_root }}/.."
+run = "bunx --no-install prettier --ignore-path ../.prettierignore --plugin=prettier-plugin-svelte --write \"$MISE_PROJECT_ROOT\""
+
+[tasks."format:check"]
+description = "Check project formatting"
+depends = ["install"]
+dir = "{{ config_root }}/.."
+run = "bunx --no-install prettier --ignore-path ../.prettierignore --plugin=prettier-plugin-svelte --check \"$MISE_PROJECT_ROOT\""
+
+[tasks.env-pull]
+description = "Pull external environment configuration"
+run = 'echo "env-pull: nothing to pull"'
+
+[tasks."publish:rc"]
+description = "Report deferred prerelease publication"
+run = 'echo "publish:rc: npm publication is not configured"'
+
+[tasks.publish]
+description = "Report deferred stable publication"
+run = 'echo "publish: npm publication is not configured"'
+
+[tasks.run]
+description = "Run the application"
+depends = ["install"]
+run = '''
+set -eu
+if [ "${PREMISE_TEMPLATE_TEST:-}" = "1" ]; then
+  bun run build
+else
+  bun run start
+fi
+'''
+
+[tasks.dev]
+description = "Run the application in development mode"
+depends = ["install"]
+run = '''
+set -eu
+if [ "${PREMISE_TEMPLATE_TEST:-}" = "1" ]; then
+  bun run build
+else
+  bun run dev
+fi
+'''
+
+[tasks.deploy]
+description = "Report deferred deployment"
+run = 'echo "deploy: no deployment target configured"'
+
+[tasks.e2e]
+description = "Run the finite application smoke test"
+depends = ["install"]
+run = "sh -c 'bun run test'"
+
+[tasks.typecheck]
+description = "Run project-specific type checks"
+hide = true
+dir = "{{ config_root }}"
+run = 'bunx --no-install tsc --noEmit'

@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["bun", "node"]
   },
-  "include": ["cli/**/*.ts"]
+  "include": ["common/**/*.ts", "api/**/*.ts", "cli/**/*.ts"]
 }

@@ -127,9 +127,12 @@ async function createSetupTestContext(slug: string): Promise<SetupTestContext> {
       }
     },
     async runCli(args, envOverrides = {}) {
+      const childEnv: NodeJS.ProcessEnv = { ...process.env, HOME: difflabHome, PATH: binDir }
+      delete childEnv.DIFFLAB_HOME
+      Object.assign(childEnv, envOverrides)
       const result = spawnSync(process.execPath, [CLI_ENTRYPOINT, ...args], {
         cwd: rootDir,
-        env: { ...process.env, HOME: difflabHome, PATH: binDir, ...envOverrides },
+        env: childEnv,
         encoding: 'utf8',
         timeout: 15000,
       })
