@@ -1,4 +1,4 @@
-import { MigrationError, DifflabDbError } from 'difflab-db'
+import { MigrationError, DifflabDbError } from 'difflab-db-legacy'
 import { canonicalGitUrl, discoverGitRepository, type GitRepository } from 'utils/gitx'
 import { join } from 'node:path'
 import { MissingGlobalConfig, MissingRepoConfig, RepoStoreError } from './errors.js'

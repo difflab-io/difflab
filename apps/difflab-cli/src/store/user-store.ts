@@ -2,7 +2,7 @@ import { realpathSync } from 'node:fs'
 import { lstat, mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { createDifflabDb, type Project, type Repository } from 'difflab-db'
+import { createDifflabDb, type Project, type Repository } from 'difflab-db-legacy'
 import { DifflabError } from '../errors.js'
 
 // Constants -------------------------------------------------------------------
