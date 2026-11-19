@@ -1,55 +1,65 @@
 # [User outcome or product change]
 
-> @agent: make this closer to the PRD under prd dir!
-
 - **Status:** draft
 - **Owner:** [person or team]
 - **Date:** [YYYY-MM-DD]
 
 ## Summary
 
-[What changes for users, and why?]
+[State what changes for users and why it matters.]
 
 ## Problem and Evidence
 
-[Who has the problem? Give observed evidence or mark assumptions.]
+[Name who has the problem and state observed evidence or explicit assumptions.]
 
 ## Users and Use Cases
 
-- [User]: [job to be done and context.]
+- [Primary user]: [Job to be done and context.]
+- [Secondary user]: [Job to be done and context.]
+- [Operator or caller]: [Job to be done and context.]
 
 ## Goals
 
-- [User outcome to achieve.]
+- [Primary user outcome to achieve.]
+- [Secondary user outcome to achieve.]
+- [Operational or quality outcome to achieve.]
 
 ## Non-Goals
 
-- [Related need that this work does not address.]
+- [Related need that this work excludes.]
+- [Out-of-scope workflow or integration.]
+- [Deferred capability for a later release.]
 
 ## Proposed Experience
 
-[Describe the user journey, inputs, outputs, errors, and recovery.]
+[Describe the user journey, inputs, outputs, error messages, and recovery path.]
 
 ## Requirements
 
-### [Capability]
+[Describe observable behavioral capabilities and performance, security, cost, isolation, and reliability characteristics from an end-user or client perspective. Do not use `FR` or `NFR` prefixes. Leave internal types, function names, configuration internals, file layouts, and code-style rules out of this section.]
 
-[Required user-facing behavior, edge cases, and constraints.]
+### [Capability or quality characteristic]
 
-**Acceptance:** [Observable way to check the requirement.]
+[State required user-facing behavior, edge cases, and operational bounds.]
+
+Acceptance: [State an observable way to make sure that the requirement works.]
 
 ## Success Measures
 
-[Signal, baseline or assumption, target, and when/how it will be measured.]
+[State the signal, baseline or assumption, target, and measurement method.]
 
 ## Risks and Dependencies
 
-- [Risk or dependency]: [mitigation or owner.]
+- [Technical or product risk]: [Mitigation or owner.]
+- [External dependency]: [Mitigation or owner.]
+- [Operational or rollout risk]: [Mitigation or owner.]
 
 ## Open Questions
 
-- [Question and decision owner.]
+- [Product decision and owner.]
+- [Scope question and owner.]
+- [Rollout question and owner.]
 
 ## Rollout
 
-[Release, feedback, migration, and rollback plan, if needed.]
+[Describe the release plan, feedback loop, migration path, and rollback steps.]

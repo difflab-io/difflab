@@ -27,12 +27,12 @@ sections:
         scope: file
         default_severity: consider
         issue: >-
-          Function or other names misrepresent behavior, hide side effects, or violate written naming rules.
+          Function or symbol names misrepresent behavior, hide side effects, or break written naming rules.
         results: []
       - id: readability.structure
         scope: file
         default_severity: consider
-        issue: The changed flow is materially hard to follow.
+        issue: The changed control flow is hard to follow.
         results: []
   - title: Semantic Organization
     criteria:
@@ -44,25 +44,25 @@ sections:
       - id: organization.architecture
         scope: review
         default_severity: consider
-        issue: Files or classes mix responsibilities, obscure ownership, or violate written architecture rules.
+        issue: Files or classes mix responsibilities, obscure ownership, or break written architecture rules.
         results: []
       - id: organization.api-ergonomics
         scope: applicable-file
         applies_when: Added or modified public APIs, exported types, methods, or classes.
         default_severity: consider
-        issue: Public APIs expose types unrelated to the module role or are hard to discover and use.
+        issue: Public APIs expose types unrelated to the module role or remain hard to discover and use.
         results: []
       - id: organization.new-files
         scope: applicable-file
         applies_when: Added source files that introduce a module or submodule. A rename alone does not qualify.
         default_severity: consider
         issue: >-
-          A new file lacks a justified module boundary or contains functions that belong in an existing module.
+          A new file lacks a clear module boundary or contains functions that belong in an existing module.
         results: []
       - id: organization.file-structure
         scope: file
         default_severity: consider
-        issue: A file breaks the project-prescribed structure or declaration order.
+        issue: A file breaks the prescribed section order or declaration layout.
         results: []
   - title: Maintainability
     criteria:
@@ -70,93 +70,101 @@ sections:
         scope: review
         default_severity: consider
         issue: >-
-          New fields, types, wrappers, helpers, dependencies, or layers lack a justified use and add needless complexity.
+          New fields, types, wrappers, helpers, dependencies, or layers lack a clear caller need and add complexity.
         results: []
       - id: maintainability.complexity
         scope: applicable-file
         applies_when: >-
-          Files with added or changed executable functions. For new functions, assess whether the introduced decision paths are justified.
+          Files with added or changed executable functions. For new functions, evaluate whether required behavior needs the introduced branches.
         default_severity: consider
-        issue: Cyclomatic complexity grows without justification from the required behavior.
+        issue: Cyclomatic complexity grows beyond what the required behavior needs.
         results: []
       - id: maintainability.utilities
         scope: review
         default_severity: consider
-        issue: Duplicated state or behavior, or inline work, makes a function harder to read or maintain.
+        issue: Duplicated state, repeated logic, or inline work makes a function hard to read or maintain.
         results: []
       - id: maintainability.packages
         scope: review
         default_severity: consider
         issue: >-
-          Custom code recreates functionality that an established, widely used package suitably provides.
+          Custom code recreates functionality that an established package already provides.
         results: []
   - title: Reliability/Testing
     criteria:
       - id: testing.correctness
         scope: file
         default_severity: blocking
-        issue: The changed code produces incorrect behavior.
+        issue: The changed code produces wrong behavior.
         results: []
       - id: testing.application
         scope: review
         default_severity: consider
         issue: >-
-          Required behavior lacks outside-in test evidence (e2e > integration > unit), or e2e/integration tests lack human-verifiable outputs such as snapshots, test logs, or JSON outputs.
+          Required behavior lacks outside-in test evidence (e2e over integration over unit), or tests lack human-verifiable outputs such as snapshots, logs, or JSON payloads.
         results: []
       - id: testing.relevance
         scope: applicable-file
         applies_when: Added or modified test files.
         default_severity: consider
         issue: >-
-          Verbose unit tests pad coverage without proving real contracts, validate static asset or template structure, test the test apparatus itself, add regression tests for changes within the same changeset or for alpha projects without users, or only verify external dependency behavior.
+          Verbose unit tests pad coverage without proving real contracts or exercise only external dependencies. Tests inspect static asset or template structure, test the test apparatus, or add same-changeset or alpha regression tests.
         results: []
       - id: testing.names
         scope: applicable-file
         applies_when: Added or modified test files.
         default_severity: consider
         issue: >-
-          A test name does not identify the function or functionality tested and its expected behavior.
+          A test name omits the tested functionality or its expected outcome.
         results: []
       - id: testing.arrange-act-assert
         scope: applicable-file
         applies_when: Added or modified test files.
         default_severity: consider
         issue: >-
-          Test organization lacks clear BDD/Gherkin structure (given/when/then) or interleaves setup, actions, and assertions so coverage or expected results are hard to see.
+          Test organization lacks clear BDD structure (given, when, then) or mixes setup, actions, and assertions.
         results: []
       - id: testing.fixtures
         scope: applicable-file
         applies_when: Added or modified tests, fixtures, test setup, or test utility files.
         default_severity: consider
         issue: >-
-          Repeated setup, unsuitable fixtures, or recreated shared utilities obscure tests or duplicate existing helpers.
+          Repeated setup, unsuitable fixtures, or duplicated helpers obscure tests.
         results: []
   - title: Documentation
     criteria:
       - id: documentation.conciseness
         scope: applicable-file
-        applies_when: Added or modified documentation, including documentation comments.
+        applies_when: Added or modified documentation and documentation comments.
         default_severity: consider
-        issue: Long, dense, or complex text makes documentation hard to understand.
+        issue: Long, dense, or complex prose makes documentation hard to read.
         results: []
       - id: documentation.redundancy
         scope: applicable-file
-        applies_when: Added or modified documentation, including documentation comments.
+        applies_when: Added or modified documentation and documentation comments.
         default_severity: consider
-        issue: Documentation repeats the implementation or other text without adding useful context.
+        issue: Documentation repeats code or existing prose without adding context.
         results: []
       - id: documentation.visuals
         scope: applicable-file
         applies_when: Added or modified documentation that explains structures, flows, or relationships.
         default_severity: consider
-        issue: A long textual explanation obscures information that a diagram would make clearer.
+        issue: Long prose hides structure or flow that a diagram or tree shows clearly.
+        results: []
+      - id: documentation.requirements
+        scope: applicable-file
+        applies_when: >-
+          Added or modified plans, architecture designs, PRDs, or planning intents with Requirement or Requirements sections.
+        default_severity: consider
+        issue: >-
+          Requirement or Requirements sections use FR or NFR prefixes or state internal implementation specifications. Requirements omit observable behavior or performance, security, cost, isolation, and reliability characteristics from a client or end-user perspective.
         results: []
   - title: Performance
     criteria:
       - id: performance.regressions
         scope: review
         default_severity: consider
-        issue: The change causes a material performance regression.
+        issue: The change introduces a material performance regression.
         results: []
   - title: Security
     optional: true

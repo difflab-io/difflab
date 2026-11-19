@@ -1,31 +1,32 @@
-# [System or feature] — software architecture
+# [System or feature]: software architecture
 
 ## Overview
 
-[Purpose, system boundary, users, and explicit non-goals.]
+[State the purpose, system boundary, users, and explicit non-goals.]
 
 ## Requirement
 
 ### Functional
 
-[Functionality app, lib or product must perform.]
+[List observable behavioral capabilities from a client, caller, or end-user perspective. Use plain bullets without `FR` prefixes. Put internal types, function names, configuration internals, file layouts, and code-style rules in Design and Implementation.]
 
-- FR1
-- FR2
-- ...
+- [Client or end-user capability and observable outcome.]
+- [Additional client or end-user capability and observable outcome.]
+- [Explicit behavioral boundary or rejection rule.]
 
 ### Non-Functional
 
-[Performance, security, cost and other non-functional characteristics which the system must fulfil.]
+[List performance, security, cost, isolation, and reliability characteristics from a client, caller, or end-user perspective. Use plain bullets without `NFR` prefixes. Put internal mechanisms in Design and Implementation.]
 
-- NFR1
-- NFR2
+- [Observable performance, reliability, or cost bound.]
+- [Observable security or isolation guarantee.]
+- [Additional external operational characteristic.]
 
 ## Design
 
 ### Components and Responsibilities
 
-[System diagram(s) with bullet list enumerating and explaining components and their relationships. Prefer mermaid diagrams unless user/AGENTS.md provde other stated preferences.]
+[Draw a system diagram and list each component with its responsibility and relationships. Use Mermaid diagrams unless `AGENTS.md` states another format.]
 
 > @agent: add example mermaid diagram
 
@@ -33,28 +34,30 @@
 
 ```
 
-- Component A does this.
-- It then calls component B to do this.
-- And so on.
+- [Component A handles this responsibility.]
+- [Component A calls Component B for that responsibility.]
+- [Component C stores this state.]
 
 ### Data and Control Flow
 
-[Describe the main request/event path and where state lives. Include flow charts or sequence diagrams if applicable.]
+[Trace the main request or event path and name where state lives. If a flowchart or sequence diagram clarifies the path, include it.]
 
 ### Interfaces and Contracts
 
-[Database entities, input/output schemas, endpoints, core types, and public methods. Include ERD where applicable.]
+[List database entities, input and output schemas, endpoints, core types, and public methods. If data models change, include an entity-relationship diagram.]
 
 ## Implementation
 
 ### Important topic 1
 
-[Owned modules, dependency direction, and extension points.]
+[List owned modules, dependency direction, and extension points.]
 
 ### Important topic 2
 
-[More important topics.]
+[List operational rules, configuration internals, or code-level invariants.]
 
 ## References
 
 - [Relevant code, ADR, or external specification.]
+- [Related design document or issue.]
+- [Applicable external standard or API contract.]

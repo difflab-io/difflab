@@ -2,16 +2,16 @@
 
 ## Objective
 
-[What do you want to add/change?]
+[State what you want to add or change for clients, callers, or end users.]
 
 ## Requirements/Instructions
 
-[Requirements deliverable must meet. Alternately, imperative instructions which must be followed.]
+[List observable behavioral capabilities from a client, caller, or end-user perspective, or write direct instructions to follow. Use plain statements without `FR` or `NFR` prefixes. Leave internal types, function names, configuration internals, file layouts, and code-style rules out of requirements.]
 
 ## Constraints
 
-[Implementation requirements (particularly non-functional ones), important invariants, behavioral must-haves or limits. Optional.]
+[State observable performance, security, cost, isolation, and reliability characteristics, key invariants, or explicit boundaries. Optional.]
 
 ## Open Questions
 
-[Decisions you want help making. Optional.]
+[List product or design decisions that need input before planning. Optional.]
