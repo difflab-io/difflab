@@ -11,12 +11,12 @@ The `projects` and `repositories` query modules in `libs/difflab-db` store works
 - Callers create projects with normalized uppercase keys (`3..16` alphanumeric characters starting with a letter), trimmed names (`1..100` characters), and optional initial Git remote URLs.
 - Callers list projects in ascending key order or fetch a single project by key together with its ordered repository links.
 - Linking a Git remote URL already attached to the same project returns the existing repository record idempotently.
-- Duplicate project keys, duplicate initial remote URLs, or remote URLs already linked to a different project in the same workspace fail with `ProjectConflictError`, while identical keys and URLs across different workspaces succeed independently.
+- Duplicate project keys, duplicate initial remote URLs, or remote URLs already linked to a different project in the same workspace are rejected as conflicts, while identical keys and URLs across different workspaces succeed independently.
 
 ### Non-Functional
 
-- Project creation and initial repository inserts execute in one database transaction so partial failures leave zero orphan rows.
-- Workspace-scoped composite unique indexes enforce key, URL, and slug uniqueness inside the database engine under concurrent requests.
+- Project creation and initial repository links succeed or roll back atomically so failed calls leave zero partial state.
+- Concurrent requests within a workspace cannot create duplicate project keys, duplicate remote URL links, or colliding repository slugs.
 
 ## Design
 

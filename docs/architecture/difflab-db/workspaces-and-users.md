@@ -9,13 +9,13 @@ The `workspaces` and `users` query modules and the `0002_cloud_tenancy` cloud mi
 ### Functional
 
 - Cloud services create and fetch workspaces by ID or lowercase URL-safe slug (`2..48` characters) and manage `owner`, `admin`, and `member` memberships.
-- Re-adding an existing workspace member updates their role while preserving their original `created_at` timestamp.
-- Cloud services upsert users by normalized lowercase email address, updating `display_name` on repeat sign-in while preserving the user's `id` and `created_at` timestamp.
+- Updating an existing workspace member's role keeps their original membership join timestamp unchanged.
+- Cloud services upsert users by normalized lowercase email address, updating their display name on repeat sign-in while preserving their stable user identity and creation timestamp.
 
 ### Non-Functional
 
-- PostgreSQL row-level security policies on `projects`, `repositories`, and `workspace_members` restrict tenant rows to `current_setting('difflab.workspace_id', true)` when non-superuser roles query the database.
-- Email addresses and workspace slugs are normalized and indexed uniquely so concurrent sign-ins or workspace creation calls cannot create duplicate tenant identities.
+- Database-enforced tenant isolation restricts non-superuser queries on projects, repositories, and memberships to the active workspace.
+- Concurrent user sign-ins and workspace creation calls never create duplicate accounts for the same email or duplicate workspaces for the same slug.
 
 ## Design
 

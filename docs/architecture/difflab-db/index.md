@@ -15,9 +15,9 @@
 
 ### Non-Functional
 
-- Local SQLite runs in write-ahead logging (WAL) mode with foreign keys enabled under a single local daemon owner, avoiding multi-process lock retry loops.
-- PostgreSQL migrations serialize automatically with Kysely's advisory lock and enable row-level security (RLS) policies on workspace-scoped tables.
-- Production database configuration accepts only a SQLite file path or a PostgreSQL connection string; embedded test engines never leak into production exports.
+- Single-owner local SQLite access serves concurrent CLI and MCP requests through the local daemon without lock-contention failures or retry delays.
+- Concurrent PostgreSQL migration runs serialize safely without corrupting schema history, and cloud queries isolate tenant records even when non-superuser roles connect.
+- Production database configuration accepts only a SQLite file path or a PostgreSQL connection string so embedded test engines never ship in production runtime dependencies.
 
 ## Design
 

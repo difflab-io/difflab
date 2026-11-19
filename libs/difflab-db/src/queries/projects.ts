@@ -155,7 +155,6 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
   }
 }
 
-// Helpers ---------------------------------------------------------------------
 export function toRepository(row: RepositoriesTable): Repository {
   return {
     id: row.id,
@@ -166,6 +165,7 @@ export function toRepository(row: RepositoriesTable): Repository {
   }
 }
 
+// Helpers ---------------------------------------------------------------------
 function toProject(row: ProjectsTable, repositories: Repository[]): Project {
   return {
     id: row.key,

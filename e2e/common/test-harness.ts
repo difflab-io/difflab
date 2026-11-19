@@ -400,15 +400,6 @@ export async function reserveFreePort(host = '127.0.0.1'): Promise<number> {
   })
 }
 
-// Helpers ---------------------------------------------------------------------
-function slugify(label: string): string {
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 96)
-}
-
 export function buildCleanEnv(overrides: Record<string, string | undefined>): NodeJS.ProcessEnv {
   const base: NodeJS.ProcessEnv = { ...process.env }
   delete base.DIFFLAB_HOME
@@ -428,6 +419,15 @@ export function buildCleanEnv(overrides: Record<string, string | undefined>): No
     }
   }
   return base
+}
+
+// Helpers ---------------------------------------------------------------------
+function slugify(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 96)
 }
 
 async function runSubprocess(
