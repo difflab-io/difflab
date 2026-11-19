@@ -1,27 +1,27 @@
 # Write a plan people can audit and an agent can execute
 
-Read this guide for `plan new` and `plan update`, and invoke [difflab-writing-style](../../difflab-writing-style/SKILL.md) and [difflab-bdd](../../difflab-bdd/SKILL.md). Inspect the relevant code and applicable `AGENTS.md` files first. Use short sentences, concrete paths, and repository terminology. Preserve requirements when shortening prose.
+Read this guide for `plan new` and `plan update`, and invoke [difflab-writing-style](../../difflab-writing-style/SKILL.md) and [difflab-bdd](../../difflab-bdd/SKILL.md). Inspect the relevant code and applicable `AGENTS.md` files first. Use short sentences, concrete paths, and repository terminology, and preserve every requirement when shortening prose.
 
 ## Give each section one job
 
 | Section | Contents |
 | --- | --- |
-| Intent | Who needs the outcome and why. |
-| Requirements | Observable behavior, constraints, and explicit non-goals. |
-| Big Ideas | Diagram-led explanation of changed relationships and flows. Omit prose when diagrams suffice. Keep decisions and constraints beside each visual. |
-| Infrastructure Changes | Actual hosting, services, deployment, networking, or managed resources. Write `N/A.` if none change. New source modules belong in Repo Changes. |
-| Interfaces | Short commands, signatures, code, or pseudocode showing interactions and contracts, including important failure results. |
+| Intent | State who needs the outcome and why. |
+| Requirements | Use plain bullets without `FR` or `NFR` prefixes. State observable client or end-user behavior, performance, security, cost, isolation, and reliability characteristics, and non-goals. Keep internal types, function names, CLI flags, configuration internals, file layouts, and code-style rules out of `Requirements`. |
+| Big Ideas | Lead with diagrams that show changed relationships and flows. Drop prose when diagrams suffice, and keep decisions and constraints beside each visual. |
+| Infrastructure Changes | List hosting, services, deployment, network, or managed resources. If none change, write `N/A.` Put new source modules in `Repo Changes`. |
+| Interfaces | Show public interactions, contracts, and failure results with compact commands, signatures, code, or pseudocode. |
 | Consequences | Start with `Repo Changes` (`[M/A/D/R]` file tree), then `Testing` (behavior flowchart and `[M/A/D/R]` BDD test tree via `/difflab-bdd`), then `Trade-offs`. |
-| Phases | Ordered, bounded actions with file/module targets and relevant checks. Refer to design contracts rather than repeating them. |
+| Phases | List ordered, bounded tasks with file or module targets and validation steps. Reference `Design` contracts instead of repeating them. |
 
-Apply `/difflab-writing-style` throughout. Prefer compact Mermaid or Draw.io diagrams over prose; drop explanations when visuals are sufficient. Keep only decisions, constraints, and failure rules beside the visuals. Adding diagrams must not move all useful design detail into a giant implementation checklist. Tasks still need enough local detail to act without the original chat.
+Apply `/difflab-writing-style` throughout the plan. Use compact Mermaid or Draw.io diagrams instead of prose, and drop explanations when visuals show the flow. Keep decisions, constraints, and failure rules beside the visuals. Give phases enough local detail to execute without the original chat.
 
 ## Show the change
 
-- Use a component diagram for new components or changed relationships. Label responsibilities and dependencies; show before/after relationships when useful.
-- Use a flowchart for a new process. Include its important branches and failure/retry behavior.
-- Show new file-based artifacts as a tree or another suitable visual. Distinguish runtime data layout from repository source changes.
-- Use Mermaid for diagrams and fenced text for trees. Draw the affected parts, not the whole system. A small change can use a single compact visual; omit irrelevant diagram types.
+- Draw a component diagram for new components or changed relationships, and label responsibilities and dependencies.
+- Draw a flowchart for a new process with its key branches and failure or retry paths.
+- Show new file artifacts as a tree, and separate runtime data layout from repository source changes.
+- Use Mermaid for diagrams and fenced text for trees, and draw only the affected parts of the system.
 
 Start `Consequences` with this shape:
 
@@ -40,9 +40,9 @@ src/
 
 ```mermaid
 flowchart TD
-  Req["Accept invitation"] --> Valid{"Valid & unexpired?"}
-  Valid -->|"no"| Reject["Reject; membership unchanged"]
-  Valid -->|"yes"| Tx["Save membership + consume token"]
+  Req["Accept invitation"] --> Valid{"Valid and unexpired?"}
+  Valid -->|"no"| Reject["Reject and keep membership unchanged"]
+  Valid -->|"yes"| Tx["Save membership and consume token"]
   Tx -->|"save fails"| Rollback["Roll back membership and token"]
   Tx -->|"saved"| Done["Return membership"]
 ```
@@ -61,31 +61,32 @@ src/
                 └── [A] then the token remains unconsumed
 ```
 
-Group shared path prefixes under parent directories and collapse directory-level changes when listing every leaf adds no clarity. Use inspected paths for existing files and label proposed paths as new. Put `[M]`, `[A]`, `[D]`, or `[R]` before each changed entry in both `Repo Changes` and `Testing`. Include removed or renamed files and identify the largest edits in a short note. State when nothing is removed. Make sure that diagrams, interfaces, the tree, and phases agree.
+Group shared path prefixes under parent directories and collapse directory-level changes when leaf files add no clarity. Use inspected paths for existing files and label proposed files as new. Put `[M]`, `[A]`, `[D]`, or `[R]` before each changed entry in `Repo Changes` and `Testing`. Note the largest edits, and state when nothing is removed. Make sure that requirements, diagrams, interfaces, trees, and phases agree.
 
 ## Specify the behavior to test
 
 Invoke `/difflab-bdd` to design the `Testing` subsection under `Consequences`:
 
-1. Draw a behavior flowchart showing context branches, state transitions, and converging intermediate states from the user's or caller's perspective. When branches converge to a shared state, test downstream behavior once from that state.
-2. Translate the flowchart directly into a `[M/A/D/R]` BDD test tree. Start with `given <context>` (or an optional `describe`/`feature <name>`), nest `when <action>` -> `then <outcome>` only as deep as needed, and collapse single-outcome branches to `when <action>, then <outcome>`. Use outer `given` blocks to group multiple functions or endpoints, or flip `when` and `given` when it reads better. Hoist shared fixtures up the tree.
-3. Prioritize `e2e` (Playwright, network, CLI, stdio) > `integration` (module public APIs without heavy mocking) > `unit` (performance-critical or complex algorithms). Specify human-verifiable outputs such as screenshots, replays, file dumps, snapshots, JSON outputs, or debug logs for internal invariants.
+1. Draw a behavior flowchart from the user or caller perspective with context branches, state transitions, and converging states. Test downstream behavior once from each converged state.
+2. Map the flowchart to a `[M/A/D/R]` BDD test tree starting at `given <context>` with `when <action>` and `then <outcome>` clauses. Collapse single-outcome branches to `when <action>, then <outcome>`, and hoist shared fixtures.
+3. Prioritize `e2e` (Playwright, network, CLI, stdio) over `integration` (module public APIs) over `unit` (complex algorithms). Name human-verifiable outputs such as screenshots, replays, snapshots, JSON payloads, or logs.
 
-Inspect the actual test setup before proposing checks. Reuse existing suites and fixtures. Do not invent an end-to-end suite, directory, or runner. For skill-only behavior without a harness, label checks as `manual acceptance`. Keep Arrange, Act, and Assert steps clear. Assert results, saved state, and verifiable artifacts rather than private calls.
+Inspect the existing test setup before proposing test tasks, and reuse existing suites and fixtures. Do not invent an end-to-end suite, directory, or runner. If skill behavior has no test harness, label its validation steps `manual acceptance`. Keep Arrange, Act, and Assert steps separate, and assert outputs, saved state, and artifacts rather than private calls.
 
-Keep commit and green-CI checks when the user expects them, including `plan go --commit`. Use the execution workflow's permissions. If remote CI needs an unauthorized push, report the unmet gate rather than marking it complete.
+Keep conditional commit and green-CI gates when the user expects them (such as `plan go --commit`). Follow the execution workflow permissions. If remote CI needs an unauthorized push, report the unmet gate instead of marking it complete.
 
 ## Fill old or customized documents
 
-Listing or scaffolding templates installs missing files. It does not refresh existing copies. Apply this guide even when an installed template is older. Add missing subsections to the generated document and keep human content. Do not overwrite installed customizations. On update, save the revision first, then revise design, visuals, interfaces, and tasks together. Preserve phase structure and completed checkboxes unless the requested scope changes a task.
+Listing or scaffolding templates installs missing files without replacing existing user copies. Apply this guide even when an installed template is older. Add missing subsections to the generated document, and keep human content intact. On `plan update`, save the revision snapshot first. Update `Requirements`, `Design`, visuals, `Interfaces`, and `Phases` together, and keep completed checkboxes intact unless scope changes a task.
 
-Before saving, check that every requirement has a design home and an implementation/check path. A human should be able to audit the change; an agent should be able to execute it without guessing the key contracts. Leave new implementation tasks unchecked.
+Before saving, make sure that every requirement states an external client or end-user outcome. Map every requirement to a `Design` contract and a `Phases` task. A human can then audit the change, and an agent can execute it without guessing key contracts. Leave new implementation tasks unchecked.
 
 ## Reference examples
 
-Read these long examples on demand when judging structure and detail:
+Read these examples on demand when judging structure and detail:
 
-- [Original plan](examples/plan-sources-before.md): the user's historical example, with its wording preserved. It illustrates the prose-heavy result.
-- [Desired plan](examples/plan-sources-after.md): based on the user's desired output and updated for current feedback. It includes the nested Testing section.
+- [Original plan](examples/plan-sources-before.md): historical example with original wording preserved to show prose-heavy output.
+- [Desired plan](examples/plan-sources-after.md): updated example that shows diagram-led design and nested BDD test trees.
+- Bundled `plan-feature.md` and `plan-migration.md` templates under `apps/difflab-cli/templates/examples/`: concise feature and migration plan examples.
 
-These are format references, not instructions to modify a wiki. Their scopes differ, so shortening a plan does not permit dropping requirements. Keep the original as historical evidence. Apply new authoring rules to the desired example and bundled `plan-feature.md` and `plan-migration.md` examples. Use soft wraps for prose. Historical test commands do not set the scope of new plans.
+Treat these files as format references, not instructions to edit a wiki. Keep the original example as historical evidence, and use soft wraps for prose. Never copy historical test commands into unrelated plans.
