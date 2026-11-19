@@ -30,6 +30,8 @@
 - Use soft wraps for Markdown prose. Keep each paragraph on one source line and let the editor wrap it for display.
 - Keep line breaks that define code blocks, diagrams, file trees, tables, lists, and other Markdown structure.
 - [Proposed] Keep skill and agent instructions imperative, terse, and instructional; do not write them as historical logs.
+- [Proposed] Keep `SKILL.md` files brusque and focused on argument resolution, safety boundaries, and routing to `references/workflows/`; put step-by-step execution in `references/workflows/` and non-workflow reference specifications in `references/`.
+- [Proposed] Write skill and workflow files in terse Simple English without Mermaid diagrams; reserve Mermaid diagrams for documentation, plans, and reviews.
 
 ### TypeScript
 

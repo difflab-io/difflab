@@ -1,7 +1,8 @@
-import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { lstatOrNull } from 'utils/fsx'
+import { probeCommandVersion } from 'utils/processx'
 import { userPaths } from '../store/user-store.js'
+import { TemplateService } from '../templates/service.js'
 
 // Constants -------------------------------------------------------------------
 const MIN_BUN_VERSION = [1, 4, 2] as const
@@ -12,6 +13,7 @@ const OPTIONAL_HOOKS = ['on-merge'] as const
 export type SetupReportOptions = {
   home?: string
   env?: NodeJS.ProcessEnv
+  templateService?: TemplateService
 }
 
 // API -------------------------------------------------------------------------
@@ -25,8 +27,7 @@ export async function runSetupReport(
   let hasMissing = false
 
   write('Prerequisites:')
-  const gitVersion = probeVersion('git', env)
-  if (gitVersion) {
+  if (probeCommandVersion('git', env)) {
     write('  [ok] git')
   } else {
     hasMissing = true
@@ -41,14 +42,14 @@ export async function runSetupReport(
     write(`  [missing] ${bunStatus.detail}`)
   }
 
-  if (probeVersion('npx', env)) {
+  if (probeCommandVersion('npx', env)) {
     write('  [ok] npx')
   } else {
     hasMissing = true
     write('  [missing] npx (install Node.js with npx and add it to PATH)')
   }
 
-  const forges = (['gh', 'glab'] as const).filter((tool) => Boolean(probeVersion(tool, env)))
+  const forges = (['gh', 'glab'] as const).filter((tool) => Boolean(probeCommandVersion(tool, env)))
   if (forges.length > 0) {
     write(`  [ok] ${forges.join(', ')}`)
   } else {
@@ -56,14 +57,23 @@ export async function runSetupReport(
     write('  [missing] gh or glab (install gh or glab for remote PR and dispatch workflows)')
   }
 
-  write('Difflab store:')
-  const templatesPath = join(root, 'templates')
-  const templatesEntry = await lstatOrNull(templatesPath)
-  if (templatesEntry?.isDirectory()) {
-    write(`  [ok] ${templatesPath}`)
+  write('Templates:')
+  const templateService = options.templateService ?? new TemplateService({ home: options.home })
+  const templates = await templateService.inspectTemplates()
+  if (templates.missing.length === 0 && templates.outdated.length === 0) {
+    write(`  [ok] ${templates.directory} (${templates.total} up to date)`)
   } else {
     hasMissing = true
-    write(`  [missing] ${templatesPath} (run \`difflab templates list\` to unpack templates)`)
+    if (templates.missing.length > 0) {
+      write(
+        `  [missing] ${templates.directory} (${templates.missing.length} missing; run \`difflab templates list\` to unpack templates)`,
+      )
+    }
+    if (templates.outdated.length > 0) {
+      write(
+        `  [outdated] ${templates.directory} (${templates.outdated.length} differ from bundled templates: ${templates.outdated.join(', ')})`,
+      )
+    }
   }
 
   write('Hooks:')
@@ -99,22 +109,10 @@ export async function runSetupReport(
 }
 
 // Helpers ---------------------------------------------------------------------
-function probeVersion(command: string, env: NodeJS.ProcessEnv): string | null {
-  const result = spawnSync(command, ['--version'], {
-    env,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 5000,
-  })
-  if (result.error || result.status !== 0) return null
-  const text = (result.stdout || result.stderr || '').trim()
-  return text.split(/\r?\n/)[0] || command
-}
-
 function checkBun(
   env: NodeJS.ProcessEnv,
 ): { ok: true; version: string } | { ok: false; detail: string } {
-  const raw = probeVersion('bun', env)
+  const raw = probeCommandVersion('bun', env)
   if (!raw) {
     return { ok: false, detail: 'bun >= 1.4.2 (install Bun 1.4.2 or later and add it to PATH)' }
   }

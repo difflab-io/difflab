@@ -48,9 +48,9 @@ describe('given an unconfigured HOME and a restricted PATH missing gh, glab, and
   })
 })
 
-describe('given available prerequisites, unpacked templates, and configured HOOK.md files', () => {
+describe('given available prerequisites, unpacked up-to-date templates, and configured HOOK.md files', () => {
   describe('when running difflab setup', () => {
-    it('then it exits 0 and reports ok across prerequisites, store, and hooks without missing prompts', async () => {
+    it('then it exits 0 and reports ok across prerequisites, templates, and hooks without missing prompts', async () => {
       // Arrange
       const ctx = await createSetupTestContext('configured-store-and-hooks')
       await ctx.stubTools({
@@ -60,7 +60,8 @@ describe('given available prerequisites, unpacked templates, and configured HOOK
         gh: 'gh version 2.60.0',
       })
       const storeRoot = join(ctx.difflabHome, '.difflab')
-      await mkdir(join(storeRoot, 'templates'), { recursive: true })
+      const unpacked = await ctx.runCli(['templates', 'list'])
+      expect(unpacked.exitCode).toBe(0)
       for (const hook of ['on-request-worktree', 'on-remote-delegation', 'on-merge']) {
         const hookDir = join(storeRoot, 'hooks', hook)
         await mkdir(hookDir, { recursive: true })
@@ -77,12 +78,15 @@ describe('given available prerequisites, unpacked templates, and configured HOOK
       expect(result.stdout).toContain('[ok] bun (1.4.2)')
       expect(result.stdout).toContain('[ok] npx')
       expect(result.stdout).toContain('[ok] gh')
+      expect(result.stdout).toContain('Templates:')
       expect(result.stdout).toContain(`[ok] ${join(storeRoot, 'templates')}`)
+      expect(result.stdout).toContain('up to date)')
       expect(result.stdout).toContain('[ok] on-request-worktree')
       expect(result.stdout).toContain('[ok] on-remote-delegation')
       expect(result.stdout).toContain('[ok] on-merge')
       expect(result.stdout).toContain('Difflab machine setup is ready.')
       expect(result.stdout).not.toContain('[missing]')
+      expect(result.stdout).not.toContain('[outdated]')
       expect(result.stdout).not.toContain('Agent note:')
       expect(cliLog).toContain('Difflab machine setup is ready.')
     })

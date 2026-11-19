@@ -34,7 +34,10 @@ export function createProgram(
     .description('Inspect missing machine prerequisites, templates, and hooks')
     .action(async () => {
       const { runSetupReport } = await import('./setup/index.js')
-      await runSetupReport(write, { home: options.home })
+      await runSetupReport(write, {
+        home: options.home,
+        templateService: options.templateService,
+      })
     })
 
   const project = program.command('project').description('Manage local projects')

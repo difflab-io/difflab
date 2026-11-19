@@ -1,6 +1,11 @@
-# Hooks help
+# Difflab hooks help
 
-- `hooks register <name>`: scaffold `~/.difflab/hooks/<name>/HOOK.md` from `hook-definition`, research live harness or tool documentation when needed, and record the trigger, handler (`default` or custom), required permissions, and instructions.
-- `hooks invoke <name>`: read `~/.difflab/hooks/<name>/HOOK.md`, bind the caller context, and run the configured handler within authorized permissions.
-- Preference hooks: `on-request-worktree` and `on-remote-delegation` store per-machine worktree, inter-worktree messaging, and `--remote` delegation preferences. When absent in an interactive run, the agent discovers relevant harness choices alongside `default`, asks once, and scaffolds `HOOK.md`.
-- Lifecycle hooks: `/pr merge` inspects `~/.difflab/hooks/on-merge/HOOK.md` after merge and post-merge continuous integration finish and treats an absent file as a clean no-op.
+Examples:
+
+- "Register an `on-merge` hook to run `flow go autoreview`" -> scaffold `~/.difflab/hooks/on-merge/HOOK.md`.
+- "Hooks register `on-request-worktree`" -> discover active harness and multiplexer choices alongside `default`, confirm, and scaffold `HOOK.md`.
+- "Hooks invoke `on-merge`" -> read `~/.difflab/hooks/on-merge/HOOK.md` and execute its handler within authorized permissions.
+
+Safety rules: reject symlinks and unsafe hook names, never overwrite an existing `HOOK.md`, treat absent event hooks as no-ops during skill runs, and prompt interactively (or block in background runs) when a required worktree or remote preference hook is unset.
+
+Dry-run request: show `~/.difflab/hooks/<name>/HOOK.md` and the intended `scaffold` or handler call without writing files or running commands.

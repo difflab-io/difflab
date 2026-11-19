@@ -31,13 +31,13 @@ Restart Pi after setup. For another supported client, replace `pi` with `cursor`
 
 ## Install the agent skills
 
-A skill is a set of instructions that tells an agent how to use Difflab. Install the Difflab skills for Pi with [`npx skills`](https://skills.sh/):
+A skill is a set of instructions that tells an agent how to use Difflab. Install all Difflab skills globally with [`npx skills`](https://skills.sh/):
 
 ```bash
-npx skills add difflab-io/difflab --agent pi --skill difflab-doctor difflab-init difflab-todo difflab-plan difflab-review difflab-dispatch difflab-flow difflab-hooks difflab-bdd difflab-writing-style difflab-explore difflab-adr difflab-poc git pr --global --yes
+npx skills add difflab-io/difflab --all --global
 ```
 
-Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. Planning init/new uses MCP `scaffold` when available and falls back to `difflab templates scaffold` when needed. Execution and review use MCP tools including `log_append`; if these are missing, update the CLI and register the selected client, then restart or reload it.
+Restart your agent so it loads the skills. `--all` installs every skill to all detected agents without prompts. Pass `--agent pi --skill '*' --global --yes` to target only Pi, or run `npx skills add difflab-io/difflab` without flags to choose interactively. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. Planning init/new uses MCP `scaffold` when available and falls back to `difflab templates scaffold` when needed. Execution and review use MCP tools including `log_append`; if these are missing, update the CLI and register the selected client, then restart or reload it.
 
 ## Set up a repository
 
