@@ -29,6 +29,14 @@ export function createProgram(
 
   program.action(() => program.outputHelp())
 
+  program
+    .command('setup')
+    .description('Inspect missing machine prerequisites, templates, and hooks')
+    .action(async () => {
+      const { runSetupReport } = await import('./setup/index.js')
+      await runSetupReport(write, { home: options.home })
+    })
+
   const project = program.command('project').description('Manage local projects')
   project
     .command('add [project-key]')

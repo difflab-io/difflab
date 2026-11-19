@@ -10,8 +10,13 @@ _.path = ["{{config_root}}/bin"]
 bun = "1.4.2"
 
 [monorepo]
-config_roots = ["apps/*", "libs/*"]
+config_roots = ["apps/*", "libs/*", "e2e/cli"]
 
 [tasks.install]
 description = "Install workspace Bun dependencies"
 run = "bun install"
+
+[tasks.e2e]
+description = "Run CLI end-to-end test suite"
+depends = ["//e2e/cli:test"]
+run = 'echo "Completed E2E suite. Inspect retained artifacts under e2e/outputs/."'

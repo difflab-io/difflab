@@ -12,11 +12,14 @@ Install Git, Node.js with `npx`, and Bun 1.4.2 or later. You need a Git reposito
 npm install -g @difflab/difflab-cli
 ```
 
-Confirm that the command works:
+Confirm that the command works and inspect missing global prerequisites, unpacked templates, and hooks:
 
 ```bash
 difflab --help
+difflab setup
 ```
+
+`difflab setup` is a read-only machine report. It tells you which dependencies or hooks are missing and directs your coding agent to ask before installing or configuring anything for you.
 
 Connect the MCP server to Pi:
 
@@ -31,7 +34,7 @@ Restart Pi after setup. For another supported client, replace `pi` with `cursor`
 A skill is a set of instructions that tells an agent how to use Difflab. Install the Difflab skills for Pi with [`npx skills`](https://skills.sh/):
 
 ```bash
-npx skills add difflab-io/difflab --agent pi --skill difflab-doctor difflab-init difflab-todo difflab-plan difflab-review difflab-flow difflab-hooks difflab-bdd difflab-writing-style difflab-explore difflab-adr difflab-poc git pr --global --yes
+npx skills add difflab-io/difflab --agent pi --skill difflab-doctor difflab-init difflab-todo difflab-plan difflab-review difflab-dispatch difflab-flow difflab-hooks difflab-bdd difflab-writing-style difflab-explore difflab-adr difflab-poc git pr --global --yes
 ```
 
 Restart Pi so it loads the skills. To choose skills and agents interactively, run `npx skills add difflab-io/difflab` without flags. If you test an unmerged checkout, run the command from that checkout and replace `difflab-io/difflab` with `.`. A GitHub install sees the skills on the repository's default branch. Planning init/new uses MCP `scaffold` when available and falls back to `difflab templates scaffold` when needed. Execution and review use MCP tools including `log_append`; if these are missing, update the CLI and register the selected client, then restart or reload it.
@@ -63,6 +66,7 @@ Ask your agent in chat. These phrases are skill requests, not `difflab` shell co
 - “Flow go autospec with input 'Export monthly sales' --local.” The agent freezes a local run before executing it.
 - “Hooks register on-merge to run flow go autoreview.” The agent scaffolds `~/.difflab/hooks/on-merge/HOOK.md`.
 - “Hooks invoke on-merge.” The agent runs the registered hook.
+- “Dispatch libs/difflab-db from PR #18” or “Dispatch libs/difflab-db from PR #18 --remote.” The agent extracts the approved slice into an isolated worktree or remote session, runs review and continuous integration, automerges when parity and scope gates hold, and rebases the clean source worktree onto the updated base branch.
 - “Explore new options for caching.” The agent saves research with external sources under `.difflab/explore/`.
 - “Explore update caching with new evidence.” The agent saves the old research before it updates the findings.
 - “ADR init for cache storage.” The agent creates `adr/NNNN-title/ADR.md`, with room for diagrams beside it.
