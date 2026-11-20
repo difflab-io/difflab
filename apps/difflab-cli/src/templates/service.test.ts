@@ -5,7 +5,8 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { parse, stringify } from 'yaml'
 import { createTempDirectory, expectFailureWith } from 'utils/testx'
-import { userPaths } from '../store/user-store.js'
+import { resolveDifflabPaths } from 'difflab-config'
+const userPaths = (targetHome: string) => resolveDifflabPaths(targetHome)
 import { TemplateService, UnknownTemplateError } from './service.js'
 import { embeddedSource } from './source.js'
 
@@ -295,7 +296,7 @@ describe('TemplateService', () => {
     )
 
     // Assert
-    expect(summary).toBe(join(store, 'explore/embedded-search/SUMMARY.md'))
+    expect(summary).toBe(await realpath(join(store, 'explore/embedded-search/SUMMARY.md')))
     expect(await readFile(summary, 'utf8')).toContain('## Evidence and freshness')
     expect(await readFile(research, 'utf8')).toContain('## Sources fetched')
     expect(await readFile(proposal, 'utf8')).toContain('## Trade-offs')

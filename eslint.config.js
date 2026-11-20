@@ -12,6 +12,8 @@ export default tseslint.config(
       '**/build/**',
       '**/coverage/**',
       '**/routeTree.gen.ts',
+      '**/.tmp/**',
+      '**/src/gen/**',
       'e2e/outputs/**',
     ],
   },

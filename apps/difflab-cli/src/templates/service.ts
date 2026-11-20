@@ -1,13 +1,12 @@
 import { constants } from 'node:fs'
-import { lstat, open, rm } from 'node:fs/promises'
+import { lstat, mkdir, open, rm } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { ensurePathDirsExist, lstatOrNull } from 'utils/fsx'
-import { resolveHomeDirectory, hasErrorCode } from 'utils/osx'
-import { resolvePath } from 'utils/pathx'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
-import { readRepoConfig } from '../projects/config.js'
+import { hasErrorCode, resolveHomeDirectory } from 'utils/osx'
+import { resolvePath } from 'utils/pathx'
+import { readRepoConfig, resolveDifflabPaths, type DifflabPaths } from 'difflab-config'
 import { checkRepoStore } from '../projects/repo-store.js'
-import { userPaths } from '../store/user-store.js'
 import { embeddedSource, type TemplateInfo, type TemplateSource } from './source.js'
 
 // Types -----------------------------------------------------------------------
@@ -27,11 +26,17 @@ export class TemplateDestinationExistsError extends TemplateError {}
 
 // API -------------------------------------------------------------------------
 export class TemplateService {
-  private readonly home: string
+  private readonly paths: DifflabPaths
   private readonly source: TemplateSource
 
   constructor(options: TemplateServiceOptions = {}) {
-    this.home = resolveHomeDirectory(options.home)
+    if (options.home !== undefined) {
+      this.paths = resolveDifflabPaths(resolveHomeDirectory(options.home))
+    } else if (process.env.DIFFLAB_HOME?.trim()) {
+      this.paths = resolveDifflabPaths()
+    } else {
+      this.paths = resolveDifflabPaths(resolveHomeDirectory())
+    }
     this.source = options.source ?? embeddedSource
   }
 
@@ -41,7 +46,7 @@ export class TemplateService {
   }
 
   async inspectTemplates(): Promise<TemplateInspection> {
-    const directory = join(userPaths(this.home).root, 'templates')
+    const directory = join(this.paths.root, 'templates')
     const missing: string[] = []
     const outdated: string[] = []
     for (const asset of this.source.assets) {
@@ -80,8 +85,8 @@ export class TemplateService {
     }
     await this.installMissing()
     const installed = await resolvePath(
-      this.home,
-      join('.difflab', 'templates', template.asset ?? `${name}.md`),
+      this.paths.root,
+      join('templates', template.asset ?? `${name}.md`),
     )
     const contents = await readTemplate(installed)
     const destination = path.startsWith('.difflab/')
@@ -108,7 +113,7 @@ export class TemplateService {
     if (!config)
       throw new TemplateError(`Initialize this repository with difflab init: ${git.root}`)
     const target = join(
-      userPaths(this.home).projects,
+      this.paths.projects,
       config.project.id,
       repositorySlug(canonicalGitUrl(git.originUrl)),
     )
@@ -117,9 +122,16 @@ export class TemplateService {
   }
 
   private async installMissing(): Promise<void> {
+    const rootEntry = await lstatOrNull(this.paths.root)
+    if (rootEntry?.isSymbolicLink()) {
+      throw new TemplateSourceError(`Difflab state root is a symlink: ${this.paths.root}`)
+    }
+    if (!rootEntry) {
+      await mkdir(this.paths.root, { recursive: true, mode: 0o700 })
+    }
     for (const asset of this.source.assets) {
-      const relative = join('.difflab', 'templates', asset)
-      const destination = await ensurePathDirsExist(relative, this.home)
+      const relative = join('templates', asset)
+      const destination = await ensurePathDirsExist(relative, this.paths.root)
       try {
         if ((await lstat(destination)).isSymbolicLink()) {
           throw new TemplateSourceError(`Installed template asset is a symlink: ${destination}`)
@@ -132,7 +144,6 @@ export class TemplateService {
           await createExclusive(destination, content)
         } catch (writeError) {
           if (!hasErrorCode(writeError, 'EEXIST')) throw writeError
-          // Another process installed it first; verify it on the next pass.
           await readTemplate(destination)
         }
       }

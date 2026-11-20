@@ -17,7 +17,7 @@ dir = "{{ config_root }}"
 run = "rm -rf ../outputs/cli"
 
 [tasks.test]
-description = "Run outside-in E2E specs for difflab-cli"
+description = "Run outside-in E2E specs for difflab-cli and MCP stdio"
 depends = ["install"]
 dir = "{{ config_root }}"
 run = "bun test --timeout 30000 ."
@@ -27,7 +27,7 @@ description = "Lint and type-check E2E CLI specs"
 depends = ["install"]
 dir = "{{ config_root }}/../.."
 run = [
-  "bunx --no-install eslint --config eslint.config.js e2e/cli --no-warn-ignored",
+  "bunx --no-install eslint --config eslint.config.js e2e/common e2e/cli --no-warn-ignored",
   "bunx --no-install tsc -p e2e/tsconfig.json --noEmit",
 ]
 
@@ -36,7 +36,7 @@ description = "Format and lint E2E CLI specs"
 depends = ["install", "format"]
 dir = "{{ config_root }}/../.."
 run = [
-  "bunx --no-install eslint --config eslint.config.js e2e/cli --fix --no-warn-ignored",
+  "bunx --no-install eslint --config eslint.config.js e2e/common e2e/cli --fix --no-warn-ignored",
   "mise run -C \"$MISE_PROJECT_ROOT\" lint",
 ]
 
@@ -44,13 +44,13 @@ run = [
 description = "Format E2E CLI specs"
 depends = ["install"]
 dir = "{{ config_root }}/.."
-run = "bunx --no-install prettier --ignore-path ../.prettierignore --write cli tsconfig.json"
+run = "bunx --no-install prettier --ignore-path ../.prettierignore --write cli README.md tsconfig.json"
 
 [tasks."format:check"]
 description = "Check formatting of E2E CLI specs"
 depends = ["install"]
 dir = "{{ config_root }}/.."
-run = "bunx --no-install prettier --ignore-path ../.prettierignore --check cli tsconfig.json"
+run = "bunx --no-install prettier --ignore-path ../.prettierignore --check cli README.md tsconfig.json"
 
 [tasks.env-pull]
 description = "Pull external environment configuration"

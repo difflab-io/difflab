@@ -34,21 +34,23 @@
     "test": "bun test",
     "lint": "tsc --noEmit",
     "lint:fix": "bun run format && bun run lint",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --ignore-path ../../.prettierignore --write .",
+    "format:check": "prettier --ignore-path ../../.prettierignore --check .",
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",
     "commander": "15.0.0",
+    "difflab-client-ts": "workspace:*",
+    "difflab-config": "workspace:*",
+    "difflab-db": "workspace:*",
+    "utils": "workspace:*",
     "yaml": "2.9.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
-    "difflab-db-legacy": "workspace:*",
-    "utils": "workspace:*",
     "prettier": "3.9.8",
     "typescript": "7.0.2"
   }

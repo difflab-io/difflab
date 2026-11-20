@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package difflab.v1;
+
+import "buf/validate/validate.proto";
+
+service ProjectService {
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc LinkRepository(LinkRepositoryRequest) returns (LinkRepositoryResponse);
+}
+
+message Repository {
+  string id = 1;
+  string workspace_id = 2;
+  string project_key = 3;
+  string remote_url = 4;
+  string slug = 5;
+  string created_at = 6;
+}
+
+message Project {
+  string workspace_id = 1;
+  string key = 2;
+  string name = 3;
+  repeated Repository repositories = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message CreateProjectRequest {
+  string key = 1 [(buf.validate.field).string = {pattern: "^[A-Za-z][A-Za-z0-9]{2,15}$"}];
+  string name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  repeated string repository_urls = 3 [(buf.validate.field).repeated.items.string.min_len = 1];
+}
+
+message CreateProjectResponse {
+  Project project = 1;
+}
+
+message ListProjectsRequest {}
+
+message ListProjectsResponse {
+  repeated Project projects = 1;
+}
+
+message GetProjectRequest {
+  string key = 1 [(buf.validate.field).string = {pattern: "^[A-Za-z][A-Za-z0-9]{2,15}$"}];
+}
+
+message GetProjectResponse {
+  Project project = 1;
+}
+
+message LinkRepositoryRequest {
+  string project_key = 1 [(buf.validate.field).string = {pattern: "^[A-Za-z][A-Za-z0-9]{2,15}$"}];
+  string remote_url = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message LinkRepositoryResponse {
+  Repository repository = 1;
+}

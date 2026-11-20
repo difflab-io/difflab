@@ -1,6 +1,7 @@
 node_modules/
 **/node_modules/
 dist/
+**/dist/
 .output/
 **/.output/
 .svelte-kit/
@@ -17,6 +18,8 @@ RELEASE_NOTES.md
 **/*.template.md
 .worktrees/
 .tmp/
+**/.tmp/
+**/src/gen/
 e2e/outputs/
 # Reference examples retain source code/tables; prose uses soft wraps per AGENTS.md.
 skills/difflab-plan/references/examples/plan-sources-before.md

@@ -1,8 +1,13 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 
+// Constants -------------------------------------------------------------------
+const TERMINATE_POLL_MS = 50
+
 // Types -----------------------------------------------------------------------
+/** Function signature for executing a command synchronously in a working directory. */
 export type CommandRunner = (command: string, args: string[], cwd: string) => void
 
+/** Error thrown when a subprocess command cannot be executed. */
 export class CommandExecutionError extends Error {
   constructor(command: string, message: string, options?: ErrorOptions) {
     super(`Could not execute ${command}: ${message}`, options)
@@ -27,12 +32,38 @@ export function probeCommandVersion(
   return text.split(/\r?\n/)[0] || command
 }
 
+/** Return true if a process with `pid` currently exists. */
+export function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return error instanceof Error && 'code' in error && error.code === 'EPERM'
+  }
+}
+
+/** Send SIGTERM to `pid`, wait up to `timeoutMs` for exit, and escalate to SIGKILL if needed. */
+export async function terminateProcess(pid: number, timeoutMs = 5_000): Promise<void> {
+  try {
+    process.kill(pid, 'SIGTERM')
+  } catch {
+    return
+  }
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (!isProcessAlive(pid)) return
+    await Bun.sleep(TERMINATE_POLL_MS)
+  }
+  try {
+    process.kill(pid, 'SIGKILL')
+  } catch {
+    // Process already exited.
+  }
+}
+
 /**
  * Run `command` with `args` from `cwd` and translate execution failures to
  * CommandExecutionError while preserving the native error as `cause`.
- *
- * The translation gives callers one semantic failure type for commands;
- * the cause remains available for exit status, errno, and other native details.
  */
 export function runCommand(command: string, args: string[], cwd: string): void {
   try {

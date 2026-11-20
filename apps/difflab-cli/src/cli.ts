@@ -1,28 +1,57 @@
-import { Command } from 'commander'
-import { validateProjectKey } from 'difflab-db-legacy'
-import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
 import { join } from 'node:path'
+import { Command } from 'commander'
+import { ConnectError, type DifflabClient } from 'difflab-client-ts'
+import {
+  readRepoConfig,
+  resolveDifflabPaths,
+  validateProjectKey,
+  writeRepoConfig,
+} from 'difflab-config'
+import { DifflabDbError } from 'difflab-db'
+import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
+import { getProjectContext, withProjectBackend } from './context.js'
 import { ProjectSetupError, RepoStoreError } from './errors.js'
-import { createRepoConfig, readRepoConfig } from './projects/config.js'
-import { getProjectContext } from './context.js'
 import { ensureRepoStore, preflightRepoStore } from './projects/repo-store.js'
-import { createUserStore, userPaths, withUserStore } from './store/user-store.js'
+import type { TemplateService } from './templates/service.js'
 
 // Types -----------------------------------------------------------------------
 type ProgramOptions = {
   home?: string
   cwd?: string
   templateService?: TemplateService
+  client?: DifflabClient
 }
-import type { TemplateService } from './templates/service.js'
+
+class DifflabCommand extends Command {
+  override createCommand(name?: string): Command {
+    return new DifflabCommand(name)
+  }
+
+  override action(fn: Parameters<Command['action']>[0]): this {
+    return super.action(async (...args: unknown[]) => {
+      try {
+        await fn.apply(this, args)
+      } catch (error) {
+        if (error instanceof ConnectError) {
+          throw new ProjectSetupError(error.rawMessage || error.message, { cause: error })
+        }
+        if (error instanceof DifflabDbError) {
+          throw new ProjectSetupError(error.message, { cause: error })
+        }
+        throw error
+      }
+    })
+  }
+}
 
 // API -------------------------------------------------------------------------
+/** Construct the `difflab` Commander program with all CLI and MCP subcommands. */
 export function createProgram(
   write: (message: string) => void = console.log,
   version = '0.1.0',
   options: ProgramOptions = {},
 ): Command {
-  const program = new Command()
+  const program = new DifflabCommand()
     .name('difflab')
     .description('Difflab CLI and local MCP server')
     .version(version)
@@ -40,7 +69,7 @@ export function createProgram(
       })
     })
 
-  const project = program.command('project').description('Manage local projects')
+  const project = program.command('project').description('Manage projects')
   project
     .command('add [project-key]')
     .option('--name <name>', 'Project name when creating a project')
@@ -53,68 +82,86 @@ export function createProgram(
     .action(async (projectKey: string | undefined, flags: { name?: string; repo: string[] }) => {
       const name = flags.name
       const repositories = flags.repo
-      if (!projectKey || !name?.trim() || !repositories.length)
+      if (!projectKey || !name?.trim() || !repositories.length) {
         throw new ProjectSetupError(
           'project add requires a project key, --name, and at least one --repo; use project add <key> --name <name> --repo <origin>',
         )
+      }
+      const key = validateProjectKey(projectKey)
       repositories.forEach(canonicalGitUrl)
-      const created = await createUserStore(options.home).createProject(
-        projectKey,
-        name,
-        repositories,
+      const created = await withProjectBackend(
+        { home: options.home, client: options.client },
+        (backend) =>
+          backend.createProject({
+            key,
+            name: name.trim(),
+            repositoryUrls: repositories,
+          }),
       )
-      write(`Created project ${created.name} (${created.id})`)
+      write(`Created project ${created.name} (${created.key})`)
     })
+
   project
     .command('list')
     .description('List projects and associated Git repositories')
     .action(async () => {
-      const projects = await createUserStore(options.home).listProjects()
+      const projects = await withProjectBackend(
+        { home: options.home, client: options.client },
+        (backend) => backend.listProjects(),
+      )
       if (!projects.length) {
         write('No projects yet.')
         return
       }
-      for (const project of projects) {
-        write(`${project.id}\t${project.name}`)
-        for (const repo of project.repositories) write(`  ${repo.url}`)
+      for (const item of projects) {
+        write(`${item.key}\t${item.name}`)
+        for (const repo of item.repositories) write(`  ${repo.remoteUrl}`)
       }
     })
 
   program
     .command('init <project>')
-    .description('Associate this Git repository with an existing local project')
+    .description('Associate this Git repository with an existing project')
     .action(async (projectId: string) => {
       const cwd = options.cwd ?? process.cwd()
       const git = discoverGitRepository(cwd)
       const key = validateProjectKey(projectId)
       const config = await readRepoConfig(git.root)
-      if (config && config.project.id !== key)
+      if (config && config.project.id !== key) {
         throw new RepoStoreError(
           `Repository already belongs to project ${config.project.id}; requested ${key}`,
         )
+      }
       const origin = canonicalGitUrl(git.originUrl)
-      const target = join(userPaths(options.home).projects, key, repositorySlug(origin))
+      const target = join(resolveDifflabPaths(options.home).projects, key, repositorySlug(origin))
       await preflightRepoStore(git.root, target)
-      const project = await withUserStore(
-        async (db) => {
-          const project = await db.projects.getProjectById(key)
-          await db.repositories.linkRepositoryToProject(project.id, origin)
-          return project
+
+      const foundProject = await withProjectBackend(
+        { home: options.home, client: options.client },
+        async (backend) => {
+          const existing = await backend.getProject(key)
+          if (!existing) throw new ProjectSetupError(`Project not found: ${key}`)
+          await backend.linkRepository({
+            projectKey: existing.key,
+            remoteUrl: origin,
+          })
+          return existing
         },
-        { home: options.home },
       )
+
       await ensureRepoStore(git.root, target, git.excludePath)
       if (!config) {
         try {
-          await createRepoConfig({ schemaVersion: 1, project: { id: project.id } }, git.root)
+          await writeRepoConfig({ schemaVersion: 1, project: { id: foundProject.key } }, git.root)
         } catch (error) {
           if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
           const existing = await readRepoConfig(git.root)
-          if (!existing || existing.project.id !== project.id)
+          if (!existing || existing.project.id !== foundProject.key) {
             throw new RepoStoreError(`Repository config conflicts at ${git.root}`)
+          }
         }
       }
-      const context = await getProjectContext(git, key, options.home)
+      const context = await getProjectContext(git, key, options.home, options.client)
       write(
         `Initialized ${context.repository.origin} in project ${context.project.name} (${context.project.id})`,
       )
@@ -144,7 +191,8 @@ export function createProgram(
 
   const templates = program.command('templates').description('List and scaffold documents')
   const service = async () =>
-    options.templateService ?? new (await import('./templates/service.js')).TemplateService()
+    options.templateService ??
+    new (await import('./templates/service.js')).TemplateService({ home: options.home })
 
   templates
     .command('list')
@@ -160,11 +208,11 @@ export function createProgram(
     .command('scaffold <name> <path> <filename>')
     .description('Copy a template into a new document inside a directory; never overwrite')
     .option('--cwd <directory>', 'absolute base directory for the relative destination path')
-    .action(async (name: string, path: string, filename: string, options: { cwd?: string }) => {
+    .action(async (name: string, path: string, filename: string, flags: { cwd?: string }) => {
       const templatesService = await service()
       const destination = await templatesService.scaffoldFromTemplate(
         name,
-        options.cwd ?? process.cwd(),
+        flags.cwd ?? options.cwd ?? process.cwd(),
         path,
         filename,
       )

@@ -10,7 +10,7 @@ bunx @difflab/difflab-cli
 
 ## Local Projects
 
-A Project can contain multiple GitHub repositories. Its key is the sole project identifier and directory name; there is no separate slug or UUID. All Projects and repositories share one user-wide SQLite database at `~/.difflab/difflab.sqlite`. The CLI keeps repository artifacts separately under `~/.difflab/projects/<PROJECT_KEY>/<github-owner>--<github-repo>/`. The database migrations run locally on write operations.
+A Project can contain multiple GitHub repositories. Its key is the sole project identifier and directory name; there is no separate slug or UUID. By default, local CLI and stdio MCP commands open the user-wide SQLite database at `~/.difflab/local.sqlite` directly in-process (migrating on first use and importing legacy `~/.difflab/difflab.sqlite` rows once), without spawning any background daemon. When `DIFFLAB_RPC_URL` is configured, project commands route to the hosted `difflab-api` over Connect RPC instead. The CLI keeps repository artifacts separately under `~/.difflab/projects/<PROJECT_KEY>/<github-owner>--<github-repo>/`.
 
 Create a Project, repeating `--repo` for each repository:
 

@@ -9,9 +9,17 @@
 
 ### Repository layout
 
-- Put reusable filesystem, process, OS, and other generic utilities in `src/extensions`. Use domain-neutral names such as `fsx`, `osx`, `processx`, and `pathx`.
+- Put reusable filesystem, process, OS, and other generic utilities in `src/extensions` or `libs/utils`. Reserve `*x` module names (`fsx`, `gitx`, `logx`, `osx`, `pathx`, `processx`, `testx`, `zodx`) strictly for extensions—composite wrapper functions built on top of libraries, runtimes, or CLIs; name plain shared types and contract helpers without the `x` suffix (such as `utils/dto` and `utils/model`).
 - Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
-- Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module.
+- Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module. Throw standard JavaScript error types (`Error`, `TypeError`, `RangeError`) from generic `libs/utils` modules rather than defining custom exception subclasses there.
+- Put general package-wide types in `src/types.ts` rather than mixing non-database types into database schema modules.
+- Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto` (from `utils/dto`).
+- Keep one major model, entity, or DTO per file.
+- Add an architecture document under `docs/architecture/<package>/index.md` for every new library or application following the `software-architecture-design` template and Difflab writing style.
+- Use `loglayer` (`@loglayer/transport-logtape`) via `configureAppLogger` / `createAppLogger` in `libs/utils/src/logx.ts` for structured wide-event application logging, and minimal `@logtape/logtape` loggers via `createLibLogger` in libraries without configuring sinks.
+- [Proposed] Keep package `src/index.ts` entry points limited to re-exports and put implementation in dedicated modules.
+- [Proposed] Name code generation tasks `codegen` and `codegen:check` consistently with `format` and `format:check`.
+- [Proposed] Avoid bespoke CLI scripts for maintenance tasks (such as database migrations) when a `mise` task suffices.
 
 ### TypeScript files
 
@@ -36,8 +44,12 @@
 ### TypeScript
 
 - Keep module APIs thin. Expose only the operations callers need.
+- Document every public class, function, type, and exported object with a concise JSDoc docstring.
 - Make section divider comments 80 columns wide, using `//`, the section name, and trailing hyphens. Use the same format in test files.
 - Use semantic exceptions for failures that callers need to catch and handle.
+- [Proposed] Name each package's base error class after the package (for example `DifflabConfigError`, `DifflabClientError`, `DifflabDbError`) and derive package-specific errors from it.
+- [Proposed] Prefer class-based APIs with static factories such as `withOptions(...)` or `open(...)` over large sets of standalone module functions, and keep transport clients decoupled from daemon or process lifecycle.
+- Define persisted domain models with Zod schemas and `defineModel(...)` (`utils/model`) so Kysely owns table row types directly (via `CamelCasePlugin`) without row-to-entity translation layers; keep wire-to-model mapping exclusively in DTOs. Prefer domain names such as `git-remotes` over `repositories` to avoid confusion with data-access repositories.
 
 ## Testing
 
