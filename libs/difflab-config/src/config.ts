@@ -22,23 +22,17 @@ const strictProjectKeySchema = z
   .string()
   .regex(/^[A-Z][A-Z0-9]{2,15}$/, 'Project key must be 3-16 uppercase letters or digits')
 
-/** Zod schema for canonical uppercase Difflab project keys (`3..16` alphanumeric chars). */
-export const projectKeySchema = z
-  .string()
-  .transform((value) => value.trim().toUpperCase())
-  .pipe(strictProjectKeySchema)
-
 const portNumberSchema = z
   .number({ message: 'Port must be an integer between 0 and 65535' })
   .int('Port must be an integer between 0 and 65535')
   .min(0, 'Port must be an integer between 0 and 65535')
   .max(65535, 'Port must be an integer between 0 and 65535')
 
-/** Zod schema for TCP port values (`0..65535`). */
-export const portSchema = z.preprocess(
-  (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value.trim()) : value),
-  portNumberSchema,
-)
+/** Zod schema for canonical uppercase Difflab project keys (`3..16` alphanumeric chars). */
+export const projectKeySchema = z
+  .string()
+  .transform((value) => value.trim().toUpperCase())
+  .pipe(strictProjectKeySchema)
 
 /** Zod schema validating all Difflab environment variables in one pass. */
 export const difflabEnvSchema = z.object({
@@ -82,6 +76,17 @@ export type RemoteRpcConfig = {
   workspaceId?: string
 }
 
+/** Strongly typed Difflab runtime configuration loaded from environment variables. */
+export type DifflabConfig = {
+  readonly mode: ApiMode
+  readonly paths: DifflabPaths
+  readonly host: string
+  readonly port: number
+  readonly databaseUrl?: string
+  readonly apiToken?: string
+  readonly remote: RemoteRpcConfig | null
+}
+
 /** Parsed repository-local `difflab.yaml` configuration. */
 export type RepoConfig = z.infer<typeof repoConfigSchema>
 
@@ -93,150 +98,112 @@ export type DifflabConfigLoadOptions = {
 }
 
 // API -------------------------------------------------------------------------
-/** Strongly typed, `c12` + Zod configuration and path resolver for Difflab apps and libraries. */
-export class DifflabConfig {
-  readonly mode: ApiMode
-  readonly paths: DifflabPaths
-  readonly host: string
-  readonly port: number
-  readonly databaseUrl?: string
-  readonly apiToken?: string
-  readonly remote: RemoteRpcConfig | null
-
-  private constructor(fields: {
-    mode: ApiMode
-    paths: DifflabPaths
-    host: string
-    port: number
-    databaseUrl?: string
-    apiToken?: string
-    remote: RemoteRpcConfig | null
-  }) {
-    this.mode = fields.mode
-    this.paths = fields.paths
-    this.host = fields.host
-    this.port = fields.port
-    this.databaseUrl = fields.databaseUrl
-    this.apiToken = fields.apiToken
-    this.remote = fields.remote
-  }
-
-  /** Validate environment variables with Zod in one pass and return a typed `DifflabConfig`. */
-  static load(options: DifflabConfigLoadOptions = {}): DifflabConfig {
-    const result = tryValidate(difflabEnvSchema, options.env ?? process.env)
-    if (!result.ok) {
-      throw new DifflabConfigError(`Invalid Difflab configuration: ${result.error}`, {
-        cause: result.cause,
-      })
-    }
-    const parsed = result.data
-    const root = resolveRoot(options.root, options.home, parsed.DIFFLAB_HOME)
-    const mode: ApiMode = parsed.DIFFLAB_MODE ?? (parsed.DATABASE_URL ? 'cloud' : 'local')
-
-    return new DifflabConfig({
-      mode,
-      paths: {
-        root,
-        projects: join(root, 'projects'),
-        templates: join(root, 'templates'),
-        database: join(root, 'local.sqlite'),
-        legacyDatabase: join(root, 'difflab.sqlite'),
-      },
-      host: parsed.HOST ?? '127.0.0.1',
-      port: parsed.PORT ?? (mode === 'local' ? 0 : 8787),
-      databaseUrl: parsed.DATABASE_URL,
-      apiToken: parsed.DIFFLAB_API_TOKEN,
-      remote: parsed.DIFFLAB_RPC_URL
-        ? {
-            rpcUrl: parsed.DIFFLAB_RPC_URL,
-            token: parsed.DIFFLAB_API_TOKEN,
-            workspaceId: parsed.DIFFLAB_WORKSPACE,
-          }
-        : null,
+/** Validate environment variables with Zod in one pass and return a typed `DifflabConfig`. */
+export function loadDifflabConfig(options: DifflabConfigLoadOptions = {}): DifflabConfig {
+  const result = tryValidate(difflabEnvSchema, options.env ?? process.env)
+  if (!result.ok) {
+    throw new DifflabConfigError(`Invalid Difflab configuration: ${result.error}`, {
+      cause: result.cause,
     })
   }
+  const parsed = result.data
+  const root = resolveRoot(options.root, options.home, parsed.DIFFLAB_HOME)
+  const mode: ApiMode = parsed.DIFFLAB_MODE ?? (parsed.DATABASE_URL ? 'cloud' : 'local')
 
-  /** Build a `DifflabConfig` anchored at an explicit state directory `root`. */
-  static fromRoot(root: string, env: NodeJS.ProcessEnv = process.env): DifflabConfig {
-    return DifflabConfig.load({ root, env })
+  return {
+    mode,
+    paths: {
+      root,
+      projects: join(root, 'projects'),
+      templates: join(root, 'templates'),
+      database: join(root, 'local.sqlite'),
+      legacyDatabase: join(root, 'difflab.sqlite'),
+    },
+    host: parsed.HOST ?? '127.0.0.1',
+    port: parsed.PORT ?? (mode === 'local' ? 0 : 8787),
+    databaseUrl: parsed.DATABASE_URL,
+    apiToken: parsed.DIFFLAB_API_TOKEN,
+    remote: parsed.DIFFLAB_RPC_URL
+      ? {
+          rpcUrl: parsed.DIFFLAB_RPC_URL,
+          token: parsed.DIFFLAB_API_TOKEN,
+          workspaceId: parsed.DIFFLAB_WORKSPACE,
+        }
+      : null,
   }
+}
 
-  /** Resolve Difflab state paths from an optional `home` directory or `DIFFLAB_HOME`. */
-  static resolvePaths(home?: string, env: NodeJS.ProcessEnv = process.env): DifflabPaths {
-    return DifflabConfig.load({ home, env }).paths
-  }
+/** Resolve Difflab state paths from an optional `home` directory or `DIFFLAB_HOME`. */
+export function resolveDifflabPaths(
+  home?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): DifflabPaths {
+  return loadDifflabConfig({ home, env }).paths
+}
 
-  /** Parse and validate a TCP port value (`0..65535`). */
-  static parsePort(raw: string | number): number {
-    const result = tryValidate(portSchema, raw)
-    if (!result.ok) throw new DifflabConfigError(result.error, { cause: result.cause })
-    return result.data
-  }
+/** Normalize and validate a canonical uppercase Difflab project key. */
+export function validateProjectKey(raw: string): string {
+  const result = tryValidate(projectKeySchema, raw)
+  if (!result.ok) throw new DifflabConfigError(result.error, { cause: result.cause })
+  return result.data
+}
 
-  /** Normalize and validate a canonical uppercase Difflab project key. */
-  static validateProjectKey(raw: string): string {
-    const result = tryValidate(projectKeySchema, raw)
-    if (!result.ok) throw new DifflabConfigError(result.error, { cause: result.cause })
-    return result.data
-  }
+/** Return the expected path to `difflab.yaml` inside repository root `dir`. */
+export function repoConfigPath(dir: string): string {
+  return join(dir, REPO_CONFIG_FILE)
+}
 
-  /** Return the expected path to `difflab.yaml` inside repository root `dir`. */
-  static repoPath(dir: string): string {
-    return join(dir, REPO_CONFIG_FILE)
+/** Load and validate `difflab.yaml` from `dir` via `c12`, returning `null` when absent. */
+export async function readRepoConfig(dir: string): Promise<RepoConfig | null> {
+  const file = repoConfigPath(dir)
+  if (!(await lstatOrNull(file))) return null
+  let raw: unknown
+  try {
+    const loaded = await loadConfig({
+      cwd: dir,
+      configFile: REPO_CONFIG_FILE,
+      rcFile: false,
+      globalRc: false,
+      packageJson: false,
+      dotenv: false,
+    })
+    raw = loaded.config
+  } catch (error) {
+    throw new InvalidRepoConfig(`Invalid difflab.yaml (${file}): malformed YAML`, {
+      cause: error,
+    })
   }
+  const result = tryValidate(repoConfigSchema, raw)
+  if (!result.ok) {
+    throw new InvalidRepoConfig(`Invalid difflab.yaml (${file}): ${result.error}`, {
+      cause: result.cause,
+    })
+  }
+  return result.data
+}
 
-  /** Load and validate `difflab.yaml` from `dir` via `c12`, returning `null` when absent. */
-  static async readRepo(dir: string): Promise<RepoConfig | null> {
-    const file = DifflabConfig.repoPath(dir)
-    if (!(await lstatOrNull(file))) return null
-    let raw: unknown
-    try {
-      const loaded = await loadConfig({
-        cwd: dir,
-        configFile: REPO_CONFIG_FILE,
-        rcFile: false,
-        globalRc: false,
-        packageJson: false,
-        dotenv: false,
-      })
-      raw = loaded.config
-    } catch (error) {
-      throw new InvalidRepoConfig(`Invalid difflab.yaml (${file}): malformed YAML`, {
-        cause: error,
-      })
-    }
-    const result = tryValidate(repoConfigSchema, raw)
-    if (!result.ok) {
-      throw new InvalidRepoConfig(`Invalid difflab.yaml (${file}): ${result.error}`, {
-        cause: result.cause,
-      })
-    }
-    return result.data
+/** Atomically create `difflab.yaml` in `dir`, failing with `EEXIST` if it already exists. */
+export async function writeRepoConfig(config: RepoConfig, dir: string): Promise<string> {
+  const result = tryValidate(repoConfigSchema, config)
+  if (!result.ok) {
+    throw new InvalidRepoConfig(`Invalid difflab.yaml: ${result.error}`, { cause: result.cause })
   }
-
-  /** Atomically create `difflab.yaml` in `dir`, failing with `EEXIST` if it already exists. */
-  static async writeRepo(config: RepoConfig, dir: string): Promise<string> {
-    const result = tryValidate(repoConfigSchema, config)
-    if (!result.ok) {
-      throw new InvalidRepoConfig(`Invalid difflab.yaml: ${result.error}`, { cause: result.cause })
-    }
-    const file = DifflabConfig.repoPath(dir)
-    const handle = await open(
-      file,
-      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
-      0o644,
-    )
-    try {
-      await handle.writeFile(stringify(result.data), 'utf8')
-    } catch (error) {
-      await handle.close()
-      await rm(file, { force: true })
-      throw error
-    } finally {
-      await handle.close()
-    }
-    return file
+  const file = repoConfigPath(dir)
+  const handle = await open(
+    file,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o644,
+  )
+  try {
+    await handle.writeFile(stringify(result.data), 'utf8')
+  } catch (error) {
+    await handle.close()
+    await rm(file, { force: true })
+    throw error
+  } finally {
+    await handle.close()
   }
+  return file
 }
 
 // Helpers ---------------------------------------------------------------------

@@ -2,7 +2,12 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { DifflabConfig, DifflabConfigError, InvalidRepoConfig } from './index.js'
+import {
+  DifflabConfigError,
+  InvalidRepoConfig,
+  loadDifflabConfig,
+  readRepoConfig,
+} from './index.js'
 
 // Setup -----------------------------------------------------------------------
 let temp: string
@@ -14,14 +19,14 @@ beforeEach(async () => {
 })
 
 // Tests -----------------------------------------------------------------------
-describe('DifflabConfig.load', () => {
+describe('loadDifflabConfig', () => {
   it('should validate all environment variables in one pass and report bulk errors', () => {
     // Arrange
     const badEnv = { DIFFLAB_MODE: 'invalid', PORT: '99999' }
 
     // Act / Assert
     try {
-      DifflabConfig.load({ env: badEnv })
+      loadDifflabConfig({ env: badEnv })
       throw new Error('expected DifflabConfigError')
     } catch (error) {
       expect(error).toBeInstanceOf(DifflabConfigError)
@@ -31,13 +36,13 @@ describe('DifflabConfig.load', () => {
   })
 })
 
-describe('DifflabConfig.readRepo', () => {
+describe('readRepoConfig', () => {
   it('should report malformed YAML as InvalidRepoConfig', async () => {
     // Arrange
     await writeFile(join(repo, 'difflab.yaml'), 'schemaVersion: [')
 
     // Act / Assert
-    await expect(DifflabConfig.readRepo(repo)).rejects.toBeInstanceOf(InvalidRepoConfig)
+    await expect(readRepoConfig(repo)).rejects.toBeInstanceOf(InvalidRepoConfig)
   })
 
   it('should group all schema issues into one InvalidRepoConfig', async () => {
@@ -49,7 +54,7 @@ describe('DifflabConfig.readRepo', () => {
 
     // Act / Assert
     try {
-      await DifflabConfig.readRepo(repo)
+      await readRepoConfig(repo)
       throw new Error('expected InvalidRepoConfig')
     } catch (error) {
       expect(error).toBeInstanceOf(InvalidRepoConfig)

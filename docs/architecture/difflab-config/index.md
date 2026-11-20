@@ -30,20 +30,20 @@ flowchart LR
   Config --> Errors["DifflabConfigError hierarchy<br/>(src/errors.ts)"]
 ```
 
-- `src/config.ts` defines `DifflabConfig`, `difflabEnvSchema`, `repoConfigSchema`, `portSchema`, `projectKeySchema`, and all colocated configuration types.
+- `src/config.ts` defines `loadDifflabConfig`, `resolveDifflabPaths`, `readRepoConfig`, `writeRepoConfig`, `validateProjectKey`, `difflabEnvSchema`, `repoConfigSchema`, `projectKeySchema`, and all colocated configuration types.
 - `src/errors.ts` defines `DifflabConfigError` as the base exception class with `MissingRepoConfig` and `InvalidRepoConfig` subclasses.
 - `src/index.ts` re-exports the public API without implementation code.
 
 ### Data and Control Flow
 
-1. `DifflabConfig.load({ home, root, env })` parses `env` through `difflabEnvSchema` using `tryValidate` from `libs/utils/zodx`, collecting every schema issue into one `DifflabConfigError`.
+1. `loadDifflabConfig({ home, root, env })` parses `env` through `difflabEnvSchema` using `tryValidate` from `libs/utils/zodx`, collecting every schema issue into one `DifflabConfigError`.
 2. Root resolution applies precedence `explicit root` -> `home/.difflab` -> `DIFFLAB_HOME` -> `~/.difflab` and derives every child path deterministically.
-3. `DifflabConfig.readRepo(dir)` loads `difflab.yaml` via `c12` (`loadConfig`) and validates it against `repoConfigSchema` (`z.strictObject`), returning `null` when absent.
+3. `readRepoConfig(dir)` loads `difflab.yaml` via `c12` (`loadConfig`) and validates it against `repoConfigSchema` (`z.strictObject`), returning `null` when absent.
 
 ### Interfaces and Contracts
 
 ```ts
-export class DifflabConfig {
+export type DifflabConfig = {
   readonly mode: ApiMode
   readonly paths: DifflabPaths
   readonly host: string
@@ -51,15 +51,13 @@ export class DifflabConfig {
   readonly databaseUrl?: string
   readonly apiToken?: string
   readonly remote: RemoteRpcConfig | null
-
-  static load(options?: DifflabConfigLoadOptions): DifflabConfig
-  static fromRoot(root: string, env?: NodeJS.ProcessEnv): DifflabConfig
-  static resolvePaths(home?: string, env?: NodeJS.ProcessEnv): DifflabPaths
-  static parsePort(raw: string | number): number
-  static validateProjectKey(raw: string): string
-  static readRepo(dir: string): Promise<RepoConfig | null>
-  static writeRepo(config: RepoConfig, dir: string): Promise<string>
 }
+
+export function loadDifflabConfig(options?: DifflabConfigLoadOptions): DifflabConfig
+export function resolveDifflabPaths(home?: string, env?: NodeJS.ProcessEnv): DifflabPaths
+export function validateProjectKey(raw: string): string
+export function readRepoConfig(dir: string): Promise<RepoConfig | null>
+export function writeRepoConfig(config: RepoConfig, dir: string): Promise<string>
 ```
 
 ## Implementation

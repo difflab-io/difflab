@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { ConnectError, createDifflabClient, type DifflabClient } from 'difflab-client-ts'
-import { DifflabConfig } from 'difflab-config'
+import { loadDifflabConfig, readRepoConfig } from 'difflab-config'
 import { DifflabDb, DifflabDbError, type ProjectWithRemotes } from 'difflab-db'
 import { lstatOrNull } from 'utils/fsx'
 import { canonicalGitUrl, discoverGitRepository, type GitRepository } from 'utils/gitx'
@@ -47,7 +47,7 @@ export async function withProjectBackend<T>(
   if (options.client) {
     return await fn(createRemoteBackend(options.client))
   }
-  const config = DifflabConfig.load({ home: options.home })
+  const config = loadDifflabConfig({ home: options.home })
   if (config.remote) {
     const client = createDifflabClient({
       mode: 'remote',
@@ -72,7 +72,7 @@ export async function readProjectContext(
   client?: DifflabClient,
 ): Promise<DifflabContext> {
   const git = discoverGitRepository(cwd)
-  const config = await DifflabConfig.readRepo(git.root)
+  const config = await readRepoConfig(git.root)
   if (!config) throw new MissingRepoConfig(`Missing difflab.yaml in ${git.root}`)
   return getProjectContext(git, config.project.id, home, client)
 }
@@ -84,7 +84,7 @@ export async function getProjectContext(
   home?: string,
   injectedClient?: DifflabClient,
 ): Promise<DifflabContext> {
-  const config = DifflabConfig.load({ home })
+  const config = loadDifflabConfig({ home })
   if (!injectedClient && !config.remote) {
     const hasLocalDb = Boolean(await lstatOrNull(config.paths.database))
     const hasLegacyDb = Boolean(await lstatOrNull(config.paths.legacyDatabase))

@@ -1,4 +1,4 @@
-import { DifflabConfig, type ApiMode } from 'difflab-config'
+import { loadDifflabConfig, type ApiMode } from 'difflab-config'
 import { DifflabDb } from 'difflab-db'
 import { configureAppLogger, createAppLogger, resolveLogLevel, type Sink } from 'utils/logx'
 import { createApp } from './app.js'
@@ -25,7 +25,7 @@ export async function startServer(deps: ServerDeps = {}): Promise<void> {
     format: 'jsonl',
     sinks: deps.sinks,
   })
-  const config = DifflabConfig.load()
+  const config = loadDifflabConfig()
   const mode = deps.authService?.mode ?? config.mode
   const stateDir = mode === 'local' ? config.paths.root : undefined
 

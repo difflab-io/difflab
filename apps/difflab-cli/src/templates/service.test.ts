@@ -5,8 +5,8 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { parse, stringify } from 'yaml'
 import { createTempDirectory, expectFailureWith } from 'utils/testx'
-import { DifflabConfig } from 'difflab-config'
-const userPaths = (targetHome: string) => DifflabConfig.resolvePaths(targetHome)
+import { resolveDifflabPaths } from 'difflab-config'
+const userPaths = (targetHome: string) => resolveDifflabPaths(targetHome)
 import { TemplateService, UnknownTemplateError } from './service.js'
 import { embeddedSource } from './source.js'
 

@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { DifflabConfig, type ApiMode } from 'difflab-config'
+import { loadDifflabConfig, resolveDifflabPaths, type ApiMode } from 'difflab-config'
 import { CamelCasePlugin, Kysely, PostgresDialect, sql } from 'kysely'
 import { BunSqliteDialect } from 'kysely-bun-worker/normal'
 import pg from 'pg'
@@ -49,7 +49,7 @@ export class DifflabDb {
 
   /** Resolve a `DatabaseConfig` from `DATABASE_URL` or `DIFFLAB_HOME`. */
   static resolveConfig(env: NodeJS.ProcessEnv = process.env): DatabaseConfig {
-    const config = DifflabConfig.load({ env })
+    const config = loadDifflabConfig({ env })
     if (config.databaseUrl) {
       return { dialect: 'postgres', connectionString: config.databaseUrl }
     }
@@ -91,7 +91,7 @@ export class DifflabDb {
 
   /** Open local SQLite in `stateDir`, creating and migrating on first boot with one-shot legacy import. */
   static async openLocal(stateDir?: string): Promise<DifflabDb> {
-    const paths = stateDir ? DifflabConfig.fromRoot(stateDir).paths : DifflabConfig.resolvePaths()
+    const paths = stateDir ? loadDifflabConfig({ root: stateDir }).paths : resolveDifflabPaths()
     const existing = await lstatOrNull(paths.database)
     if (!existing) {
       const applied = await DifflabDb.migrate({ dialect: 'sqlite', path: paths.database })
@@ -115,7 +115,7 @@ export class DifflabDb {
   /** Open a `DifflabDb` for either `cloud` (PostgreSQL) or `local` (SQLite) mode. */
   static async open(options: OpenDifflabDbOptions = {}): Promise<DifflabDb> {
     const env = options.env ?? process.env
-    const config = DifflabConfig.load({ env })
+    const config = loadDifflabConfig({ env })
     const mode = options.mode ?? config.mode
     if (mode === 'cloud') {
       if (!config.databaseUrl) {

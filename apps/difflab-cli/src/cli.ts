@@ -1,7 +1,12 @@
 import { join } from 'node:path'
 import { Command } from 'commander'
 import { ConnectError, type DifflabClient } from 'difflab-client-ts'
-import { DifflabConfig } from 'difflab-config'
+import {
+  readRepoConfig,
+  resolveDifflabPaths,
+  validateProjectKey,
+  writeRepoConfig,
+} from 'difflab-config'
 import { DifflabDbError } from 'difflab-db'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
 import { getProjectContext, withProjectBackend } from './context.js'
@@ -82,7 +87,7 @@ export function createProgram(
           'project add requires a project key, --name, and at least one --repo; use project add <key> --name <name> --repo <origin>',
         )
       }
-      const key = DifflabConfig.validateProjectKey(projectKey)
+      const key = validateProjectKey(projectKey)
       repositories.forEach(canonicalGitUrl)
       const created = await withProjectBackend(
         { home: options.home, client: options.client },
@@ -120,19 +125,15 @@ export function createProgram(
     .action(async (projectId: string) => {
       const cwd = options.cwd ?? process.cwd()
       const git = discoverGitRepository(cwd)
-      const key = DifflabConfig.validateProjectKey(projectId)
-      const config = await DifflabConfig.readRepo(git.root)
+      const key = validateProjectKey(projectId)
+      const config = await readRepoConfig(git.root)
       if (config && config.project.id !== key) {
         throw new RepoStoreError(
           `Repository already belongs to project ${config.project.id}; requested ${key}`,
         )
       }
       const origin = canonicalGitUrl(git.originUrl)
-      const target = join(
-        DifflabConfig.resolvePaths(options.home).projects,
-        key,
-        repositorySlug(origin),
-      )
+      const target = join(resolveDifflabPaths(options.home).projects, key, repositorySlug(origin))
       await preflightRepoStore(git.root, target)
 
       const foundProject = await withProjectBackend(
@@ -151,13 +152,10 @@ export function createProgram(
       await ensureRepoStore(git.root, target, git.excludePath)
       if (!config) {
         try {
-          await DifflabConfig.writeRepo(
-            { schemaVersion: 1, project: { id: foundProject.key } },
-            git.root,
-          )
+          await writeRepoConfig({ schemaVersion: 1, project: { id: foundProject.key } }, git.root)
         } catch (error) {
           if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
-          const existing = await DifflabConfig.readRepo(git.root)
+          const existing = await readRepoConfig(git.root)
           if (!existing || existing.project.id !== foundProject.key) {
             throw new RepoStoreError(`Repository config conflicts at ${git.root}`)
           }

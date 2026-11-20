@@ -1,11 +1,16 @@
 // API -------------------------------------------------------------------------
 export {
-  DifflabConfig,
   difflabEnvSchema,
-  portSchema,
+  loadDifflabConfig,
   projectKeySchema,
+  readRepoConfig,
+  repoConfigPath,
   repoConfigSchema,
+  resolveDifflabPaths,
+  validateProjectKey,
+  writeRepoConfig,
   type ApiMode,
+  type DifflabConfig,
   type DifflabConfigLoadOptions,
   type DifflabPaths,
   type RemoteRpcConfig,
