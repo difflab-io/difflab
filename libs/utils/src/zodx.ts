@@ -1,6 +1,11 @@
 import { isAbsolute } from 'node:path'
 import { z } from 'zod'
 
+// Types -----------------------------------------------------------------------
+/** Discriminated validation outcome returned by `tryValidate` and `Model.validate`. */
+export type ValidationResult<T> =
+  { ok: true; data: T } | { ok: false; error: string; cause: z.ZodError }
+
 // API -------------------------------------------------------------------------
 /** Zod schema requiring an absolute filesystem path. */
 export const absolutePath = z.string().refine(isAbsolute, 'path must be absolute')
@@ -19,17 +24,13 @@ export const fileName = z
     'filename must be a single non-empty file name',
   )
 
-/** Validate `value` against `schema`, throwing `toError(message, zodError)` on failure. */
-export function tryValidate<T>(
-  schema: z.ZodType<T>,
-  value: unknown,
-  toError: (message: string, cause: z.ZodError) => Error,
-): T {
+/** Validate `value` against `schema` and return `{ ok: true, data }` or `{ ok: false, error, cause }`. */
+export function tryValidate<T>(schema: z.ZodType<T>, value: unknown): ValidationResult<T> {
   const parsed = schema.safeParse(value)
   if (!parsed.success) {
-    throw toError(formatZodIssues(parsed.error), parsed.error)
+    return { ok: false, error: formatZodIssues(parsed.error), cause: parsed.error }
   }
-  return parsed.data
+  return { ok: true, data: parsed.data }
 }
 
 // Helpers ---------------------------------------------------------------------

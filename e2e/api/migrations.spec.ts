@@ -19,8 +19,8 @@ import {
 // Setup -----------------------------------------------------------------------
 let activeCtx: E2ETestContext | null = null
 
-async function openContext(label: string): Promise<E2ETestContext> {
-  const ctx = await createE2EContext('api', 'migrations', label)
+async function setupTestCase(outputDirName: string): Promise<E2ETestContext> {
+  const ctx = await createE2EContext('api', 'migrations', outputDirName)
   activeCtx = ctx
   return ctx
 }
@@ -29,7 +29,7 @@ async function openContext(label: string): Promise<E2ETestContext> {
 describe('when starting difflab-api', () => {
   it('should create local.sqlite and apply shared migrations given no database exists', async () => {
     // Arrange
-    const ctx = await openContext('when-starting-difflab-api--create-local-sqlite-given-no-db')
+    const ctx = await setupTestCase('create-local-sqlite')
 
     // Act
     const server = await ctx.startApiServer({ mode: 'local' })
@@ -47,9 +47,7 @@ describe('when starting difflab-api', () => {
   describe('given a legacy v0.13.0 difflab.sqlite exists without local.sqlite', () => {
     it('should create local.sqlite and import legacy projects and repository links', async () => {
       // Arrange
-      const ctx = await openContext(
-        'when-starting-difflab-api--import-legacy-projects-into-local-sqlite',
-      )
+      const ctx = await setupTestCase('import-legacy-projects')
       const legacyPath = join(ctx.difflabHome, 'difflab.sqlite')
       await seedLegacyDatabase(legacyPath, [
         {
@@ -76,9 +74,7 @@ describe('when starting difflab-api', () => {
 
     it('should leave difflab.sqlite byte-identical', async () => {
       // Arrange
-      const ctx = await openContext(
-        'when-starting-difflab-api--leave-legacy-difflab-sqlite-byte-identical',
-      )
+      const ctx = await setupTestCase('preserve-legacy-sqlite')
       const legacyPath = join(ctx.difflabHome, 'difflab.sqlite')
       const beforeSha = await seedLegacyDatabase(legacyPath, [
         {
@@ -106,9 +102,7 @@ describe('when starting difflab-api', () => {
 
   it('should start cleanly without re-seeding given local.sqlite already has applied migrations', async () => {
     // Arrange
-    const ctx = await openContext(
-      'when-starting-difflab-api--reuse-migrated-local-sqlite-without-reseeding',
-    )
+    const ctx = await setupTestCase('reuse-migrated-local-sqlite')
     const firstServer = await ctx.startApiServer({ mode: 'local' })
     const firstClient = createDifflabClient({ mode: 'local', rpcUrl: firstServer.rpcUrl })
     await firstClient.projects.createProject({
@@ -134,9 +128,7 @@ describe('when starting difflab-api', () => {
   describe('given a non-legacy database with no existing migrations', () => {
     it('should exit nonzero and log the schema error to api.log', async () => {
       // Arrange
-      const ctx = await openContext(
-        'when-starting-difflab-api--exit-nonzero-given-unmigrated-non-legacy-db',
-      )
+      const ctx = await setupTestCase('unmigrated-db-exits-nonzero')
       createUnmigratedNonLegacySqlite(join(ctx.difflabHome, 'local.sqlite'))
 
       // Act
@@ -149,9 +141,7 @@ describe('when starting difflab-api', () => {
 
     it('should bind no TCP port', async () => {
       // Arrange
-      const ctx = await openContext(
-        'when-starting-difflab-api--bind-no-port-given-unmigrated-non-legacy-db',
-      )
+      const ctx = await setupTestCase('unmigrated-db-binds-no-port')
       const port = await reserveFreePort()
       createUnmigratedNonLegacySqlite(join(ctx.difflabHome, 'local.sqlite'))
 
@@ -168,7 +158,7 @@ describe('when starting difflab-api', () => {
 describe('when running difflab-api migrate on PostgreSQL', () => {
   it('should apply shared and cloud migrations in order given an unmigrated database', async () => {
     // Arrange
-    const ctx = await openContext('when-running-difflab-api-migrate-on-postgresql')
+    const ctx = await setupTestCase('migrate-postgresql')
     const pgServer = await ctx.startPostgres()
 
     // Act

@@ -43,11 +43,9 @@ export const ProjectModel = defineModel({
     validateKey: validateProjectKey,
     /** Trim and validate a project display name (`1..100` chars). */
     validateName(name: string): string {
-      return tryValidate(
-        projectNameSchema,
-        name,
-        (message, cause) => new ProjectValidationError(message, { cause }),
-      )
+      const result = tryValidate(projectNameSchema, name)
+      if (!result.ok) throw new ProjectValidationError(result.error, { cause: result.cause })
+      return result.data
     },
   },
 })

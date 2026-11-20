@@ -26,15 +26,16 @@ export function createWorkspaceQueries(
   return {
     async createWorkspace(input: { id?: string; slug: string; name: string }): Promise<Workspace> {
       assertCloudDialect()
-      const workspace = WorkspaceModel.validate(
-        {
-          id: input.id ?? randomUUID(),
-          slug: input.slug,
-          name: input.name,
-          createdAt: new Date().toISOString(),
-        },
-        (message, cause) => new ProjectValidationError(message, { cause }),
-      )
+      const validated = WorkspaceModel.validate({
+        id: input.id ?? randomUUID(),
+        slug: input.slug,
+        name: input.name,
+        createdAt: new Date().toISOString(),
+      })
+      if (!validated.ok) {
+        throw new ProjectValidationError(validated.error, { cause: validated.cause })
+      }
+      const workspace = validated.data
       try {
         await db.insertInto('workspaces').values(workspace).execute()
         return workspace
@@ -64,15 +65,16 @@ export function createWorkspaceQueries(
       role: WorkspaceRole
     }): Promise<WorkspaceMember> {
       assertCloudDialect()
-      const candidate = WorkspaceMemberModel.validate(
-        {
-          workspaceId: input.workspaceId,
-          userId: input.userId,
-          role: input.role,
-          createdAt: new Date().toISOString(),
-        },
-        (message, cause) => new ProjectValidationError(message, { cause }),
-      )
+      const validated = WorkspaceMemberModel.validate({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        role: input.role,
+        createdAt: new Date().toISOString(),
+      })
+      if (!validated.ok) {
+        throw new ProjectValidationError(validated.error, { cause: validated.cause })
+      }
+      const candidate = validated.data
       return await db
         .insertInto('workspace_members')
         .values(candidate)

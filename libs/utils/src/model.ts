@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import { tryValidate } from './zodx.js'
+import { tryValidate, type ValidationResult } from './zodx.js'
 
 // Types -----------------------------------------------------------------------
 /** Base contract shared by Zod-backed domain models with generic `parse` and `validate` helpers. */
@@ -9,10 +9,7 @@ export type Model<
 > = {
   readonly schema: TSchema
   readonly parse: (value: unknown) => z.infer<TSchema>
-  readonly validate: (
-    value: unknown,
-    toError?: (message: string, cause: z.ZodError) => Error,
-  ) => z.infer<TSchema>
+  readonly validate: (value: unknown) => ValidationResult<z.infer<TSchema>>
 } & TExtra
 
 // API -------------------------------------------------------------------------
@@ -24,11 +21,7 @@ export function defineModel<
   return {
     schema: spec.schema,
     parse: (value: unknown) => spec.schema.parse(value),
-    validate: (
-      value: unknown,
-      toError: (message: string, cause: z.ZodError) => Error = (message, cause) =>
-        new Error(message, { cause }),
-    ) => tryValidate(spec.schema as z.ZodType<z.infer<TSchema>>, value, toError),
+    validate: (value: unknown) => tryValidate(spec.schema as z.ZodType<z.infer<TSchema>>, value),
     ...(spec.methods as TExtra),
   }
 }

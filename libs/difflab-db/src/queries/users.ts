@@ -17,15 +17,16 @@ export function createUserQueries(db: Kysely<DifflabDatabase>, dialect: Database
   return {
     async createUser(input: { id?: string; email: string; displayName: string }): Promise<User> {
       assertCloudDialect()
-      const user = UserModel.validate(
-        {
-          id: input.id ?? randomUUID(),
-          email: input.email,
-          displayName: input.displayName,
-          createdAt: new Date().toISOString(),
-        },
-        (message, cause) => new ProjectValidationError(message, { cause }),
-      )
+      const validated = UserModel.validate({
+        id: input.id ?? randomUUID(),
+        email: input.email,
+        displayName: input.displayName,
+        createdAt: new Date().toISOString(),
+      })
+      if (!validated.ok) {
+        throw new ProjectValidationError(validated.error, { cause: validated.cause })
+      }
+      const user = validated.data
       try {
         await db.insertInto('users').values(user).execute()
         return user
@@ -39,15 +40,14 @@ export function createUserQueries(db: Kysely<DifflabDatabase>, dialect: Database
 
     async getUserByEmail(email: string): Promise<User | null> {
       assertCloudDialect()
-      const normalized = tryValidate(
-        UserModel.schema.shape.email,
-        email,
-        (message, cause) => new ProjectValidationError(message, { cause }),
-      )
+      const normalized = tryValidate(UserModel.schema.shape.email, email)
+      if (!normalized.ok) {
+        throw new ProjectValidationError(normalized.error, { cause: normalized.cause })
+      }
       const row = await db
         .selectFrom('users')
         .selectAll()
-        .where('email', '=', normalized)
+        .where('email', '=', normalized.data)
         .executeTakeFirst()
       return row ?? null
     },

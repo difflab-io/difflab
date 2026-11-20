@@ -123,12 +123,13 @@ export class DifflabConfig {
 
   /** Validate environment variables with Zod in one pass and return a typed `DifflabConfig`. */
   static load(options: DifflabConfigLoadOptions = {}): DifflabConfig {
-    const parsed = tryValidate(
-      difflabEnvSchema,
-      options.env ?? process.env,
-      (message, cause) =>
-        new DifflabConfigError(`Invalid Difflab configuration: ${message}`, { cause }),
-    )
+    const result = tryValidate(difflabEnvSchema, options.env ?? process.env)
+    if (!result.ok) {
+      throw new DifflabConfigError(`Invalid Difflab configuration: ${result.error}`, {
+        cause: result.cause,
+      })
+    }
+    const parsed = result.data
     const root = resolveRoot(options.root, options.home, parsed.DIFFLAB_HOME)
     const mode: ApiMode = parsed.DIFFLAB_MODE ?? (parsed.DATABASE_URL ? 'cloud' : 'local')
 
@@ -167,20 +168,16 @@ export class DifflabConfig {
 
   /** Parse and validate a TCP port value (`0..65535`). */
   static parsePort(raw: string | number): number {
-    return tryValidate(
-      portSchema,
-      raw,
-      (message, cause) => new DifflabConfigError(message, { cause }),
-    )
+    const result = tryValidate(portSchema, raw)
+    if (!result.ok) throw new DifflabConfigError(result.error, { cause: result.cause })
+    return result.data
   }
 
   /** Normalize and validate a canonical uppercase Difflab project key. */
   static validateProjectKey(raw: string): string {
-    return tryValidate(
-      projectKeySchema,
-      raw,
-      (message, cause) => new DifflabConfigError(message, { cause }),
-    )
+    const result = tryValidate(projectKeySchema, raw)
+    if (!result.ok) throw new DifflabConfigError(result.error, { cause: result.cause })
+    return result.data
   }
 
   /** Return the expected path to `difflab.yaml` inside repository root `dir`. */
@@ -208,21 +205,21 @@ export class DifflabConfig {
         cause: error,
       })
     }
-    return tryValidate(
-      repoConfigSchema,
-      raw,
-      (message, cause) =>
-        new InvalidRepoConfig(`Invalid difflab.yaml (${file}): ${message}`, { cause }),
-    )
+    const result = tryValidate(repoConfigSchema, raw)
+    if (!result.ok) {
+      throw new InvalidRepoConfig(`Invalid difflab.yaml (${file}): ${result.error}`, {
+        cause: result.cause,
+      })
+    }
+    return result.data
   }
 
   /** Atomically create `difflab.yaml` in `dir`, failing with `EEXIST` if it already exists. */
   static async writeRepo(config: RepoConfig, dir: string): Promise<string> {
-    const valid = tryValidate(
-      repoConfigSchema,
-      config,
-      (message, cause) => new InvalidRepoConfig(`Invalid difflab.yaml: ${message}`, { cause }),
-    )
+    const result = tryValidate(repoConfigSchema, config)
+    if (!result.ok) {
+      throw new InvalidRepoConfig(`Invalid difflab.yaml: ${result.error}`, { cause: result.cause })
+    }
     const file = DifflabConfig.repoPath(dir)
     const handle = await open(
       file,
@@ -230,7 +227,7 @@ export class DifflabConfig {
       0o644,
     )
     try {
-      await handle.writeFile(stringify(valid), 'utf8')
+      await handle.writeFile(stringify(result.data), 'utf8')
     } catch (error) {
       await handle.close()
       await rm(file, { force: true })

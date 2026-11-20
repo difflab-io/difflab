@@ -4,13 +4,13 @@ import { createValidateInterceptor } from '@connectrpc/validate'
 import type { ApiMode } from 'difflab-config'
 import type { DifflabDb } from 'difflab-db'
 import { Hono } from 'hono'
-import { annotateWideEvent, getLogger, runWithWideEvent } from 'utils/logx'
+import { annotateWideEvent, createAppLogger, runWithWideEvent } from 'utils/logx'
 import { ProjectService } from './gen/difflab/v1/project_pb.js'
 import { AuthService, createAuthService } from './services/auth-service.js'
 import { ProjectRpcService } from './services/project-service.js'
 
 // Constants -------------------------------------------------------------------
-const rpcLogger = getLogger(['api', 'rpc'])
+const rpcLogger = createAppLogger(['api', 'rpc'])
 
 // Types -----------------------------------------------------------------------
 export type AppDeps = {

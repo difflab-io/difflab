@@ -16,7 +16,7 @@
 - Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto` (from `utils/dto`).
 - Keep one major model, entity, or DTO per file.
 - Add an architecture document under `docs/architecture/<package>/index.md` for every new library or application following the `software-architecture-design` template and Difflab writing style.
-- Use `@logtape/logtape` via shared `libs/utils` logging helpers with multi-sink support and `AsyncLocalStorage` request context so services emit structured wide-event request logs instead of bespoke log lines; libraries acquire category loggers without configuring sinks, and applications configure sinks at startup.
+- Use `loglayer` (`@loglayer/transport-logtape`) via `configureAppLogger` / `createAppLogger` in `libs/utils/src/logx.ts` for structured wide-event application logging, and minimal `@logtape/logtape` loggers via `createLibLogger` in libraries without configuring sinks.
 - [Proposed] Keep package `src/index.ts` entry points limited to re-exports and put implementation in dedicated modules.
 - [Proposed] Name code generation tasks `codegen` and `codegen:check` consistently with `format` and `format:check`.
 - [Proposed] Avoid bespoke CLI scripts for maintenance tasks (such as database migrations) when a `mise` task suffices.

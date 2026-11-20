@@ -1,12 +1,12 @@
 import { DifflabConfig, type ApiMode } from 'difflab-config'
 import { DifflabDb } from 'difflab-db'
-import { configureLogging, getLogger, resolveLogLevel, type Sink } from 'utils/logx'
+import { configureAppLogger, createAppLogger, resolveLogLevel, type Sink } from 'utils/logx'
 import { createApp } from './app.js'
 import { AuthService } from './services/auth-service.js'
 import { ProjectRpcService } from './services/project-service.js'
 
 // Constants -------------------------------------------------------------------
-const serverLogger = getLogger('api')
+const serverLogger = createAppLogger('api')
 
 // Types -----------------------------------------------------------------------
 /** Optional injected services and log sinks for `startServer`. */
@@ -20,7 +20,7 @@ export type ServerDeps = {
 // API -------------------------------------------------------------------------
 /** Configure logging, compose API services, bind `Bun.serve`, and register graceful shutdown. */
 export async function startServer(deps: ServerDeps = {}): Promise<void> {
-  configureLogging({
+  configureAppLogger({
     level: resolveLogLevel(process.env, 'info'),
     format: 'jsonl',
     sinks: deps.sinks,
@@ -71,12 +71,14 @@ async function serveWithGracefulShutdown(options: {
     })
     const serverUrl = `http://${formatUrlHost(options.host)}:${server.port}`
     const rpcUrl = `${serverUrl}/rpc`
-    serverLogger.info('difflab-api.ready', {
-      mode: options.mode,
-      pid: process.pid,
-      server_url: serverUrl,
-      rpc_url: rpcUrl,
-    })
+    serverLogger
+      .withMetadata({
+        mode: options.mode,
+        pid: process.pid,
+        server_url: serverUrl,
+        rpc_url: rpcUrl,
+      })
+      .info('difflab-api.ready')
 
     let shuttingDown = false
     const shutdown = async () => {

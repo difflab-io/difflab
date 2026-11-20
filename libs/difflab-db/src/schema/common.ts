@@ -46,18 +46,14 @@ export type ActorContext = {
 // API -------------------------------------------------------------------------
 /** Normalize and validate a project key, throwing `ProjectValidationError` on failure. */
 export function validateProjectKey(key: string): string {
-  return tryValidate(
-    projectKeySchema,
-    key,
-    (message, cause) => new ProjectValidationError(message, { cause }),
-  )
+  const result = tryValidate(projectKeySchema, key)
+  if (!result.ok) throw new ProjectValidationError(result.error, { cause: result.cause })
+  return result.data
 }
 
 /** Trim and validate a workspace ID, throwing `ProjectValidationError` on failure. */
 export function validateWorkspaceId(workspaceId: string): string {
-  return tryValidate(
-    workspaceIdSchema,
-    workspaceId,
-    (message, cause) => new ProjectValidationError(message, { cause }),
-  )
+  const result = tryValidate(workspaceIdSchema, workspaceId)
+  if (!result.ok) throw new ProjectValidationError(result.error, { cause: result.cause })
+  return result.data
 }

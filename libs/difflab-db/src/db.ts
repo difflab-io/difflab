@@ -5,7 +5,7 @@ import { CamelCasePlugin, Kysely, PostgresDialect, sql } from 'kysely'
 import { BunSqliteDialect } from 'kysely-bun-worker/normal'
 import pg from 'pg'
 import { lstatOrNull } from 'utils/fsx'
-import { getLogger } from 'utils/logx'
+import { createLibLogger } from 'utils/logx'
 import { DifflabDbError } from './errors.js'
 import { seedFromLegacyIfPresent } from './legacy-seed.js'
 import { assertSchemaReady, migrateDatabase, MigrationError } from './migrations.js'
@@ -16,7 +16,7 @@ import { createWorkspaceQueries } from './queries/workspaces.js'
 import type { DifflabDatabase } from './schema/index.js'
 
 // Constants -------------------------------------------------------------------
-const logger = getLogger('db')
+const logger = createLibLogger('db')
 
 // Types -----------------------------------------------------------------------
 /** Connection target for opening or migrating a SQLite or PostgreSQL Difflab database. */

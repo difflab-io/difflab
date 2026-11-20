@@ -24,17 +24,18 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
       actor: ActorContext = DEFAULT_ACTOR,
     ): Promise<ProjectWithRemotes> {
       const workspaceId = validateWorkspaceId(actor.workspaceId)
-      const project = ProjectModel.validate(
-        {
-          id: randomUUID(),
-          workspaceId,
-          key,
-          name,
-          createdByUserId: actor.userId,
-          createdAt: new Date().toISOString(),
-        },
-        (message, cause) => new ProjectValidationError(message, { cause }),
-      )
+      const validated = ProjectModel.validate({
+        id: randomUUID(),
+        workspaceId,
+        key,
+        name,
+        createdByUserId: actor.userId,
+        createdAt: new Date().toISOString(),
+      })
+      if (!validated.ok) {
+        throw new ProjectValidationError(validated.error, { cause: validated.cause })
+      }
+      const project = validated.data
       const normalizedRemotes = initialOrigins.map(GitRemoteModel.normalizeUrl)
       const uniqueUrls = new Set(normalizedRemotes.map((item) => item.url))
       if (uniqueUrls.size !== normalizedRemotes.length) {

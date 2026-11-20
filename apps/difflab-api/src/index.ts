@@ -1,4 +1,4 @@
-import { configureLogging, getLogger, resolveLogLevel } from 'utils/logx'
+import { configureAppLogger, createAppLogger, resolveLogLevel } from 'utils/logx'
 import { startServer } from './server.js'
 
 // API -------------------------------------------------------------------------
@@ -12,16 +12,18 @@ export {
 export { createProjectServiceImpl, type ProjectServiceDeps } from './services/project-service.js'
 
 if (import.meta.main) {
-  configureLogging({
+  configureAppLogger({
     level: resolveLogLevel(process.env, 'info'),
     format: 'jsonl',
   })
   startServer().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
-    getLogger('api').error('difflab-api.startup-error', {
-      pid: process.pid,
-      message,
-    })
+    createAppLogger('api')
+      .withMetadata({
+        pid: process.pid,
+        message,
+      })
+      .error('difflab-api.startup-error')
     process.exit(1)
   })
 }

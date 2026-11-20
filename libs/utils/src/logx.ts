@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { LogTapeTransport } from '@loglayer/transport-logtape'
 import { getRotatingFileSink } from '@logtape/file'
 import {
   configureSync,
@@ -15,6 +16,7 @@ import {
   type LogRecord,
   type Sink,
 } from '@logtape/logtape'
+import { LogLayer, type ILogLayer } from 'loglayer'
 
 // Constants -------------------------------------------------------------------
 const LOG_LEVELS: readonly LogLevel[] = ['trace', 'debug', 'info', 'warning', 'error', 'fatal']
@@ -24,9 +26,9 @@ const wideEventStorage = new AsyncLocalStorage<Record<string, unknown>>()
 // Types -----------------------------------------------------------------------
 /** Supported Difflab log levels backed by LogTape. */
 export type DifflabLogLevel = LogLevel
-export type { Logger, LogRecord, Sink }
+export type { ILogLayer, Logger, LogRecord, Sink }
 
-/** Startup configuration for multi-sink LogTape logging. */
+/** Startup configuration for multi-sink application logging. */
 export type LoggingConfig = {
   level?: DifflabLogLevel
   logFile?: string
@@ -36,13 +38,20 @@ export type LoggingConfig = {
 }
 
 // API -------------------------------------------------------------------------
-/** Acquire a category logger under the `['difflab', ...]` namespace without configuring sinks. */
-export function getLogger(scope: string | readonly string[]): Logger {
+/** Acquire a minimal `@logtape/logtape` library logger under `['difflab', ...]` without configuring sinks. */
+export function createLibLogger(scope: string | readonly string[]): Logger {
   const parts = typeof scope === 'string' ? [scope] : scope
   return logtapeGetLogger(['difflab', ...parts])
 }
 
-/** Resolve the effective LogTape threshold from `DIFFLAB_LOG` or `fallback`. */
+/** Create a `LogLayer` application logger backed by `@logtape/logtape` for structured wide events. */
+export function createAppLogger(scope: string | readonly string[]): ILogLayer {
+  return new LogLayer({
+    transport: new LogTapeTransport({ logger: createLibLogger(scope) }),
+  })
+}
+
+/** Resolve the effective log level threshold from `DIFFLAB_LOG` or `fallback`. */
 export function resolveLogLevel(
   env: NodeJS.ProcessEnv = process.env,
   fallback: DifflabLogLevel = 'warning',
@@ -52,8 +61,8 @@ export function resolveLogLevel(
   return (LOG_LEVELS as readonly string[]).includes(raw) ? (raw as DifflabLogLevel) : fallback
 }
 
-/** Configure LogTape sinks (stderr, optional rotating file, and custom sinks) idempotently. */
-export function configureLogging(options: LoggingConfig = {}): void {
+/** Configure application sinks (stderr, optional rotating file, and custom sinks) idempotently. */
+export function configureAppLogger(options: LoggingConfig = {}): void {
   if (getConfig() != null) return
 
   const level = options.level ?? resolveLogLevel(process.env)
@@ -87,6 +96,7 @@ export function configureLogging(options: LoggingConfig = {}): void {
     contextLocalStorage: logContextStorage,
     loggers: [
       { category: ['difflab'], lowestLevel: level, sinks: activeSinks },
+      { category: ['logtape', 'meta'], lowestLevel: 'warning', sinks: activeSinks },
       { category: [], lowestLevel: 'fatal', sinks: [] },
     ],
   })
@@ -98,9 +108,9 @@ export function annotateWideEvent(fields: Record<string, unknown>): void {
   if (store) Object.assign(store, fields)
 }
 
-/** Run `fn` inside a request scope and emit one canonical wide-event log on completion. */
+/** Run `fn` inside a request scope and emit one canonical LogLayer wide-event record on completion. */
 export async function runWithWideEvent<T>(
-  logger: Logger,
+  logger: ILogLayer,
   eventName: string,
   initialFields: Record<string, unknown>,
   fn: () => Promise<T>,
@@ -119,7 +129,7 @@ export async function runWithWideEvent<T>(
         throw error
       } finally {
         fields.duration_ms = Math.round((performance.now() - startedAt) * 100) / 100
-        logger.info(eventName, fields)
+        logger.withMetadata(fields).info(eventName)
       }
     }),
   )
