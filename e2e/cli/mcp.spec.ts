@@ -95,7 +95,7 @@ describe('when running difflab mcp setup', () => {
 })
 
 describe('given a difflab mcp serve session on an uninitialized workspace', () => {
-  it('listTools should expose project_context, log_append, template_list, scaffold, and all five todo_* tools', async () => {
+  it('listTools should expose project_context, log_append, template_list, and scaffold tools', async () => {
     // Arrange
     const ctx = await openContext('mcp-uninitialized--list-tools')
     const mcp = await connectMcp(ctx)
@@ -105,17 +105,7 @@ describe('given a difflab mcp serve session on an uninitialized workspace', () =
 
     // Assert
     expect(tools.map((tool) => tool.name).sort()).toEqual(
-      [
-        'log_append',
-        'project_context',
-        'scaffold',
-        'template_list',
-        'todo_add',
-        'todo_complete',
-        'todo_init',
-        'todo_list',
-        'todo_remove',
-      ].sort(),
+      ['log_append', 'project_context', 'scaffold', 'template_list'].sort(),
     )
   })
 
@@ -141,35 +131,6 @@ describe('given a difflab mcp serve session on an uninitialized workspace', () =
     expect(relativeCwd.isError).toBe(true)
     expect(missingGlobal.isError).toBe(true)
     expect(parseMcpJson(missingGlobal).error).toContain('difflab-init')
-  })
-
-  it('todo tools should persist and update tasks in workspace/todos.json', async () => {
-    // Arrange
-    const ctx = await openContext('mcp-uninitialized--todo-tools-crud')
-    const mcp = await connectMcp(ctx)
-    const cwd = await realpath(ctx.workspaceDir)
-
-    // Act
-    const initialized = await mcp.callTool('todo_init', { cwd, path: 'todos.json' })
-    const added = await mcp.callTool('todo_add', {
-      cwd,
-      path: 'todos.json',
-      text: 'Verify retained E2E outputs',
-    })
-    const taskId = parseMcpJson<{ id: string }>(added).id
-    await mcp.callTool('todo_complete', { cwd, path: 'todos.json', id: taskId })
-    const listedAfterComplete = await mcp.callTool('todo_list', { cwd, path: 'todos.json' })
-    await mcp.callTool('todo_remove', { cwd, path: 'todos.json', id: taskId })
-    const listedAfterRemove = await mcp.callTool('todo_list', { cwd, path: 'todos.json' })
-
-    // Assert
-    expect(initialized.isError).toBeUndefined()
-    const completedTasks = parseMcpJson<{ tasks: Array<{ id: string; done: boolean }> }>(
-      listedAfterComplete,
-    ).tasks
-    expect(completedTasks).toEqual([expect.objectContaining({ id: taskId, done: true })])
-    expect(parseMcpJson<{ tasks: unknown[] }>(listedAfterRemove).tasks).toEqual([])
-    expect(await readFile(join(cwd, 'todos.json'), 'utf8')).toContain('"version": 1')
   })
 
   it('template_list and scaffold should write valid files and reject duplicates or traversal paths', async () => {

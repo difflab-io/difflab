@@ -18,7 +18,7 @@ e2e/
 │   ├── projects.spec.ts         local in-process SQLite and remote DIFFLAB_RPC_URL project commands
 │   ├── init.spec.ts             repository linking, .difflab symlinks, Git excludes, and worktrees
 │   ├── templates.spec.ts        template installation, scaffolding, and path/overwrite guards
-│   └── mcp.spec.ts              mcp setup and all nine stdio MCP tools
+│   └── mcp.spec.ts              mcp setup and all four stdio MCP tools
 └── outputs/<suite>/<spec>/<test-slug>/   retained git-ignored artifacts per test
     ├── cli.log                  CLI commands, exit codes, stdout/stderr, and MCP JSON-RPC payloads
     ├── api.log                  difflab-api startup events and Connect HTTP request/response JSON
