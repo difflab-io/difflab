@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { DifflabConfig, type ApiMode } from 'difflab-config'
-import { Kysely, PostgresDialect, sql } from 'kysely'
+import { CamelCasePlugin, Kysely, PostgresDialect, sql } from 'kysely'
 import { BunSqliteDialect } from 'kysely-bun-worker/normal'
 import pg from 'pg'
 import { lstatOrNull } from 'utils/fsx'
@@ -164,6 +164,7 @@ async function connectSqlite(
       url: sqlitePath,
       dbOptions: { create: createSqlite, strict: true },
     }),
+    plugins: [new CamelCasePlugin()],
   })
   try {
     await sql`PRAGMA journal_mode = WAL`.execute(db)
@@ -180,5 +181,6 @@ function connectPg(connectionString: string): Kysely<DifflabDatabase> {
   const pool = new pg.Pool({ connectionString })
   return new Kysely<DifflabDatabase>({
     dialect: new PostgresDialect({ pool }),
+    plugins: [new CamelCasePlugin()],
   })
 }

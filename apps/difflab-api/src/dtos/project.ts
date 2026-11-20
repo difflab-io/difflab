@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf'
 import type { Project as DomainProject } from 'difflab-db'
-import type { DTO } from 'utils/dtox'
+import type { DTO } from 'utils/dto'
 import { ProjectSchema, type Project as ProtoProject } from '../gen/difflab/v1/project_pb.js'
 import { GitRemoteDTO } from './git-remote.js'
 

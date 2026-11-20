@@ -15,11 +15,18 @@ export const DEFAULT_ACTOR: ActorContext = {
 /** Zod schema for canonical uppercase project keys (`3..16` alphanumeric characters). */
 export const projectKeySchema = z
   .string()
-  .regex(/^[A-Z][A-Z0-9]{2,15}$/, 'Project key must be 3-16 uppercase letters or digits')
+  .trim()
+  .transform((value) => value.toUpperCase())
+  .pipe(
+    z
+      .string()
+      .regex(/^[A-Z][A-Z0-9]{2,15}$/, 'Project key must be 3-16 uppercase letters or digits'),
+  )
 
 /** Zod schema for workspace identifiers (`1..64` characters). */
 export const workspaceIdSchema = z
   .string()
+  .trim()
   .min(1, 'Workspace ID must be nonempty and at most 64 characters')
   .max(64, 'Workspace ID must be nonempty and at most 64 characters')
 
@@ -36,46 +43,12 @@ export type ActorContext = {
   userId: string | null
 }
 
-/** Base contract shared by persisted database entities mapping SQL rows to domain models. */
-export type Entity<
-  TRow,
-  TModel,
-  TFromRowArgs extends unknown[] = [],
-  TExtra extends Record<string, unknown> = Record<string, never>,
-> = {
-  readonly schema: z.ZodType<TModel>
-  readonly rowSchema: z.ZodType<TRow>
-  readonly parse: (value: unknown) => TModel
-  readonly fromRow: (row: TRow, ...args: TFromRowArgs) => TModel
-} & TExtra
-
 // API -------------------------------------------------------------------------
-/** Define a typed database entity pairing Zod schemas, row mapping, and domain validators. */
-export function defineEntity<
-  TRow,
-  TModel,
-  TFromRowArgs extends unknown[] = [],
-  TExtra extends Record<string, unknown> = Record<string, never>,
->(spec: {
-  schema: z.ZodType<TModel>
-  rowSchema: z.ZodType<TRow>
-  fromRow: (row: TRow, ...args: TFromRowArgs) => TModel
-  methods?: TExtra
-}): Entity<TRow, TModel, TFromRowArgs, TExtra> {
-  return {
-    schema: spec.schema,
-    rowSchema: spec.rowSchema,
-    parse: (value: unknown) => spec.schema.parse(value),
-    fromRow: (row: TRow, ...args: TFromRowArgs) => spec.schema.parse(spec.fromRow(row, ...args)),
-    ...(spec.methods as TExtra),
-  }
-}
-
 /** Normalize and validate a project key, throwing `ProjectValidationError` on failure. */
 export function validateProjectKey(key: string): string {
   return tryValidate(
     projectKeySchema,
-    key.trim().toUpperCase(),
+    key,
     (message, cause) => new ProjectValidationError(message, { cause }),
   )
 }
@@ -84,7 +57,7 @@ export function validateProjectKey(key: string): string {
 export function validateWorkspaceId(workspaceId: string): string {
   return tryValidate(
     workspaceIdSchema,
-    workspaceId.trim(),
+    workspaceId,
     (message, cause) => new ProjectValidationError(message, { cause }),
   )
 }

@@ -9,27 +9,20 @@ import { createIsolatedTestHome } from 'utils/testx'
 import { DifflabDb, MigrationError, ProjectConflictError, type DatabaseConfig } from './index.js'
 
 // Setup -----------------------------------------------------------------------
-type DialectHarness = {
-  config: DatabaseConfig
-  cleanup: () => Promise<void>
-}
-
 const cleanups: Array<() => Promise<void>> = []
 
 // Tests -----------------------------------------------------------------------
 describe('DifflabDb.migrate and DifflabDb.fromConfig', () => {
   it('should apply only shared migrations on SQLite and skip cloud-only tables', async () => {
     // Arrange
-    const harness = await openHarness('sqlite')
+    const config = await openSqliteConfig()
 
     // Act
-    const applied = await DifflabDb.migrate(harness.config)
+    const applied = await DifflabDb.migrate(config)
 
     // Assert
     expect(applied).toEqual(['0001_initial'])
-    const raw = new Database((harness.config as { dialect: 'sqlite'; path: string }).path, {
-      readonly: true,
-    })
+    const raw = new Database(config.path, { readonly: true })
     const tableNames = raw
       .query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all()
@@ -43,17 +36,14 @@ describe('DifflabDb.migrate and DifflabDb.fromConfig', () => {
 
   it('should apply shared and cloud migrations in order on PostgreSQL', async () => {
     // Arrange
-    const harness = await openHarness('postgres')
+    const config = await openPostgresConfig()
 
     // Act
-    const applied = await DifflabDb.migrate(harness.config)
+    const applied = await DifflabDb.migrate(config)
 
     // Assert
     expect(applied).toEqual(['0001_initial', '0002_cloud_tenancy'])
-    const pool = new pg.Pool({
-      connectionString: (harness.config as { dialect: 'postgres'; connectionString: string })
-        .connectionString,
-    })
+    const pool = new pg.Pool({ connectionString: config.connectionString })
     const tables = await pool.query<{ tablename: string }>(
       "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
     )
@@ -84,51 +74,76 @@ describe('DifflabDb.migrate and DifflabDb.fromConfig', () => {
   })
 })
 
-describe('DifflabDb workspace isolation and cloud tenancy contracts', () => {
+describe('DifflabDb workspace isolation', () => {
   for (const dialect of ['sqlite', 'postgres'] as const) {
-    it(`should isolate identical keys and remote URLs across workspaces while rejecting conflicts within one workspace on ${dialect}`, async () => {
-      // Arrange
-      const harness = await openHarness(dialect)
-      await DifflabDb.migrate(harness.config)
-      const db = await DifflabDb.fromConfig(harness.config)
-      cleanups.push(() => db.close())
-      const actorA = { workspaceId: 'ws-a', userId: 'u-1' }
-      const actorB = { workspaceId: 'ws-b', userId: 'u-2' }
+    describe(`given a migrated ${dialect} database with project ALPHA in workspace ws-a`, () => {
+      it('then creating the same project key and Git remote URL in workspace ws-b succeeds', async () => {
+        // Arrange
+        const db = await openMigratedDb(dialect)
+        const actorA = { workspaceId: 'ws-a', userId: 'u-1' }
+        const actorB = { workspaceId: 'ws-b', userId: 'u-2' }
+        await db.projects.createProject(
+          'alpha',
+          'Alpha A',
+          ['git@github.com:acme/shared.git'],
+          actorA,
+        )
 
-      // Act
-      const projA = await db.projects.createProject(
-        'alpha',
-        'Alpha A',
-        ['git@github.com:acme/shared.git'],
-        actorA,
-      )
-      const projB = await db.projects.createProject(
-        'ALPHA',
-        'Alpha B',
-        ['https://github.com/acme/shared'],
-        actorB,
-      )
+        // Act
+        const projB = await db.projects.createProject(
+          'ALPHA',
+          'Alpha B',
+          ['https://github.com/acme/shared'],
+          actorB,
+        )
 
-      // Assert
-      expect(projA.workspaceId).toBe('ws-a')
-      expect(projB.workspaceId).toBe('ws-b')
-      await expect(
-        db.projects.createProject('ALPHA', 'Duplicate', [], actorA),
-      ).rejects.toBeInstanceOf(ProjectConflictError)
-      await db.projects.createProject('BETA', 'Beta A', [], actorA)
-      await expect(
-        db.gitRemotes.linkGitRemoteToProject('BETA', 'https://github.com/acme/shared.git', actorA),
-      ).rejects.toBeInstanceOf(ProjectConflictError)
+        // Assert
+        expect(projB.id).toBe('ALPHA')
+        expect(projB.workspaceId).toBe('ws-b')
+      })
+
+      it('then creating a duplicate project key in workspace ws-a rejects with ProjectConflictError', async () => {
+        // Arrange
+        const db = await openMigratedDb(dialect)
+        const actorA = { workspaceId: 'ws-a', userId: 'u-1' }
+        await db.projects.createProject('ALPHA', 'Alpha A', [], actorA)
+
+        // Act / Assert
+        await expect(
+          db.projects.createProject('ALPHA', 'Duplicate', [], actorA),
+        ).rejects.toBeInstanceOf(ProjectConflictError)
+      })
+
+      it('then linking a Git remote already owned by ALPHA to BETA in workspace ws-a rejects with ProjectConflictError', async () => {
+        // Arrange
+        const db = await openMigratedDb(dialect)
+        const actorA = { workspaceId: 'ws-a', userId: 'u-1' }
+        await db.projects.createProject(
+          'ALPHA',
+          'Alpha A',
+          ['git@github.com:acme/shared.git'],
+          actorA,
+        )
+        await db.projects.createProject('BETA', 'Beta A', [], actorA)
+
+        // Act / Assert
+        await expect(
+          db.gitRemotes.linkGitRemoteToProject(
+            'BETA',
+            'https://github.com/acme/shared.git',
+            actorA,
+          ),
+        ).rejects.toBeInstanceOf(ProjectConflictError)
+      })
     })
   }
+})
 
-  describe('when updating an existing workspace member role on PostgreSQL', () => {
-    it('should update the role without changing created_at', async () => {
+describe('DifflabDb cloud workspace memberships', () => {
+  describe('given an existing workspace member on PostgreSQL', () => {
+    it('when upserting a new role, then the role updates without changing createdAt', async () => {
       // Arrange
-      const harness = await openHarness('postgres')
-      await DifflabDb.migrate(harness.config)
-      const db = await DifflabDb.fromConfig(harness.config)
-      cleanups.push(() => db.close())
+      const db = await openMigratedDb('postgres')
       const ws = await db.workspaces.createWorkspace({ slug: 'acme-team', name: 'Acme Team' })
       const user = await db.users.createUser({ email: 'Alice@Example.com', displayName: 'Alice' })
       const initial = await db.workspaces.upsertMember({
@@ -160,17 +175,13 @@ afterEach(async () => {
 })
 
 // Helpers ---------------------------------------------------------------------
-async function openHarness(dialect: 'sqlite' | 'postgres'): Promise<DialectHarness> {
-  if (dialect === 'sqlite') {
-    const testHome = await createIsolatedTestHome('difflab-db-sqlite-')
-    const cleanup = () => testHome.cleanup()
-    cleanups.push(cleanup)
-    return {
-      config: { dialect: 'sqlite', path: join(testHome.home, 'local.sqlite') },
-      cleanup,
-    }
-  }
+async function openSqliteConfig(): Promise<Extract<DatabaseConfig, { dialect: 'sqlite' }>> {
+  const testHome = await createIsolatedTestHome('difflab-db-sqlite-')
+  cleanups.push(testHome.cleanup)
+  return { dialect: 'sqlite', path: join(testHome.home, 'local.sqlite') }
+}
 
+async function openPostgresConfig(): Promise<Extract<DatabaseConfig, { dialect: 'postgres' }>> {
   const pglite = new PGlite()
   await pglite.waitReady
   const server = new PGLiteSocketServer({
@@ -180,14 +191,20 @@ async function openHarness(dialect: 'sqlite' | 'postgres'): Promise<DialectHarne
     maxConnections: 15,
   })
   await server.start()
-  const connectionString = `postgres://postgres@${server.getServerConn()}/postgres`
-  const cleanup = async () => {
+  cleanups.push(async () => {
     await server.stop()
     await pglite.close()
-  }
-  cleanups.push(cleanup)
+  })
   return {
-    config: { dialect: 'postgres', connectionString },
-    cleanup,
+    dialect: 'postgres',
+    connectionString: `postgres://postgres@${server.getServerConn()}/postgres`,
   }
+}
+
+async function openMigratedDb(dialect: 'sqlite' | 'postgres'): Promise<DifflabDb> {
+  const config = dialect === 'sqlite' ? await openSqliteConfig() : await openPostgresConfig()
+  await DifflabDb.migrate(config)
+  const db = await DifflabDb.fromConfig(config)
+  cleanups.push(() => db.close())
+  return db
 }

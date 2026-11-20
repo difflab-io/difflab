@@ -16,7 +16,8 @@
       "types": "./src/logx.ts",
       "import": "./src/logx.ts"
     },
-    "./dtox": "./src/dtox.ts",
+    "./dto": "./src/dto.ts",
+    "./entity": "./src/entity.ts",
     "./fsx": "./src/fsx.ts",
     "./osx": "./src/osx.ts",
     "./pathx": "./src/pathx.ts",

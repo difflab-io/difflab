@@ -19,15 +19,6 @@ export const fileName = z
     'filename must be a single non-empty file name',
   )
 
-/** Format all Zod validation issues into a single semicolon-separated summary. */
-export function formatZodIssues(error: z.ZodError): string {
-  return error.issues
-    .map((issue) =>
-      issue.path.length ? `${issue.path.join('.')}: ${issue.message}` : issue.message,
-    )
-    .join('; ')
-}
-
 /** Validate `value` against `schema`, throwing `toError(message, zodError)` on failure. */
 export function tryValidate<T>(
   schema: z.ZodType<T>,
@@ -39,4 +30,13 @@ export function tryValidate<T>(
     throw toError(formatZodIssues(parsed.error), parsed.error)
   }
   return parsed.data
+}
+
+// Helpers ---------------------------------------------------------------------
+function formatZodIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) =>
+      issue.path.length ? `${issue.path.join('.')}: ${issue.message}` : issue.message,
+    )
+    .join('; ')
 }

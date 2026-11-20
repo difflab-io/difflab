@@ -16,6 +16,7 @@ import {
 } from '../schema/index.js'
 
 // API -------------------------------------------------------------------------
+/** Create project CRUD queries bound to a Kysely database instance. */
 export function createProjectQueries(db: Kysely<DifflabDatabase>) {
   return {
     async createProject(
@@ -36,11 +37,11 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
       const now = new Date().toISOString()
       const projectRow: ProjectRow = {
         id: randomUUID(),
-        workspace_id: workspaceId,
+        workspaceId,
         key: projectKey,
         name: trimmedName,
-        created_by_user_id: actor.userId,
-        created_at: now,
+        createdByUserId: actor.userId,
+        createdAt: now,
       }
 
       try {
@@ -50,13 +51,13 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
           for (const remote of normalizedRemotes) {
             const remoteRow: GitRemoteRow = {
               id: randomUUID(),
-              workspace_id: workspaceId,
-              project_id: projectRow.id,
-              project_key: projectKey,
-              remote_url: remote.url,
+              workspaceId,
+              projectId: projectRow.id,
+              projectKey,
+              remoteUrl: remote.url,
               slug: remote.slug,
-              created_by_user_id: actor.userId,
-              created_at: new Date().toISOString(),
+              createdByUserId: actor.userId,
+              createdAt: new Date().toISOString(),
             }
             await tx.insertInto('git_remotes').values(remoteRow).execute()
             gitRemotes.push(GitRemoteEntity.fromRow(remoteRow))
@@ -80,24 +81,22 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
         const projectRows = await tx
           .selectFrom('projects')
           .selectAll()
-          .where('workspace_id', '=', workspaceId)
+          .where('workspaceId', '=', workspaceId)
           .orderBy('key', 'asc')
           .execute()
 
         const remoteRows = await tx
           .selectFrom('git_remotes')
           .selectAll()
-          .where('workspace_id', '=', workspaceId)
-          .orderBy('created_at', 'asc')
+          .where('workspaceId', '=', workspaceId)
+          .orderBy('createdAt', 'asc')
           .orderBy('id', 'asc')
           .execute()
 
         return projectRows.map((row) =>
           ProjectEntity.fromRow(
             row,
-            remoteRows
-              .filter((remote) => remote.project_id === row.id)
-              .map(GitRemoteEntity.fromRow),
+            remoteRows.filter((remote) => remote.projectId === row.id).map(GitRemoteEntity.fromRow),
           ),
         )
       })
@@ -110,7 +109,7 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
         const row = await tx
           .selectFrom('projects')
           .selectAll()
-          .where('workspace_id', '=', workspaceId)
+          .where('workspaceId', '=', workspaceId)
           .where('key', '=', projectKey)
           .executeTakeFirst()
         if (!row) throw new ProjectNotFoundError(projectKey)
@@ -118,9 +117,9 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
         const remoteRows = await tx
           .selectFrom('git_remotes')
           .selectAll()
-          .where('workspace_id', '=', workspaceId)
-          .where('project_id', '=', row.id)
-          .orderBy('created_at', 'asc')
+          .where('workspaceId', '=', workspaceId)
+          .where('projectId', '=', row.id)
+          .orderBy('createdAt', 'asc')
           .orderBy('id', 'asc')
           .execute()
 

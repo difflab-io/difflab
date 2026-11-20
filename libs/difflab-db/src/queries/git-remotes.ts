@@ -14,6 +14,7 @@ import {
 } from '../schema/index.js'
 
 // API -------------------------------------------------------------------------
+/** Create Git remote link queries bound to a Kysely database instance. */
 export function createGitRemoteQueries(db: Kysely<DifflabDatabase>) {
   return {
     async linkGitRemoteToProject(
@@ -30,36 +31,36 @@ export function createGitRemoteQueries(db: Kysely<DifflabDatabase>) {
           const project = await tx
             .selectFrom('projects')
             .select(['id', 'key'])
-            .where('workspace_id', '=', workspaceId)
+            .where('workspaceId', '=', workspaceId)
             .where('key', '=', key)
             .executeTakeFirst()
           if (!project) throw new ProjectNotFoundError(key)
 
           const candidate: GitRemoteRow = {
             id: randomUUID(),
-            workspace_id: workspaceId,
-            project_id: project.id,
-            project_key: project.key,
-            remote_url: url,
+            workspaceId,
+            projectId: project.id,
+            projectKey: project.key,
+            remoteUrl: url,
             slug,
-            created_by_user_id: actor.userId,
-            created_at: new Date().toISOString(),
+            createdByUserId: actor.userId,
+            createdAt: new Date().toISOString(),
           }
 
           await tx
             .insertInto('git_remotes')
             .values(candidate)
-            .onConflict((oc) => oc.columns(['workspace_id', 'remote_url']).doNothing())
+            .onConflict((oc) => oc.columns(['workspaceId', 'remoteUrl']).doNothing())
             .execute()
 
           const existing = await tx
             .selectFrom('git_remotes')
             .selectAll()
-            .where('workspace_id', '=', workspaceId)
-            .where('remote_url', '=', url)
+            .where('workspaceId', '=', workspaceId)
+            .where('remoteUrl', '=', url)
             .executeTakeFirst()
 
-          if (!existing || existing.project_id !== project.id) {
+          if (!existing || existing.projectId !== project.id) {
             throw new ProjectConflictError(`Git remote already belongs to another project: ${url}`)
           }
 

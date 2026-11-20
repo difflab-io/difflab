@@ -9,11 +9,11 @@
 
 ### Repository layout
 
-- Put reusable filesystem, process, OS, and other generic utilities in `src/extensions` or `libs/utils`. Use domain-neutral names such as `fsx`, `osx`, `processx`, `pathx`, and `logx`.
+- Put reusable filesystem, process, OS, and other generic utilities in `src/extensions` or `libs/utils`. Reserve `*x` module names (`fsx`, `gitx`, `logx`, `osx`, `pathx`, `processx`, `testx`, `zodx`) strictly for extensions—composite wrapper functions built on top of libraries, runtimes, or CLIs; name plain shared types and contract helpers without the `x` suffix (such as `utils/dto` and `utils/entity`).
 - Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
-- Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module.
+- Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module. Throw standard JavaScript error types (`Error`, `TypeError`, `RangeError`) from generic `libs/utils` modules rather than defining custom exception subclasses there.
 - Put general package-wide types in `src/types.ts` rather than mixing non-database types into database schema modules.
-- Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto` (from `utils/dtox`).
+- Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto` (from `utils/dto`).
 - Keep one major model, entity, or DTO per file.
 - Add an architecture document under `docs/architecture/<package>/index.md` for every new library or application following the `software-architecture-design` template and Difflab writing style.
 - Use `@logtape/logtape` via shared `libs/utils` logging helpers with multi-sink support and `AsyncLocalStorage` request context so services emit structured wide-event request logs instead of bespoke log lines; libraries acquire category loggers without configuring sinks, and applications configure sinks at startup.

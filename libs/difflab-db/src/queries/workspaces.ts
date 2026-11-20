@@ -1,19 +1,18 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely } from 'kysely'
 import { isUniqueConstraintError, type DatabaseConfig } from '../db.js'
-import { DifflabDbError, ProjectConflictError } from '../errors.js'
+import { DifflabDbError, ProjectConflictError, ProjectValidationError } from '../errors.js'
 import {
   WorkspaceEntity,
   WorkspaceMemberEntity,
   type DifflabDatabase,
   type Workspace,
   type WorkspaceMember,
-  type WorkspaceMemberRow,
   type WorkspaceRole,
-  type WorkspaceRow,
 } from '../schema/index.js'
 
 // API -------------------------------------------------------------------------
+/** Create cloud workspace and membership queries bound to a PostgreSQL Kysely instance. */
 export function createWorkspaceQueries(
   db: Kysely<DifflabDatabase>,
   dialect: DatabaseConfig['dialect'],
@@ -27,20 +26,23 @@ export function createWorkspaceQueries(
   return {
     async createWorkspace(input: { id?: string; slug: string; name: string }): Promise<Workspace> {
       assertCloudDialect()
-      const slug = WorkspaceEntity.validateSlug(input.slug)
-      const name = WorkspaceEntity.validateName(input.name)
-      const row: WorkspaceRow = {
-        id: input.id ?? randomUUID(),
-        slug,
-        name,
-        created_at: new Date().toISOString(),
-      }
+      const workspace = WorkspaceEntity.validate(
+        {
+          id: input.id ?? randomUUID(),
+          slug: input.slug,
+          name: input.name,
+          createdAt: new Date().toISOString(),
+        },
+        (message, cause) => new ProjectValidationError(message, { cause }),
+      )
       try {
-        await db.insertInto('workspaces').values(row).execute()
-        return WorkspaceEntity.fromRow(row)
+        await db.insertInto('workspaces').values(workspace).execute()
+        return workspace
       } catch (error) {
         if (isUniqueConstraintError(error)) {
-          throw new ProjectConflictError(`Workspace already exists: ${slug}`, { cause: error })
+          throw new ProjectConflictError(`Workspace already exists: ${workspace.slug}`, {
+            cause: error,
+          })
         }
         throw error
       }
@@ -53,7 +55,7 @@ export function createWorkspaceQueries(
         .selectAll()
         .where('slug', '=', slug.trim().toLowerCase())
         .executeTakeFirst()
-      return row ? WorkspaceEntity.fromRow(row) : null
+      return row ? WorkspaceEntity.parse(row) : null
     },
 
     async upsertMember(input: {
@@ -62,21 +64,22 @@ export function createWorkspaceQueries(
       role: WorkspaceRole
     }): Promise<WorkspaceMember> {
       assertCloudDialect()
-      const candidate: WorkspaceMemberRow = {
-        workspace_id: input.workspaceId,
-        user_id: input.userId,
-        role: input.role,
-        created_at: new Date().toISOString(),
-      }
+      const candidate = WorkspaceMemberEntity.validate(
+        {
+          workspaceId: input.workspaceId,
+          userId: input.userId,
+          role: input.role,
+          createdAt: new Date().toISOString(),
+        },
+        (message, cause) => new ProjectValidationError(message, { cause }),
+      )
       const saved = await db
         .insertInto('workspace_members')
         .values(candidate)
-        .onConflict((oc) =>
-          oc.columns(['workspace_id', 'user_id']).doUpdateSet({ role: input.role }),
-        )
+        .onConflict((oc) => oc.columns(['workspaceId', 'userId']).doUpdateSet({ role: input.role }))
         .returningAll()
         .executeTakeFirstOrThrow()
-      return WorkspaceMemberEntity.fromRow(saved)
+      return WorkspaceMemberEntity.parse(saved)
     },
 
     async listMembers(workspaceId: string): Promise<WorkspaceMember[]> {
@@ -84,10 +87,10 @@ export function createWorkspaceQueries(
       const rows = await db
         .selectFrom('workspace_members')
         .selectAll()
-        .where('workspace_id', '=', workspaceId)
-        .orderBy('created_at', 'asc')
+        .where('workspaceId', '=', workspaceId)
+        .orderBy('createdAt', 'asc')
         .execute()
-      return rows.map(WorkspaceMemberEntity.fromRow)
+      return rows.map((row) => WorkspaceMemberEntity.parse(row))
     },
   }
 }

@@ -1,6 +1,6 @@
 import { create } from '@bufbuild/protobuf'
 import type { GitRemote } from 'difflab-db'
-import type { DTO } from 'utils/dtox'
+import type { DTO } from 'utils/dto'
 import {
   RepositorySchema,
   type Repository as ProtoRepository,
