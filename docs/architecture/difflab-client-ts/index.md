@@ -8,14 +8,14 @@
 
 ### Functional
 
-- Callers construct a typed client for either a local loopback endpoint or a remote authenticated endpoint with optional Bearer token and workspace headers.
-- Invalid RPC URLs and non-loopback local targets fail immediately before sending any network request.
-- Callers inspect server RPC failures using canonical Connect status codes to distinguish invalid requests, authentication failures, missing resources, conflicts, and internal server errors.
+- Clients can connect to either a local loopback endpoint or an authenticated remote endpoint with end-to-end static typing.
+- Clients receive immediate local errors when configured with malformed URLs or non-loopback local targets before any network request is sent.
+- Clients can distinguish validation failures, authentication failures, missing resources, conflicts, and server errors programmatically.
 
 ### Non-Functional
 
-- Generated client descriptors stay synchronized with `apps/difflab-api` Protocol Buffer definitions through automated CI checks.
-- The client library carries zero runtime dependency on server or database packages so it can be reused in both CLI and web contexts.
+- Client contracts stay in lockstep with server schemas so breaking mismatches fail at compile time rather than runtime.
+- The client carries minimal runtime overhead and zero server or database dependencies so it embeds cleanly in CLI and browser bundles.
 
 ## Design
 

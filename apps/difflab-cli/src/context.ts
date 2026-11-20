@@ -57,7 +57,7 @@ export async function withProjectBackend<T>(
     })
     return await fn(createRemoteBackend(client))
   }
-  const db = await DifflabDb.openLocal(config.paths.root)
+  const db = await DifflabDb.open({ mode: 'local', stateDir: config.paths.root })
   try {
     return await fn(createLocalBackend(db))
   } finally {

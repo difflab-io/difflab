@@ -89,29 +89,6 @@ export class DifflabDb {
     return new DifflabDb(kysely, config.dialect)
   }
 
-  /** Open local SQLite in `stateDir`, creating and migrating on first boot with one-shot legacy import. */
-  static async openLocal(stateDir?: string): Promise<DifflabDb> {
-    const paths = stateDir ? loadDifflabConfig({ root: stateDir }).paths : resolveDifflabPaths()
-    const existing = await lstatOrNull(paths.database)
-    if (!existing) {
-      const applied = await DifflabDb.migrate({ dialect: 'sqlite', path: paths.database })
-      const db = await DifflabDb.fromConfig({ dialect: 'sqlite', path: paths.database })
-      try {
-        const seeded = await seedFromLegacyIfPresent(db, paths.legacyDatabase)
-        logger.info('difflab-db.local.initialized', {
-          path: paths.database,
-          applied,
-          seeded_projects: seeded,
-        })
-        return db
-      } catch (error) {
-        await db.close()
-        throw error
-      }
-    }
-    return await DifflabDb.fromConfig({ dialect: 'sqlite', path: paths.database })
-  }
-
   /** Open a `DifflabDb` for either `cloud` (PostgreSQL) or `local` (SQLite) mode. */
   static async open(options: OpenDifflabDbOptions = {}): Promise<DifflabDb> {
     const env = options.env ?? process.env
@@ -126,7 +103,7 @@ export class DifflabDb {
         connectionString: config.databaseUrl,
       })
     }
-    return await DifflabDb.openLocal(options.stateDir)
+    return await openLocalDatabase(options.stateDir)
   }
 
   /** Close the underlying SQLite handle or PostgreSQL connection pool. */
@@ -146,6 +123,28 @@ export function isUniqueConstraintError(error: unknown): boolean {
 }
 
 // Helpers ---------------------------------------------------------------------
+async function openLocalDatabase(stateDir?: string): Promise<DifflabDb> {
+  const paths = stateDir ? loadDifflabConfig({ root: stateDir }).paths : resolveDifflabPaths()
+  const existing = await lstatOrNull(paths.database)
+  if (!existing) {
+    const applied = await DifflabDb.migrate({ dialect: 'sqlite', path: paths.database })
+    const db = await DifflabDb.fromConfig({ dialect: 'sqlite', path: paths.database })
+    try {
+      const seeded = await seedFromLegacyIfPresent(db, paths.legacyDatabase)
+      logger.info('difflab-db.local.initialized', {
+        path: paths.database,
+        applied,
+        seeded_projects: seeded,
+      })
+      return db
+    } catch (error) {
+      await db.close()
+      throw error
+    }
+  }
+  return await DifflabDb.fromConfig({ dialect: 'sqlite', path: paths.database })
+}
+
 async function connectSqlite(
   sqlitePath: string,
   options: { createSqlite?: boolean } = {},

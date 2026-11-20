@@ -8,18 +8,16 @@
 
 ### Functional
 
-- Clients query a `/health` endpoint to verify server readiness before sending RPC traffic.
-- Local callers on loopback invoke RPC methods without credentials and read or write records in the local workspace.
-- First-time local startup initializes the local database automatically and imports existing `v0.13.0` projects once without modifying the legacy database file.
-- Cloud callers authenticate with a Bearer API token and select a target workspace on every RPC call.
-- Invalid request fields return HTTP `400` (`invalid_argument`), missing or invalid Bearer credentials return HTTP `401` (`unauthenticated`), missing cloud workspace headers return HTTP `400` (`invalid_argument`), unknown resources return HTTP `404` (`not_found`), and conflicting keys or remote links return HTTP `409` (`already_exists`).
+- Clients can check server readiness before sending RPC traffic.
+- Local development clients can invoke RPC methods on loopback without credentials, while hosted clients must present valid credentials and a target workspace on every request.
+- Clients receive distinct, predictable error categories for malformed input, missing or invalid credentials, unknown resources, and conflicting state.
 
 ### Non-Functional
 
-- Startup fails before binding a TCP port if cloud credentials are missing or if an existing database has unapplied schema migrations, preventing partial or unauthenticated traffic.
-- Bearer token verification runs in constant time so response latency does not leak token prefixes or length.
-- Every RPC call emits a single-line structured JSON log containing the method path, HTTP status, workspace, request body, and response body for operator and E2E inspection.
-- Local mode binds to loopback by default and carries zero external infrastructure cost, while cloud mode runs statelessly over pooled PostgreSQL connections.
+- Hosted instances refuse to accept traffic if authentication credentials are missing or database migrations are incomplete.
+- Credential checks run in constant time so response latency does not leak secret values.
+- Every request emits one structured telemetry record with timing and outcome so operators can trace latency and failures without inspecting raw server internals.
+- Hosted mode remains stateless per request so instances scale horizontally over shared PostgreSQL storage.
 
 ## Design
 

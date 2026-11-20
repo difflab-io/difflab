@@ -8,16 +8,14 @@
 
 ### Functional
 
-- Callers run migrations against either a SQLite file path or a PostgreSQL connection string, or open the local SQLite store via `openLocalDifflabDb` with automatic first-boot initialization and one-shot legacy import.
-- SQLite databases apply only shared migrations, while PostgreSQL databases apply both shared and cloud tenancy migrations in chronological order.
-- Opening an existing unmigrated or partially migrated database fails immediately without creating tables or sidecar files.
-- Opening a database whose migration history includes newer unknown migrations succeeds as long as all known applicable migrations are present.
+- Clients can persist and query projects and Git remotes identically against local single-user storage or hosted multi-tenant storage.
+- First-time local users seamlessly inherit existing `v0.13.0` projects without modifying or breaking their legacy database file.
+- Uninitialized or out-of-date databases fail fast on open without creating partial state, while databases migrated by newer versions remain readable.
 
 ### Non-Functional
 
-- Local SQLite access enables WAL mode and a 5-second busy timeout so concurrent CLI commands and `stdio` MCP sessions share `local.sqlite` directly in-process without a background daemon.
-- Concurrent PostgreSQL migration runs serialize safely without corrupting schema history, and cloud queries isolate tenant records even when non-superuser roles connect.
-- Production database configuration accepts a SQLite file path, a PostgreSQL connection string, or `DATABASE_URL` / `DIFFLAB_HOME` environment defaults without shipping embedded test engines in production runtime dependencies.
+- Local CLI and MCP sessions open the database in milliseconds and tolerate concurrent local readers and writers without a background server.
+- Hosted deployments isolate tenant data strictly and serialize concurrent schema migrations safely without data corruption.
 
 ## Design
 

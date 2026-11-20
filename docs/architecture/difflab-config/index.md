@@ -8,14 +8,14 @@
 
 ### Functional
 
-- Callers load typed runtime settings from environment variables and receive all validation failures together in one error rather than failing on one field at a time.
-- Callers resolve consistent local state paths (database, legacy database, templates, and project stores) from an explicit directory, a user home directory, or default user state.
-- Callers read and atomically create repository-local `difflab.yaml` files while rejecting malformed YAML, unknown keys, or non-canonical project keys before any database lookup.
+- Clients resolve runtime settings, local state paths, and repository manifests consistently across CLI, API, and database callers.
+- Clients receive all configuration validation errors together in one failure rather than fixing one invalid field at a time.
+- Clients can safely create a new repository manifest without risking overwrites when multiple processes initialize concurrently.
 
 ### Non-Functional
 
-- All configuration validation failures raise a predictable package-scoped exception hierarchy so callers can distinguish missing manifests from invalid configuration.
-- Creating a repository manifest fails cleanly without overwriting an existing file when concurrent initializers race.
+- Configuration resolution completes synchronously with negligible startup overhead for short-lived CLI commands.
+- Missing manifests and malformed configuration raise distinct, predictable errors so callers can guide users cleanly.
 
 ## Design
 

@@ -8,16 +8,15 @@
 
 ### Functional
 
-- Callers create a project with a 3-to-16 character alphanumeric key starting with a letter, a display name up to 100 characters, and zero or more Git remote URLs.
-- Project keys normalize to uppercase and Git SSH, SCP, and HTTPS remote URLs normalize to canonical `https://<host>/<path>` URLs with deterministic slugs.
-- Callers list all projects in the active workspace in alphabetical key order or fetch one project by key with its linked Git remotes.
-- Callers link a Git remote URL to an existing project idempotently when the URL already belongs to that project, and receive `409 already_exists` if the URL belongs to another project in the same workspace.
+- Clients can create a project with a unique key, display name, and optional set of Git remote URLs, and retrieve or list projects belonging to their workspace.
+- Clients can pass Git remote URLs in SSH, SCP, or HTTPS format and receive a single canonical representation across all operations.
+- Clients can link a Git remote to an existing project idempotently when it already belongs to that project, while attempts to link a remote owned by another project in the same workspace are rejected without modifying existing links.
 
 ### Non-Functional
 
-- Request schema validation rejects malformed project keys, blank names, and empty repository URLs at the RPC boundary before hitting the database.
-- All project and remote reads and writes are isolated to the caller's resolved workspace (`local` in local mode or `x-difflab-workspace` in cloud mode).
-- Multi-remote project creation executes atomically so a conflicting URL rolls back the project insert cleanly.
+- Malformed requests are rejected immediately at the API boundary with clear, categorized errors before touching persisted state.
+- Multi-remote project creation succeeds or fails atomically so clients never observe partially created projects.
+- Every read and write is strictly isolated to the caller's workspace with consistent low latency across local and hosted deployments.
 
 ## Design
 

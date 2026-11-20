@@ -1,16 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
 import { LogTapeTransport } from '@loglayer/transport-logtape'
-import { getRotatingFileSink } from '@logtape/file'
 import {
   configureSync,
   defaultTextFormatter,
   getConfig,
   getJsonLinesFormatter,
   getLogger as logtapeGetLogger,
-  withContext,
   type Logger,
   type LogLevel,
   type LogRecord,
@@ -20,7 +16,6 @@ import { LogLayer, type ILogLayer } from 'loglayer'
 
 // Constants -------------------------------------------------------------------
 const LOG_LEVELS: readonly LogLevel[] = ['trace', 'debug', 'info', 'warning', 'error', 'fatal']
-const logContextStorage = new AsyncLocalStorage<Record<string, unknown>>()
 const wideEventStorage = new AsyncLocalStorage<Record<string, unknown>>()
 
 // Types -----------------------------------------------------------------------
@@ -28,10 +23,9 @@ const wideEventStorage = new AsyncLocalStorage<Record<string, unknown>>()
 export type DifflabLogLevel = LogLevel
 export type { ILogLayer, Logger, LogRecord, Sink }
 
-/** Startup configuration for multi-sink application logging. */
+/** Startup configuration for application logging sinks. */
 export type LoggingConfig = {
   level?: DifflabLogLevel
-  logFile?: string
   format?: 'text' | 'jsonl'
   stderr?: boolean
   sinks?: Record<string, Sink>
@@ -61,7 +55,7 @@ export function resolveLogLevel(
   return (LOG_LEVELS as readonly string[]).includes(raw) ? (raw as DifflabLogLevel) : fallback
 }
 
-/** Configure application sinks (stderr, optional rotating file, and custom sinks) idempotently. */
+/** Configure application sinks (`stderr` and any custom sinks) idempotently. */
 export function configureAppLogger(options: LoggingConfig = {}): void {
   if (getConfig() != null) return
 
@@ -80,12 +74,6 @@ export function configureAppLogger(options: LoggingConfig = {}): void {
     activeSinks.push('stderr')
   }
 
-  if (options.logFile) {
-    mkdirSync(dirname(options.logFile), { recursive: true })
-    sinks.file = getRotatingFileSink(options.logFile, { formatter })
-    activeSinks.push('file')
-  }
-
   for (const [name, sink] of Object.entries(options.sinks ?? {})) {
     sinks[name] = sink
     activeSinks.push(name)
@@ -93,7 +81,6 @@ export function configureAppLogger(options: LoggingConfig = {}): void {
 
   configureSync({
     sinks,
-    contextLocalStorage: logContextStorage,
     loggers: [
       { category: ['difflab'], lowestLevel: level, sinks: activeSinks },
       { category: ['logtape', 'meta'], lowestLevel: 'warning', sinks: activeSinks },
@@ -120,17 +107,15 @@ export async function runWithWideEvent<T>(
   const startedAt = performance.now()
   const fields: Record<string, unknown> = { request_id: requestId, ...initialFields }
 
-  return await wideEventStorage.run(fields, () =>
-    withContext({ request_id: requestId }, async () => {
-      try {
-        return await fn()
-      } catch (error) {
-        fields.error = error instanceof Error ? error.message : String(error)
-        throw error
-      } finally {
-        fields.duration_ms = Math.round((performance.now() - startedAt) * 100) / 100
-        logger.withMetadata(fields).info(eventName)
-      }
-    }),
-  )
+  return await wideEventStorage.run(fields, async () => {
+    try {
+      return await fn()
+    } catch (error) {
+      fields.error = error instanceof Error ? error.message : String(error)
+      throw error
+    } finally {
+      fields.duration_ms = Math.round((performance.now() - startedAt) * 100) / 100
+      logger.withMetadata(fields).info(eventName)
+    }
+  })
 }

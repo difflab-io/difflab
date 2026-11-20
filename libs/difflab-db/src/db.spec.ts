@@ -12,72 +12,78 @@ import { DifflabDb, MigrationError, ProjectConflictError, type DatabaseConfig } 
 const cleanups: Array<() => Promise<void>> = []
 
 // Tests -----------------------------------------------------------------------
-describe('DifflabDb.migrate and DifflabDb.fromConfig', () => {
-  it('should apply only shared migrations on SQLite and skip cloud-only tables', async () => {
-    // Arrange
-    const config = await openSqliteConfig()
+describe('when migrating or opening a database', () => {
+  describe('given a SQLite database', () => {
+    it('should apply only shared migrations and skip cloud-only tables', async () => {
+      // Arrange
+      const config = await openSqliteConfig()
 
-    // Act
-    const applied = await DifflabDb.migrate(config)
+      // Act
+      const applied = await DifflabDb.migrate(config)
 
-    // Assert
-    expect(applied).toEqual(['0001_initial'])
-    const raw = new Database(config.path, { readonly: true })
-    const tableNames = raw
-      .query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type = 'table'")
-      .all()
-      .map((row) => row.name)
-    raw.close()
-    expect(tableNames).toContain('projects')
-    expect(tableNames).toContain('git_remotes')
-    expect(tableNames).not.toContain('workspaces')
-    expect(tableNames).not.toContain('users')
+      // Assert
+      expect(applied).toEqual(['0001_initial'])
+      const raw = new Database(config.path, { readonly: true })
+      const tableNames = raw
+        .query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type = 'table'")
+        .all()
+        .map((row) => row.name)
+      raw.close()
+      expect(tableNames).toContain('projects')
+      expect(tableNames).toContain('git_remotes')
+      expect(tableNames).not.toContain('workspaces')
+      expect(tableNames).not.toContain('users')
+    })
   })
 
-  it('should apply shared and cloud migrations in order on PostgreSQL', async () => {
-    // Arrange
-    const config = await openPostgresConfig()
+  describe('given a PostgreSQL database', () => {
+    it('should apply shared and cloud migrations in order', async () => {
+      // Arrange
+      const config = await openPostgresConfig()
 
-    // Act
-    const applied = await DifflabDb.migrate(config)
+      // Act
+      const applied = await DifflabDb.migrate(config)
 
-    // Assert
-    expect(applied).toEqual(['0001_initial', '0002_cloud_tenancy'])
-    const pool = new pg.Pool({ connectionString: config.connectionString })
-    const tables = await pool.query<{ tablename: string }>(
-      "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
-    )
-    await pool.end()
-    const names = tables.rows.map((row) => row.tablename)
-    expect(names).toEqual(
-      expect.arrayContaining([
-        'projects',
-        'git_remotes',
-        'workspaces',
-        'users',
-        'workspace_members',
-      ]),
-    )
+      // Assert
+      expect(applied).toEqual(['0001_initial', '0002_cloud_tenancy'])
+      const pool = new pg.Pool({ connectionString: config.connectionString })
+      const tables = await pool.query<{ tablename: string }>(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
+      )
+      await pool.end()
+      const names = tables.rows.map((row) => row.tablename)
+      expect(names).toEqual(
+        expect.arrayContaining([
+          'projects',
+          'git_remotes',
+          'workspaces',
+          'users',
+          'workspace_members',
+        ]),
+      )
+    })
   })
 
-  it('should reject an unmigrated SQLite path without creating files', async () => {
-    // Arrange
-    const testHome = await createIsolatedTestHome('difflab-db-unmigrated-')
-    cleanups.push(testHome.cleanup)
-    const missingDb = join(testHome.home, 'missing.sqlite')
+  describe('given an unmigrated SQLite path', () => {
+    it('should reject opening without creating files', async () => {
+      // Arrange
+      const testHome = await createIsolatedTestHome('difflab-db-unmigrated-')
+      cleanups.push(testHome.cleanup)
+      const missingDb = join(testHome.home, 'missing.sqlite')
 
-    // Act / Assert
-    await expect(
-      DifflabDb.fromConfig({ dialect: 'sqlite', path: missingDb }),
-    ).rejects.toBeInstanceOf(MigrationError)
-    expect(await lstatOrNull(missingDb)).toBeNull()
+      // Act / Assert
+      await expect(
+        DifflabDb.fromConfig({ dialect: 'sqlite', path: missingDb }),
+      ).rejects.toBeInstanceOf(MigrationError)
+      expect(await lstatOrNull(missingDb)).toBeNull()
+    })
   })
 })
 
-describe('DifflabDb workspace isolation', () => {
+describe('when managing projects and Git remotes', () => {
   for (const dialect of ['sqlite', 'postgres'] as const) {
-    describe(`given a migrated ${dialect} database with project ALPHA in workspace ws-a`, () => {
-      it('then creating the same project key and Git remote URL in workspace ws-b succeeds', async () => {
+    describe(`given project ALPHA exists in workspace ws-a on ${dialect}`, () => {
+      it('should allow the same project key and Git remote URL in workspace ws-b', async () => {
         // Arrange
         const db = await openMigratedDb(dialect)
         const actorA = { workspaceId: 'ws-a', userId: 'u-1' }
@@ -102,7 +108,7 @@ describe('DifflabDb workspace isolation', () => {
         expect(projB.workspaceId).toBe('ws-b')
       })
 
-      it('then creating a duplicate project key in workspace ws-a rejects with ProjectConflictError', async () => {
+      it('should reject a duplicate project key in workspace ws-a', async () => {
         // Arrange
         const db = await openMigratedDb(dialect)
         const actorA = { workspaceId: 'ws-a', userId: 'u-1' }
@@ -114,7 +120,7 @@ describe('DifflabDb workspace isolation', () => {
         ).rejects.toBeInstanceOf(ProjectConflictError)
       })
 
-      it('then linking a Git remote already owned by ALPHA to BETA in workspace ws-a rejects with ProjectConflictError', async () => {
+      it('should reject linking ALPHA Git remote to BETA in workspace ws-a', async () => {
         // Arrange
         const db = await openMigratedDb(dialect)
         const actorA = { workspaceId: 'ws-a', userId: 'u-1' }
@@ -139,9 +145,9 @@ describe('DifflabDb workspace isolation', () => {
   }
 })
 
-describe('DifflabDb cloud workspace memberships', () => {
+describe('when managing workspace memberships', () => {
   describe('given an existing workspace member on PostgreSQL', () => {
-    it('when upserting a new role, then the role updates without changing createdAt', async () => {
+    it('should update the member role without changing createdAt', async () => {
       // Arrange
       const db = await openMigratedDb('postgres')
       const ws = await db.workspaces.createWorkspace({ slug: 'acme-team', name: 'Acme Team' })
