@@ -38,7 +38,7 @@ flowchart LR
 
 1. `DifflabConfig.load({ home, root, env })` parses `env` through `difflabEnvSchema` using `tryValidate` from `libs/utils/zodx`, collecting every schema issue into one `DifflabConfigError`.
 2. Root resolution applies precedence `explicit root` -> `home/.difflab` -> `DIFFLAB_HOME` -> `~/.difflab` and derives every child path deterministically.
-3. `DifflabConfig.readRepo(dir)` parses `difflab.yaml` with `yaml` and validates it against `repoConfigSchema` (`z.strictObject`), returning `null` on `ENOENT`.
+3. `DifflabConfig.readRepo(dir)` loads `difflab.yaml` via `c12` (`loadConfig`) and validates it against `repoConfigSchema` (`z.strictObject`), returning `null` when absent.
 
 ### Interfaces and Contracts
 

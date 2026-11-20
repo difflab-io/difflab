@@ -21,6 +21,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "c12": "^4.0.0-rc.4",
     "utils": "workspace:*",
     "yaml": "2.9.1",
     "zod": "4.6.5"

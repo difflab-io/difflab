@@ -1,68 +1,57 @@
 import { constants } from 'node:fs'
-import { open, readFile, rm } from 'node:fs/promises'
+import { open, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { hasErrorCode, resolveHomeDirectory } from 'utils/osx'
+import { loadConfig } from 'c12'
+import { lstatOrNull } from 'utils/fsx'
+import { resolveHomeDirectory } from 'utils/osx'
 import { tryValidate } from 'utils/zodx'
-import { parse, stringify } from 'yaml'
+import { stringify } from 'yaml'
 import { z } from 'zod'
 import { DifflabConfigError, InvalidRepoConfig } from './errors.js'
 
 // Constants -------------------------------------------------------------------
 const REPO_CONFIG_FILE = 'difflab.yaml'
 
-const optionalTrimmedString = z
+const optionalText = z
   .string()
   .optional()
-  .transform((value) => {
-    const trimmed = value?.trim()
-    return trimmed ? trimmed : undefined
-  })
+  .transform((value) => value?.trim() || undefined)
+
+const strictProjectKeySchema = z
+  .string()
+  .regex(/^[A-Z][A-Z0-9]{2,15}$/, 'Project key must be 3-16 uppercase letters or digits')
 
 /** Zod schema for canonical uppercase Difflab project keys (`3..16` alphanumeric chars). */
 export const projectKeySchema = z
   .string()
   .transform((value) => value.trim().toUpperCase())
-  .pipe(
-    z
-      .string()
-      .regex(/^[A-Z][A-Z0-9]{2,15}$/, 'Project key must be 3-16 uppercase letters or digits'),
-  )
+  .pipe(strictProjectKeySchema)
 
-/** Zod schema for strict canonical project keys stored in `difflab.yaml`. */
-const strictProjectKeySchema = z
-  .string()
-  .regex(/^[A-Z][A-Z0-9]{2,15}$/, 'Project key must be 3-16 uppercase letters or digits')
+const portNumberSchema = z
+  .number({ message: 'Port must be an integer between 0 and 65535' })
+  .int('Port must be an integer between 0 and 65535')
+  .min(0, 'Port must be an integer between 0 and 65535')
+  .max(65535, 'Port must be an integer between 0 and 65535')
 
 /** Zod schema for TCP port values (`0..65535`). */
 export const portSchema = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value.trim()) : value),
-  z
-    .number({ message: 'Port must be an integer between 0 and 65535' })
-    .int('Port must be an integer between 0 and 65535')
-    .min(0, 'Port must be an integer between 0 and 65535')
-    .max(65535, 'Port must be an integer between 0 and 65535'),
+  portNumberSchema,
 )
 
 /** Zod schema validating all Difflab environment variables in one pass. */
 export const difflabEnvSchema = z.object({
-  DIFFLAB_HOME: optionalTrimmedString,
-  DIFFLAB_MODE: optionalTrimmedString.pipe(z.enum(['local', 'cloud']).optional()),
-  DATABASE_URL: optionalTrimmedString,
-  DIFFLAB_RPC_URL: optionalTrimmedString,
-  DIFFLAB_API_TOKEN: optionalTrimmedString,
-  DIFFLAB_WORKSPACE: optionalTrimmedString,
-  HOST: optionalTrimmedString,
-  PORT: optionalTrimmedString
+  DIFFLAB_HOME: optionalText,
+  DIFFLAB_MODE: optionalText.pipe(z.enum(['local', 'cloud']).optional()),
+  DATABASE_URL: optionalText,
+  DIFFLAB_RPC_URL: optionalText,
+  DIFFLAB_API_TOKEN: optionalText,
+  DIFFLAB_WORKSPACE: optionalText,
+  HOST: optionalText,
+  PORT: optionalText
     .transform((value) => (value === undefined ? undefined : Number(value)))
-    .pipe(
-      z
-        .number({ message: 'Port must be an integer between 0 and 65535' })
-        .int('Port must be an integer between 0 and 65535')
-        .min(0, 'Port must be an integer between 0 and 65535')
-        .max(65535, 'Port must be an integer between 0 and 65535')
-        .optional(),
-    ),
+    .pipe(portNumberSchema.optional()),
 })
 
 /** Zod schema for repository-local `difflab.yaml` manifests. */
@@ -74,7 +63,7 @@ export const repoConfigSchema = z.strictObject({
 })
 
 // Types -----------------------------------------------------------------------
-/** Deployment mode for `difflab-api` (`local` SQLite daemon or `cloud` PostgreSQL service). */
+/** Deployment mode for `difflab-api` (`local` SQLite or `cloud` PostgreSQL). */
 export type ApiMode = 'local' | 'cloud'
 
 /** Resolved filesystem paths under a Difflab state root directory. */
@@ -104,7 +93,7 @@ export type DifflabConfigLoadOptions = {
 }
 
 // API -------------------------------------------------------------------------
-/** Strongly typed, Zod-validated configuration and path resolver for Difflab apps and libraries. */
+/** Strongly typed, `c12` + Zod configuration and path resolver for Difflab apps and libraries. */
 export class DifflabConfig {
   readonly mode: ApiMode
   readonly paths: DifflabPaths
@@ -134,32 +123,35 @@ export class DifflabConfig {
 
   /** Validate environment variables with Zod in one pass and return a typed `DifflabConfig`. */
   static load(options: DifflabConfigLoadOptions = {}): DifflabConfig {
-    const env = options.env ?? process.env
     const parsed = tryValidate(
       difflabEnvSchema,
-      env,
+      options.env ?? process.env,
       (message, cause) =>
         new DifflabConfigError(`Invalid Difflab configuration: ${message}`, { cause }),
     )
     const root = resolveRoot(options.root, options.home, parsed.DIFFLAB_HOME)
     const mode: ApiMode = parsed.DIFFLAB_MODE ?? (parsed.DATABASE_URL ? 'cloud' : 'local')
-    const paths = pathsFromRoot(root)
-    const remote: RemoteRpcConfig | null = parsed.DIFFLAB_RPC_URL
-      ? {
-          rpcUrl: parsed.DIFFLAB_RPC_URL,
-          token: parsed.DIFFLAB_API_TOKEN,
-          workspaceId: parsed.DIFFLAB_WORKSPACE,
-        }
-      : null
 
     return new DifflabConfig({
       mode,
-      paths,
+      paths: {
+        root,
+        projects: join(root, 'projects'),
+        templates: join(root, 'templates'),
+        database: join(root, 'local.sqlite'),
+        legacyDatabase: join(root, 'difflab.sqlite'),
+      },
       host: parsed.HOST ?? '127.0.0.1',
       port: parsed.PORT ?? (mode === 'local' ? 0 : 8787),
       databaseUrl: parsed.DATABASE_URL,
       apiToken: parsed.DIFFLAB_API_TOKEN,
-      remote,
+      remote: parsed.DIFFLAB_RPC_URL
+        ? {
+            rpcUrl: parsed.DIFFLAB_RPC_URL,
+            token: parsed.DIFFLAB_API_TOKEN,
+            workspaceId: parsed.DIFFLAB_WORKSPACE,
+          }
+        : null,
     })
   }
 
@@ -196,19 +188,21 @@ export class DifflabConfig {
     return join(dir, REPO_CONFIG_FILE)
   }
 
-  /** Read and validate `difflab.yaml` from `dir`, returning `null` when absent. */
+  /** Load and validate `difflab.yaml` from `dir` via `c12`, returning `null` when absent. */
   static async readRepo(dir: string): Promise<RepoConfig | null> {
     const file = DifflabConfig.repoPath(dir)
-    let raw: string
+    if (!(await lstatOrNull(file))) return null
+    let raw: unknown
     try {
-      raw = await readFile(file, 'utf8')
-    } catch (error) {
-      if (hasErrorCode(error, 'ENOENT')) return null
-      throw new InvalidRepoConfig(`Cannot read ${file}`, { cause: error })
-    }
-    let parsed: unknown
-    try {
-      parsed = parse(raw)
+      const loaded = await loadConfig({
+        cwd: dir,
+        configFile: REPO_CONFIG_FILE,
+        rcFile: false,
+        globalRc: false,
+        packageJson: false,
+        dotenv: false,
+      })
+      raw = loaded.config
     } catch (error) {
       throw new InvalidRepoConfig(`Invalid difflab.yaml (${file}): malformed YAML`, {
         cause: error,
@@ -216,7 +210,7 @@ export class DifflabConfig {
     }
     return tryValidate(
       repoConfigSchema,
-      parsed,
+      raw,
       (message, cause) =>
         new InvalidRepoConfig(`Invalid difflab.yaml (${file}): ${message}`, { cause }),
     )
@@ -254,14 +248,4 @@ function resolveRoot(explicitRoot?: string, home?: string, envDifflabHome?: stri
   if (home) return join(resolveHomeDirectory(home), '.difflab')
   if (envDifflabHome) return resolve(envDifflabHome)
   return join(homedir(), '.difflab')
-}
-
-function pathsFromRoot(root: string): DifflabPaths {
-  return {
-    root,
-    projects: join(root, 'projects'),
-    templates: join(root, 'templates'),
-    database: join(root, 'local.sqlite'),
-    legacyDatabase: join(root, 'difflab.sqlite'),
-  }
 }
