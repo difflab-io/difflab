@@ -29,7 +29,7 @@ mise run //apps/difflab-api:codegen
 
 ## Database Migrations
 
-- **Local SQLite (`local` mode):** Starting `difflab up` (or running any RPC-backed CLI command) invokes `openLocalDifflabDb`, which creates `$DIFFLAB_HOME/local.sqlite` when absent, applies `shared` migrations automatically, and imports projects once from sibling `difflab.sqlite` if present.
+- **Local SQLite (`local` mode):** Starting `difflab up` (or running any RPC-backed CLI command) invokes `DifflabDb.openLocal`, which creates `$DIFFLAB_HOME/local.sqlite` when absent, applies `shared` migrations automatically, and imports projects once from sibling `difflab.sqlite` if present.
 - **Cloud PostgreSQL (`cloud` mode and Premise CI):** `difflab-api` never auto-migrates PostgreSQL at server startup. Premise's deployment lifecycle invokes `mise run //apps/difflab-api:migrate -- <environment>` (which resolves `DATABASE_URL` via `pm infra query` when unset and delegates to `mise run //libs/difflab-db:migrate`):
 
 ```sh

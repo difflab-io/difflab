@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely } from 'kysely'
-import { isUniqueConstraintError } from '../db.js'
+import { isUniqueConstraintError, type DatabaseConfig } from '../db.js'
 import { DifflabDbError, ProjectConflictError } from '../errors.js'
 import {
   WorkspaceEntity,
@@ -9,9 +9,9 @@ import {
   type Workspace,
   type WorkspaceMember,
   type WorkspaceMemberRow,
+  type WorkspaceRole,
   type WorkspaceRow,
 } from '../schema/index.js'
-import type { DatabaseConfig, WorkspaceRole } from '../types.js'
 
 // API -------------------------------------------------------------------------
 export function createWorkspaceQueries(

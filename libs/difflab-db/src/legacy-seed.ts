@@ -1,7 +1,7 @@
 import { createDifflabDb as createLegacyDifflabDb } from 'difflab-db-legacy'
 import { lstatOrNull } from 'utils/fsx'
 import type { DifflabDb } from './db.js'
-import { DEFAULT_ACTOR } from './types.js'
+import { DEFAULT_ACTOR } from './schema/index.js'
 
 // API -------------------------------------------------------------------------
 export async function seedFromLegacyIfPresent(

@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { resolveDifflabPaths } from 'difflab-config'
+import { DifflabConfig } from 'difflab-config'
 import { lstatOrNull } from 'utils/fsx'
 import { probeCommandVersion } from 'utils/processx'
 import { TemplateService } from '../templates/service.js'
@@ -23,7 +23,7 @@ export async function runSetupReport(
   options: SetupReportOptions = {},
 ): Promise<void> {
   const env = options.env ?? process.env
-  const root = resolveDifflabPaths(options.home).root
+  const root = DifflabConfig.resolvePaths(options.home, env).root
   let hasMissing = false
 
   write('Prerequisites:')

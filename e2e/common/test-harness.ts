@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
-import { stopDaemon } from 'difflab-daemon'
+import { DifflabDaemon } from 'difflab-daemon'
 import { assertIsolatedTestHome } from 'utils/testx'
 
 // Constants -------------------------------------------------------------------
@@ -14,7 +14,7 @@ export const E2E_ROOT = resolve(CURRENT_DIR, '..')
 export const REPO_ROOT = resolve(E2E_ROOT, '..')
 export const OUTPUTS_ROOT = join(E2E_ROOT, 'outputs')
 export const API_ENTRYPOINT = join(REPO_ROOT, 'apps', 'difflab-api', 'src', 'index.ts')
-export const API_MIGRATE_ENTRYPOINT = join(REPO_ROOT, 'libs', 'difflab-db', 'src', 'migrate-cli.ts')
+export const DB_PACKAGE_DIR = join(REPO_ROOT, 'libs', 'difflab-db')
 export const CLI_ENTRYPOINT = join(REPO_ROOT, 'apps', 'difflab-cli', 'src', 'index.ts')
 
 // Types -----------------------------------------------------------------------
@@ -153,11 +153,15 @@ export async function createE2EContext(
       DIFFLAB_HOME: difflabHome,
       ...envOverrides,
     })
-    const result = await runSubprocess(process.execPath, [API_MIGRATE_ENTRYPOINT], {
-      cwd: REPO_ROOT,
-      env,
-      timeoutMs: 20_000,
-    })
+    const result = await runSubprocess(
+      process.execPath,
+      ['run', '--cwd', DB_PACKAGE_DIR, 'migrate'],
+      {
+        cwd: REPO_ROOT,
+        env,
+        timeoutMs: 20_000,
+      },
+    )
     await appendApiLog(formatProcessTranscript('difflab-api migrate', [], result))
     return result
   }
@@ -197,12 +201,13 @@ export async function createE2EContext(
           try {
             const parsed = JSON.parse(trimmed) as {
               event?: string
+              message?: string
               server_url?: string
               rpc_url?: string
               pid?: number
             }
             if (
-              parsed.event === 'difflab-api.ready' &&
+              (parsed.event === 'difflab-api.ready' || parsed.message === 'difflab-api.ready') &&
               parsed.server_url &&
               parsed.rpc_url &&
               typeof parsed.pid === 'number'
@@ -339,7 +344,7 @@ export async function createE2EContext(
 
   const cleanup = async (): Promise<void> => {
     try {
-      await stopDaemon(difflabHome)
+      await DifflabDaemon.stop(difflabHome)
     } catch {
       // Ignore if stateDir was untouched or deleted by test.
     }

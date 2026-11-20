@@ -1,18 +1,8 @@
 // API -------------------------------------------------------------------------
 export {
-  daemonMetadataPath,
   DifflabDaemon,
-  ensureDaemon,
-  getDaemonStatus,
-  resolveDifflabApiEntry,
-  startDaemon,
-  stopDaemon,
-  writeDaemonMetadata,
+  type DaemonRecord,
+  type DaemonStatus,
+  type DifflabDaemonOptions,
 } from './daemon.js'
-export { DaemonLifecycleError } from './errors.js'
-export type {
-  DaemonRecord,
-  DaemonStartOptions,
-  DaemonStatus,
-  DifflabDaemonOptions,
-} from './types.js'
+export { DaemonLifecycleError, DifflabDaemonError } from './errors.js'

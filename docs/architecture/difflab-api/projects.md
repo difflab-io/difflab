@@ -63,7 +63,12 @@ service ProjectService {
 
 ```ts
 // Usage via libs/difflab-client-ts
-const client = await resolveDifflabClient()
+const client = createDifflabClient({
+  mode: 'remote',
+  rpcUrl: 'https://api.difflab.io/rpc',
+  token: process.env.DIFFLAB_API_TOKEN,
+  workspaceId: 'ws-acme',
+})
 
 const { project } = await client.projects.createProject({
   key: 'DIFFLAB',

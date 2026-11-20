@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
-import { getDaemonStatus } from 'difflab-daemon'
+import { DifflabDaemon } from 'difflab-daemon'
 import { lstatOrNull } from 'utils/fsx'
 import { createE2EContext, type E2ETestContext } from '../common/test-harness.js'
 
@@ -28,7 +28,7 @@ describe('when running template commands', () => {
     expect(result.stdout).toContain('spec-driven-plan —')
     expect(result.stdout).toContain('software-architecture-design —')
     expect(result.stdout).toContain('flow-instance —')
-    expect(await getDaemonStatus(ctx.difflabHome)).toEqual({ running: false })
+    expect(await DifflabDaemon.status(ctx.difflabHome)).toEqual({ running: false })
     expect(await lstatOrNull(join(ctx.difflabHome, 'local.sqlite'))).toBeNull()
     expect(
       await lstatOrNull(join(ctx.difflabHome, 'templates', 'spec-driven-plan.md')),

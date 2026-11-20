@@ -4,27 +4,35 @@ import type { UserRow } from './user.js'
 import type { WorkspaceMemberRow, WorkspaceRow } from './workspace.js'
 
 // Types -----------------------------------------------------------------------
-export interface CoreDatabase {
+/** Kysely table map for shared tables present on both SQLite and PostgreSQL. */
+export type CoreDatabase = {
   projects: ProjectRow
   git_remotes: GitRemoteRow
 }
 
-export interface CloudDatabase {
+/** Kysely table map for cloud-only tenancy tables present on PostgreSQL. */
+export type CloudDatabase = {
   workspaces: WorkspaceRow
   users: UserRow
   workspace_members: WorkspaceMemberRow
 }
 
+/** Complete Kysely table map across shared and cloud-only tables. */
 export type DifflabDatabase = CoreDatabase & CloudDatabase
 
 // API -------------------------------------------------------------------------
 export {
+  DEFAULT_ACTOR,
+  defineEntity,
   isoTimestampSchema,
+  LOCAL_WORKSPACE_ID,
   projectKeySchema,
   validateProjectKey,
   validateWorkspaceId,
   workspaceIdSchema,
   workspaceRoleSchema,
+  type ActorContext,
+  type Entity,
 } from './common.js'
 export {
   GitRemoteEntity,
@@ -52,5 +60,6 @@ export {
   type Workspace,
   type WorkspaceMember,
   type WorkspaceMemberRow,
+  type WorkspaceRole,
   type WorkspaceRow,
 } from './workspace.js'

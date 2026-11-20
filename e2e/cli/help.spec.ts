@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
-import { getDaemonStatus } from 'difflab-daemon'
+import { DifflabDaemon } from 'difflab-daemon'
 import { lstatOrNull } from 'utils/fsx'
 import { createE2EContext, type E2ETestContext } from '../common/test-harness.js'
 
@@ -30,7 +30,7 @@ describe('when running help and version commands', () => {
       expect(bare.stdout).toContain(subcommand)
       expect(help.stdout).toContain(subcommand)
     }
-    expect(await getDaemonStatus(ctx.difflabHome)).toEqual({ running: false })
+    expect(await DifflabDaemon.status(ctx.difflabHome)).toEqual({ running: false })
     expect(await lstatOrNull(join(ctx.difflabHome, 'local.sqlite'))).toBeNull()
   })
 

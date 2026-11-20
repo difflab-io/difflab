@@ -1,7 +1,5 @@
 import { createClient, type Client, type Interceptor } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
-import { resolveDifflabPaths, resolveRemoteTargetFromEnv } from 'difflab-config'
-import { DifflabDaemon } from 'difflab-daemon'
 import { DifflabClientConfigError } from './errors.js'
 import { ProjectService } from './gen/difflab/v1/project_pb.js'
 
@@ -9,26 +7,24 @@ import { ProjectService } from './gen/difflab/v1/project_pb.js'
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 
 // Types -----------------------------------------------------------------------
+/** Connection target for a local loopback or authenticated remote Difflab RPC endpoint. */
 export type DifflabClientTarget =
   | { mode: 'local'; rpcUrl: string }
   | { mode: 'remote'; rpcUrl: string; token?: string; workspaceId?: string }
 
+/** Optional HTTP transport overrides for `createDifflabClient`. */
 export type DifflabTransportOptions = {
   fetch?: typeof globalThis.fetch
   timeoutMs?: number
 }
 
+/** Typed Connect JSON-RPC client exposing Difflab service stubs. */
 export type DifflabClient = {
   projects: Client<typeof ProjectService>
 }
 
-export type ClientResolutionOptions = {
-  home?: string
-  client?: DifflabClient
-  apiEntry?: string
-}
-
 // API -------------------------------------------------------------------------
+/** Create a typed Connect JSON-RPC client bound to `target` without managing server processes. */
 export function createDifflabClient(
   target: DifflabClientTarget,
   transportOptions?: DifflabTransportOptions,
@@ -60,32 +56,6 @@ export function createDifflabClient(
   return {
     projects: createClient(ProjectService, transport),
   }
-}
-
-export async function resolveDifflabClient(
-  options: ClientResolutionOptions = {},
-): Promise<DifflabClient> {
-  if (options.client) return options.client
-
-  const remote = resolveRemoteTargetFromEnv()
-  if (remote) {
-    return createDifflabClient({
-      mode: 'remote',
-      rpcUrl: remote.rpcUrl,
-      token: remote.token,
-      workspaceId: remote.workspaceId,
-    })
-  }
-
-  const paths = resolveDifflabPaths(options.home)
-  const status = await DifflabDaemon.withOptions({
-    stateDir: paths.root,
-    apiEntry: options.apiEntry,
-  }).runBackground()
-  return createDifflabClient({
-    mode: 'local',
-    rpcUrl: status.rpc_url,
-  })
 }
 
 // Helpers ---------------------------------------------------------------------

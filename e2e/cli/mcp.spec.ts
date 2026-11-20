@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { getDaemonStatus } from 'difflab-daemon'
+import { DifflabDaemon } from 'difflab-daemon'
 import { createGitRepository } from '../common/fixtures.js'
 import {
   buildCleanEnv,
@@ -257,12 +257,12 @@ describe('given a difflab mcp serve session on an initialized repository with a 
     ])
     await ctx.runCli(['init', 'MCPD'], { cwd: repoDir })
     await ctx.runCli(['down'])
-    expect(await getDaemonStatus(ctx.difflabHome)).toEqual({ running: false })
+    expect(await DifflabDaemon.status(ctx.difflabHome)).toEqual({ running: false })
     const mcp = await connectMcp(ctx)
 
     // Act
     const response = await mcp.callTool('project_context', { cwd: await realpath(repoDir) })
-    const daemonStatus = await getDaemonStatus(ctx.difflabHome)
+    const daemonStatus = await DifflabDaemon.status(ctx.difflabHome)
 
     // Assert
     expect(response.isError).toBeUndefined()

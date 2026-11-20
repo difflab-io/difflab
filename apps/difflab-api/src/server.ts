@@ -1,14 +1,8 @@
 import { rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import {
-  parsePortEnv,
-  parsePortValue,
-  resolveApiMode,
-  resolveDifflabPaths,
-  type ApiMode,
-} from 'difflab-config'
-import { daemonMetadataPath, writeDaemonMetadata } from 'difflab-daemon'
-import { openDifflabDb, type DifflabDb } from 'difflab-db'
+import { DifflabConfig, type ApiMode } from 'difflab-config'
+import { DifflabDaemon } from 'difflab-daemon'
+import { DifflabDb } from 'difflab-db'
 import { configureLogging, getLogger, resolveLogLevel, type Sink } from 'utils/logx'
 import { createApp } from './app.js'
 import { AuthService } from './services/auth-service.js'
@@ -24,6 +18,7 @@ type CliFlags = {
   host?: string
 }
 
+/** Optional injected services and log sinks for `startServer`. */
 export type ServerDeps = {
   db?: DifflabDb
   authService?: AuthService
@@ -32,6 +27,7 @@ export type ServerDeps = {
 }
 
 // API -------------------------------------------------------------------------
+/** Configure logging, compose API services, bind `Bun.serve`, and register graceful shutdown. */
 export async function startServer(
   argv: string[] = process.argv.slice(2),
   deps: ServerDeps = {},
@@ -42,23 +38,20 @@ export async function startServer(
     sinks: deps.sinks,
   })
   const flags = parseFlags(argv)
-  const mode = deps.authService?.mode ?? resolveApiMode(process.env)
-  const port = flags.port ?? parsePortEnv(process.env.PORT) ?? (mode === 'local' ? 0 : 8787)
-  const host = flags.host ?? process.env.HOST?.trim() ?? '127.0.0.1'
+  const config = DifflabConfig.load()
+  const mode = deps.authService?.mode ?? config.mode
+  const port = flags.port ?? config.port
+  const host = flags.host ?? config.host
   const stateDir =
-    mode === 'local'
-      ? flags.stateDir
-        ? resolve(flags.stateDir)
-        : resolveDifflabPaths().root
-      : undefined
+    mode === 'local' ? (flags.stateDir ? resolve(flags.stateDir) : config.paths.root) : undefined
 
   const authService =
     deps.authService ??
     AuthService.withOptions({
       mode,
-      apiToken: process.env.DIFFLAB_API_TOKEN,
+      apiToken: config.apiToken,
     })
-  const db = deps.db ?? (await openDifflabDb({ mode, stateDir }))
+  const db = deps.db ?? (await DifflabDb.open({ mode, stateDir }))
   const projectService = deps.projectService ?? new ProjectRpcService(db, authService)
 
   await serveWithGracefulShutdown({
@@ -97,7 +90,7 @@ async function serveWithGracefulShutdown(options: {
     const serverUrl = `http://${formatUrlHost(options.host)}:${server.port}`
     const rpcUrl = `${serverUrl}/rpc`
     if (options.mode === 'local' && options.stateDir) {
-      await writeDaemonMetadata(options.stateDir, {
+      await DifflabDaemon.writeMetadata(options.stateDir, {
         pid: process.pid,
         server_url: serverUrl,
         rpc_url: rpcUrl,
@@ -118,7 +111,7 @@ async function serveWithGracefulShutdown(options: {
       try {
         await server?.stop(true)
         if (options.mode === 'local' && options.stateDir) {
-          await rm(daemonMetadataPath(options.stateDir), { force: true })
+          await rm(DifflabDaemon.metadataPath(options.stateDir), { force: true })
         }
         await options.db.close()
       } finally {
@@ -140,10 +133,10 @@ function parseFlags(argv: string[]): CliFlags {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--port' && argv[index + 1]) {
-      flags.port = parsePortValue(argv[index + 1]!)
+      flags.port = DifflabConfig.parsePort(argv[index + 1]!)
       index += 1
     } else if (arg?.startsWith('--port=')) {
-      flags.port = parsePortValue(arg.slice('--port='.length))
+      flags.port = DifflabConfig.parsePort(arg.slice('--port='.length))
     } else if (arg === '--state-dir' && argv[index + 1]) {
       flags.stateDir = argv[index + 1]!
       index += 1

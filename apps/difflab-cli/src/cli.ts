@@ -1,16 +1,10 @@
 import { join } from 'node:path'
 import { Command } from 'commander'
-import { ConnectError, resolveDifflabClient, type DifflabClient } from 'difflab-client-ts'
-import {
-  createRepoConfig,
-  parsePortValue,
-  readRepoConfig,
-  resolveDifflabPaths,
-  validateProjectKeyFormat,
-} from 'difflab-config'
+import { ConnectError, type DifflabClient } from 'difflab-client-ts'
+import { DifflabConfig } from 'difflab-config'
 import { DifflabDaemon } from 'difflab-daemon'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
-import { getProjectContext } from './context.js'
+import { connectCliClient, getProjectContext } from './context.js'
 import { ProjectSetupError, RepoStoreError } from './errors.js'
 import { ensureRepoStore, preflightRepoStore } from './projects/repo-store.js'
 import type { TemplateService } from './templates/service.js'
@@ -43,6 +37,7 @@ class DifflabCommand extends Command {
 }
 
 // API -------------------------------------------------------------------------
+/** Construct the `difflab` Commander program with all CLI and MCP subcommands. */
 export function createProgram(
   write: (message: string) => void = console.log,
   version = '0.1.0',
@@ -73,8 +68,8 @@ export function createProgram(
     .option('--foreground', 'Run the RPC server in the foreground')
     .option('--json', 'Format status output as JSON')
     .action(async (flags: { port: string; foreground?: boolean; json?: boolean }) => {
-      const port = parsePortValue(flags.port)
-      const paths = resolveDifflabPaths(options.home)
+      const port = DifflabConfig.parsePort(flags.port)
+      const paths = DifflabConfig.resolvePaths(options.home)
       const status = await DifflabDaemon.withOptions({
         stateDir: paths.root,
         port,
@@ -93,8 +88,8 @@ export function createProgram(
     .description('Show local Difflab background server status')
     .option('--json', 'Format status output as JSON')
     .action(async (flags: { json?: boolean }) => {
-      const paths = resolveDifflabPaths(options.home)
-      const status = await DifflabDaemon.withOptions({ stateDir: paths.root }).status()
+      const paths = DifflabConfig.resolvePaths(options.home)
+      const status = await DifflabDaemon.status(paths.root)
       if (flags.json) {
         write(JSON.stringify(status, null, 2))
         return
@@ -110,8 +105,8 @@ export function createProgram(
     .command('down')
     .description('Stop the local Difflab background server')
     .action(async () => {
-      const paths = resolveDifflabPaths(options.home)
-      const result = await DifflabDaemon.withOptions({ stateDir: paths.root }).stop()
+      const paths = DifflabConfig.resolvePaths(options.home)
+      const result = await DifflabDaemon.stop(paths.root)
       write(
         result.stopped
           ? `Stopped Difflab daemon (pid ${result.pid}).`
@@ -137,9 +132,9 @@ export function createProgram(
           'project add requires a project key, --name, and at least one --repo; use project add <key> --name <name> --repo <origin>',
         )
       }
-      const key = validateProjectKeyFormat(projectKey)
+      const key = DifflabConfig.validateProjectKey(projectKey)
       repositories.forEach(canonicalGitUrl)
-      const client = await resolveDifflabClient({ home: options.home, client: options.client })
+      const client = await connectCliClient({ home: options.home, client: options.client })
       const response = await client.projects.createProject({
         key,
         name: name.trim(),
@@ -153,7 +148,7 @@ export function createProgram(
     .command('list')
     .description('List projects and associated Git repositories')
     .action(async () => {
-      const client = await resolveDifflabClient({ home: options.home, client: options.client })
+      const client = await connectCliClient({ home: options.home, client: options.client })
       const { projects } = await client.projects.listProjects({})
       if (!projects.length) {
         write('No projects yet.')
@@ -171,18 +166,22 @@ export function createProgram(
     .action(async (projectId: string) => {
       const cwd = options.cwd ?? process.cwd()
       const git = discoverGitRepository(cwd)
-      const key = validateProjectKeyFormat(projectId)
-      const config = await readRepoConfig(git.root)
+      const key = DifflabConfig.validateProjectKey(projectId)
+      const config = await DifflabConfig.readRepo(git.root)
       if (config && config.project.id !== key) {
         throw new RepoStoreError(
           `Repository already belongs to project ${config.project.id}; requested ${key}`,
         )
       }
       const origin = canonicalGitUrl(git.originUrl)
-      const target = join(resolveDifflabPaths(options.home).projects, key, repositorySlug(origin))
+      const target = join(
+        DifflabConfig.resolvePaths(options.home).projects,
+        key,
+        repositorySlug(origin),
+      )
       await preflightRepoStore(git.root, target)
 
-      const client = await resolveDifflabClient({ home: options.home, client: options.client })
+      const client = await connectCliClient({ home: options.home, client: options.client })
       const { project: foundProject } = await client.projects.getProject({ key })
       await client.projects.linkRepository({
         projectKey: foundProject!.key,
@@ -192,10 +191,13 @@ export function createProgram(
       await ensureRepoStore(git.root, target, git.excludePath)
       if (!config) {
         try {
-          await createRepoConfig({ schemaVersion: 1, project: { id: foundProject!.key } }, git.root)
+          await DifflabConfig.writeRepo(
+            { schemaVersion: 1, project: { id: foundProject!.key } },
+            git.root,
+          )
         } catch (error) {
           if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
-          const existing = await readRepoConfig(git.root)
+          const existing = await DifflabConfig.readRepo(git.root)
           if (!existing || existing.project.id !== foundProject!.key) {
             throw new RepoStoreError(`Repository config conflicts at ${git.root}`)
           }

@@ -14,7 +14,7 @@ Difflab centralizes path and environment variable parsing in `libs/difflab-confi
 └── projects/<KEY>/<repo-slug>/         plans, reviews, explorations, and flows
 ```
 
-When `openLocalDifflabDb` inside `libs/difflab-db` creates `local.sqlite` for the first time and `difflab.sqlite` exists in the same directory, it opens `difflab.sqlite` read-only through `libs/difflab-db-legacy`, imports existing projects and Git remote links once, and leaves `difflab.sqlite` untouched so older `v0.13.0` CLI or MCP binaries continue working safely.
+When `DifflabDb.openLocal` inside `libs/difflab-db` creates `local.sqlite` for the first time and `difflab.sqlite` exists in the same directory, it opens `difflab.sqlite` read-only through `libs/difflab-db-legacy`, imports existing projects and Git remote links once, and leaves `difflab.sqlite` untouched so older `v0.13.0` CLI or MCP binaries continue working safely.
 
 ## Variables
 
@@ -23,7 +23,7 @@ When `openLocalDifflabDb` inside `libs/difflab-db` creates `local.sqlite` for th
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DIFFLAB_HOME` | `~/.difflab` | State directory for `local.sqlite`, `daemon.json`, `templates/`, and `projects/`. Root `mise.toml` sets this to `{{config_root}}/.tmp/difflab-home` inside repository checkouts. |
-| `DIFFLAB_RPC_URL` | unset (uses local daemon) | Remote Connect RPC base URL (for example `https://api.difflab.io/rpc`). When set, `resolveDifflabClient` skips starting a local daemon or creating `local.sqlite`. |
+| `DIFFLAB_RPC_URL` | unset (uses local daemon) | Remote Connect RPC base URL (for example `https://api.difflab.io/rpc`). When set, `difflab-cli` skips starting a local daemon or creating `local.sqlite`. |
 | `DIFFLAB_API_TOKEN` | unset | Bearer token sent in `Authorization: Bearer <token>` when `DIFFLAB_RPC_URL` is set. |
 | `DIFFLAB_WORKSPACE` | unset | Workspace identifier sent in `x-difflab-workspace` when `DIFFLAB_RPC_URL` is set. |
 | `DIFFLAB_DAEMON_LOG_PATH` | `$DIFFLAB_HOME/api.log` | Override log file path for spawned local daemon stdout and stderr. |

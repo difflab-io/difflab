@@ -5,7 +5,9 @@ import { dirname } from 'node:path'
 import { getRotatingFileSink } from '@logtape/file'
 import {
   configureSync,
+  defaultTextFormatter,
   getConfig,
+  getJsonLinesFormatter,
   getLogger as logtapeGetLogger,
   withContext,
   type Logger,
@@ -20,9 +22,11 @@ const logContextStorage = new AsyncLocalStorage<Record<string, unknown>>()
 const wideEventStorage = new AsyncLocalStorage<Record<string, unknown>>()
 
 // Types -----------------------------------------------------------------------
+/** Supported Difflab log levels backed by LogTape. */
 export type DifflabLogLevel = LogLevel
 export type { Logger, LogRecord, Sink }
 
+/** Startup configuration for multi-sink LogTape logging. */
 export type LoggingConfig = {
   level?: DifflabLogLevel
   logFile?: string
@@ -32,11 +36,13 @@ export type LoggingConfig = {
 }
 
 // API -------------------------------------------------------------------------
+/** Acquire a category logger under the `['difflab', ...]` namespace without configuring sinks. */
 export function getLogger(scope: string | readonly string[]): Logger {
   const parts = typeof scope === 'string' ? [scope] : scope
   return logtapeGetLogger(['difflab', ...parts])
 }
 
+/** Resolve the effective LogTape threshold from `DIFFLAB_LOG` or `fallback`. */
 export function resolveLogLevel(
   env: NodeJS.ProcessEnv = process.env,
   fallback: DifflabLogLevel = 'warning',
@@ -46,35 +52,34 @@ export function resolveLogLevel(
   return (LOG_LEVELS as readonly string[]).includes(raw) ? (raw as DifflabLogLevel) : fallback
 }
 
+/** Configure LogTape sinks (stderr, optional rotating file, and custom sinks) idempotently. */
 export function configureLogging(options: LoggingConfig = {}): void {
   if (getConfig() != null) return
 
   const level = options.level ?? resolveLogLevel(process.env)
-  const format = options.format ?? 'text'
-  const render = format === 'jsonl' ? formatJsonRecord : formatTextRecord
+  const formatter =
+    options.format === 'jsonl'
+      ? getJsonLinesFormatter({ properties: 'flatten' })
+      : defaultTextFormatter
   const sinks: Record<string, Sink> = {}
   const activeSinks: string[] = []
 
   if (options.stderr !== false) {
-    sinks.stderr = (record: LogRecord) => {
-      process.stderr.write(`${render(record)}\n`)
+    sinks.stderr = (record) => {
+      process.stderr.write(formatter(record))
     }
     activeSinks.push('stderr')
   }
 
   if (options.logFile) {
     mkdirSync(dirname(options.logFile), { recursive: true })
-    sinks.file = getRotatingFileSink(options.logFile, {
-      formatter: (record) => `${render(record)}\n`,
-    })
+    sinks.file = getRotatingFileSink(options.logFile, { formatter })
     activeSinks.push('file')
   }
 
-  if (options.sinks) {
-    for (const [name, sink] of Object.entries(options.sinks)) {
-      sinks[name] = sink
-      activeSinks.push(name)
-    }
+  for (const [name, sink] of Object.entries(options.sinks ?? {})) {
+    sinks[name] = sink
+    activeSinks.push(name)
   }
 
   configureSync({
@@ -87,13 +92,13 @@ export function configureLogging(options: LoggingConfig = {}): void {
   })
 }
 
+/** Attach structured fields to the active request's wide-event log record. */
 export function annotateWideEvent(fields: Record<string, unknown>): void {
   const store = wideEventStorage.getStore()
-  if (store) {
-    Object.assign(store, fields)
-  }
+  if (store) Object.assign(store, fields)
 }
 
+/** Run `fn` inside a request scope and emit one canonical wide-event log on completion. */
 export async function runWithWideEvent<T>(
   logger: Logger,
   eventName: string,
@@ -103,10 +108,7 @@ export async function runWithWideEvent<T>(
   const requestId =
     typeof initialFields.request_id === 'string' ? initialFields.request_id : randomUUID()
   const startedAt = performance.now()
-  const fields: Record<string, unknown> = {
-    request_id: requestId,
-    ...initialFields,
-  }
+  const fields: Record<string, unknown> = { request_id: requestId, ...initialFields }
 
   return await wideEventStorage.run(fields, () =>
     withContext({ request_id: requestId }, async () => {
@@ -121,27 +123,4 @@ export async function runWithWideEvent<T>(
       }
     }),
   )
-}
-
-// Helpers ---------------------------------------------------------------------
-function formatMessage(record: LogRecord): string {
-  return record.message
-    .map((part) => (typeof part === 'string' ? part : JSON.stringify(part)))
-    .join('')
-}
-
-function formatTextRecord(record: LogRecord): string {
-  const category = record.category.join('.')
-  return `${record.level.toUpperCase()} [${category}] ${formatMessage(record)}`
-}
-
-function formatJsonRecord(record: LogRecord): string {
-  const message = formatMessage(record)
-  return JSON.stringify({
-    timestamp: new Date(record.timestamp).toISOString(),
-    level: record.level,
-    category: record.category.join('.'),
-    event: message,
-    ...record.properties,
-  })
 }

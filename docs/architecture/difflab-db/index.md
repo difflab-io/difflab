@@ -37,10 +37,10 @@ flowchart LR
   Mig --> M2["migrations/0002_cloud_tenancy.ts<br/>(cloud)"]
 ```
 
-- `src/index.ts` is a pure re-export barrel; general non-table types live in `src/types.ts`.
-- `src/db.ts` provides `connect` (resolving explicit config or `DATABASE_URL` / `DIFFLAB_HOME`), `connectSqlite`, `connectPg`, `createDifflabDb`, and `openLocalDifflabDb`.
-- `src/schema/` (`common.ts`, `project.ts`, `git-remote.ts`, `user.ts`, `workspace.ts`) defines Zod row and domain schemas alongside colocated entity helpers (`ProjectEntity`, `GitRemoteEntity`, `UserEntity`, `WorkspaceEntity`, `WorkspaceMemberEntity`).
-- `src/migrations.ts` filters chronological migrations from top-level `libs/difflab-db/migrations/` by `migrationType: 'shared' | 'cloud'` and verifies schema readiness; `src/migrate-cli.ts` backs `mise run //libs/difflab-db:migrate` for CI and deployment flows.
+- `src/index.ts` is a pure re-export barrel; types are colocated with the modules that own them (`db.ts`, `migrations.ts`, `schema/`).
+- `src/db.ts` exports the `DifflabDb` class (`DifflabDb.open`, `DifflabDb.openLocal`, `DifflabDb.fromConfig`, `DifflabDb.connect`, `DifflabDb.migrate`, `DifflabDb.resolveConfig`) plus `isUniqueConstraintError`.
+- `src/schema/` (`common.ts`, `project.ts`, `git-remote.ts`, `user.ts`, `workspace.ts`) defines Zod row and domain schemas via `defineEntity(...)` (`ProjectEntity`, `GitRemoteEntity`, `UserEntity`, `WorkspaceEntity`, `WorkspaceMemberEntity`).
+- `src/migrations.ts` holds `ALL_MIGRATIONS` from top-level `libs/difflab-db/migrations/`, filters by `migrationType: 'shared' | 'cloud'`, and verifies schema readiness; `mise run //libs/difflab-db:migrate` invokes `DifflabDb.migrate()` directly without a bespoke CLI script.
 - `src/queries/` groups thin query modules for `projects`, `git-remotes`, `workspaces`, and `users`.
 
 ### Data and Control Flow
@@ -129,7 +129,7 @@ export function openLocalDifflabDb(options: LocalDatabaseOptions): Promise<Diffl
 
 ### Dual-Dialect Testing with Wire-Protocol PGlite
 
-`src/index.test.ts` runs every shared behavior against both `bun:sqlite` and a real PostgreSQL wire socket backed by `@electric-sql/pglite` + `@electric-sql/pglite-socket`, exercising `pg.Pool` and PostgreSQL RLS without Docker or test-only branches in `src/db.ts`.
+`src/db.spec.ts` runs dual-dialect migration, workspace-isolation, and PostgreSQL tenancy contracts against both `bun:sqlite` and a real PostgreSQL wire socket backed by `@electric-sql/pglite` + `@electric-sql/pglite-socket`, exercising `pg.Pool` without Docker or test-only branches in `src/db.ts`.
 
 ## References
 

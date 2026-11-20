@@ -5,7 +5,7 @@ import { ensurePathDirsExist, lstatOrNull } from 'utils/fsx'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
 import { hasErrorCode, resolveHomeDirectory } from 'utils/osx'
 import { resolvePath } from 'utils/pathx'
-import { readRepoConfig, resolveDifflabPaths, type DifflabPaths } from 'difflab-config'
+import { DifflabConfig, type DifflabPaths } from 'difflab-config'
 import { checkRepoStore } from '../projects/repo-store.js'
 import { embeddedSource, type TemplateInfo, type TemplateSource } from './source.js'
 
@@ -31,11 +31,11 @@ export class TemplateService {
 
   constructor(options: TemplateServiceOptions = {}) {
     if (options.home !== undefined) {
-      this.paths = resolveDifflabPaths(resolveHomeDirectory(options.home))
+      this.paths = DifflabConfig.resolvePaths(resolveHomeDirectory(options.home))
     } else if (process.env.DIFFLAB_HOME?.trim()) {
-      this.paths = resolveDifflabPaths()
+      this.paths = DifflabConfig.resolvePaths()
     } else {
-      this.paths = resolveDifflabPaths(resolveHomeDirectory())
+      this.paths = DifflabConfig.resolvePaths(resolveHomeDirectory())
     }
     this.source = options.source ?? embeddedSource
   }
@@ -109,7 +109,7 @@ export class TemplateService {
   private async projectDestination(cwd: string, path: string, filename: string): Promise<string> {
     if (!isAbsolute(cwd)) throw new TemplateError('cwd must be an absolute path')
     const git = discoverGitRepository(cwd)
-    const config = await readRepoConfig(git.root)
+    const config = await DifflabConfig.readRepo(git.root)
     if (!config)
       throw new TemplateError(`Initialize this repository with difflab init: ${git.root}`)
     const target = join(

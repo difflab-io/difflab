@@ -1,12 +1,9 @@
 // API -------------------------------------------------------------------------
 export {
-  connect,
-  createDifflabDb,
+  DifflabDb,
   isUniqueConstraintError,
-  openDifflabDb,
-  openLocalDifflabDb,
-  resolveDatabaseConfig,
-  type DifflabDb,
+  type DatabaseConfig,
+  type OpenDifflabDbOptions,
 } from './db.js'
 export {
   DifflabDbError,
@@ -20,13 +17,17 @@ export {
   defineSharedMigration,
   migrateDatabase,
   MigrationError,
+  type MigrationType,
   type TaggedMigration,
 } from './migrations.js'
 export {
+  DEFAULT_ACTOR,
+  defineEntity,
   GitRemoteEntity,
   gitRemoteRowSchema,
   gitRemoteSchema,
   isoTimestampSchema,
+  LOCAL_WORKSPACE_ID,
   ProjectEntity,
   projectKeySchema,
   projectRowSchema,
@@ -45,9 +46,11 @@ export {
   workspaceRowSchema,
   workspaceSchema,
   workspaceSlugSchema,
+  type ActorContext,
   type CloudDatabase,
   type CoreDatabase,
   type DifflabDatabase,
+  type Entity,
   type GitRemote,
   type GitRemoteRow,
   type Project,
@@ -57,13 +60,6 @@ export {
   type Workspace,
   type WorkspaceMember,
   type WorkspaceMemberRow,
+  type WorkspaceRole,
   type WorkspaceRow,
 } from './schema/index.js'
-export {
-  DEFAULT_ACTOR,
-  LOCAL_WORKSPACE_ID,
-  type ActorContext,
-  type DatabaseConfig,
-  type MigrationType,
-  type WorkspaceRole,
-} from './types.js'

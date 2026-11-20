@@ -2,21 +2,26 @@ import { sql, type Kysely } from 'kysely'
 import { Migrator, type Migration } from 'kysely/migration'
 import { migration0001Initial } from '../migrations/0001_initial.js'
 import { migration0002CloudTenancy } from '../migrations/0002_cloud_tenancy.js'
-import { connect, resolveDatabaseConfig } from './db.js'
+import { DifflabDb, type DatabaseConfig } from './db.js'
 import { DifflabDbError } from './errors.js'
 import type { CoreDatabase, DifflabDatabase } from './schema/index.js'
-import type { DatabaseConfig, MigrationType } from './types.js'
 
 // Constants -------------------------------------------------------------------
 const MIGRATION_TABLE = 'kysely_migration'
+const ALL_MIGRATIONS: readonly TaggedMigration[] = [migration0001Initial, migration0002CloudTenancy]
 
 // Types -----------------------------------------------------------------------
+/** Scope tag indicating whether a migration runs on both dialects (`shared`) or PostgreSQL only (`cloud`). */
+export type MigrationType = 'shared' | 'cloud'
+
+/** Chronological migration entry tagged with its target dialect scope. */
 export type TaggedMigration = {
   name: string
   migrationType: MigrationType
   migration: Migration
 }
 
+/** Error thrown when schema initialization, migration execution, or readiness checks fail. */
 export class MigrationError extends DifflabDbError {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
@@ -25,6 +30,7 @@ export class MigrationError extends DifflabDbError {
 }
 
 // API -------------------------------------------------------------------------
+/** Define a `shared` migration typed strictly against `CoreDatabase` tables. */
 export function defineSharedMigration(spec: {
   name: string
   up: (db: Kysely<CoreDatabase>) => Promise<void>
@@ -40,6 +46,7 @@ export function defineSharedMigration(spec: {
   }
 }
 
+/** Define a `cloud`-only PostgreSQL migration typed against the full `DifflabDatabase`. */
 export function defineCloudMigration(spec: {
   name: string
   up: (db: Kysely<DifflabDatabase>) => Promise<void>
@@ -55,9 +62,10 @@ export function defineCloudMigration(spec: {
   }
 }
 
+/** Apply all pending dialect-applicable migrations to `config` and return newly applied names. */
 export async function migrateDatabase(config?: DatabaseConfig): Promise<string[]> {
-  const resolved = config ?? resolveDatabaseConfig()
-  const db = await connect(resolved, { createSqlite: true })
+  const resolved = config ?? DifflabDb.resolveConfig()
+  const db = await DifflabDb.connect(resolved, { createSqlite: true })
   if (!db) {
     throw new MigrationError('Could not open database for migration')
   }
@@ -76,6 +84,7 @@ export async function migrateDatabase(config?: DatabaseConfig): Promise<string[]
   }
 }
 
+/** Verify that `kysely_migration` exists and contains every applicable migration without mutating schema. */
 export async function assertSchemaReady(
   db: Kysely<DifflabDatabase>,
   dialect: DatabaseConfig['dialect'],
@@ -95,12 +104,8 @@ export async function assertSchemaReady(
 }
 
 // Helpers ---------------------------------------------------------------------
-function getAllMigrations(): readonly TaggedMigration[] {
-  return [migration0001Initial, migration0002CloudTenancy]
-}
-
 function getApplicableMigrations(dialect: DatabaseConfig['dialect']): TaggedMigration[] {
-  return getAllMigrations().filter(
+  return ALL_MIGRATIONS.filter(
     (entry) => dialect === 'postgres' || entry.migrationType === 'shared',
   )
 }

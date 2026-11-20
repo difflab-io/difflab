@@ -49,7 +49,7 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   DATABASE_URL="$(pm infra query "${scope[@]}" --output databaseUrl --show-secrets)"
   export DATABASE_URL
 fi
-bun --cwd ../../libs/difflab-db run migrate
+bun run --cwd ../../libs/difflab-db migrate
 '''
 
 [tasks.build]

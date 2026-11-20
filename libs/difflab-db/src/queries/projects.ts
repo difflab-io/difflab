@@ -3,16 +3,17 @@ import type { Kysely } from 'kysely'
 import { isUniqueConstraintError } from '../db.js'
 import { ProjectConflictError, ProjectNotFoundError } from '../errors.js'
 import {
+  DEFAULT_ACTOR,
   GitRemoteEntity,
   ProjectEntity,
   validateWorkspaceId,
+  type ActorContext,
   type DifflabDatabase,
   type GitRemote,
   type GitRemoteRow,
   type Project,
   type ProjectRow,
 } from '../schema/index.js'
-import { DEFAULT_ACTOR, type ActorContext } from '../types.js'
 
 // API -------------------------------------------------------------------------
 export function createProjectQueries(db: Kysely<DifflabDatabase>) {

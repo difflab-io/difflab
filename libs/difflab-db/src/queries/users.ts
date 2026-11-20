@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely'
 import { isUniqueConstraintError } from '../db.js'
 import { DifflabDbError, ProjectConflictError } from '../errors.js'
 import { UserEntity, type DifflabDatabase, type User, type UserRow } from '../schema/index.js'
-import type { DatabaseConfig } from '../types.js'
+import type { DatabaseConfig } from '../db.js'
 
 // API -------------------------------------------------------------------------
 export function createUserQueries(db: Kysely<DifflabDatabase>, dialect: DatabaseConfig['dialect']) {

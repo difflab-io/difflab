@@ -19,7 +19,7 @@
     "lint:fix": "bun run format && bun run lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "migrate": "bun src/migrate-cli.ts"
+    "migrate": "bun -e \"import { DifflabDb } from './src/index.ts'; const applied = await DifflabDb.migrate(); console.log(JSON.stringify({ applied }));\""
   },
   "dependencies": {
     "difflab-config": "workspace:*",
