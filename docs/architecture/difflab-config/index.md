@@ -2,14 +2,14 @@
 
 ## Overview
 
-`libs/difflab-config` is Difflab's shared configuration and path resolution library. It validates environment variables, state directory layouts, TCP port values, project keys, and repository-local `difflab.yaml` manifests in one place for `difflab-cli`, `difflab-api`, `difflab-daemon`, and `difflab-db`. Remote secret stores and interactive configuration prompts are out of scope.
+`libs/difflab-config` is Difflab's shared configuration and path resolution library. It validates environment variables, state directory layouts, TCP port values, project keys, and repository-local `difflab.yaml` manifests in one place for `difflab-cli`, `difflab-api`, and `difflab-db`. Remote secret stores and interactive configuration prompts are out of scope.
 
 ## Requirement
 
 ### Functional
 
 - Callers load typed runtime settings from environment variables and receive all validation failures together in one error rather than failing on one field at a time.
-- Callers resolve consistent local state paths (database, legacy database, daemon metadata, daemon logs, templates, and project stores) from an explicit directory, a user home directory, or default user state.
+- Callers resolve consistent local state paths (database, legacy database, templates, and project stores) from an explicit directory, a user home directory, or default user state.
 - Callers read and atomically create repository-local `difflab.yaml` files while rejecting malformed YAML, unknown keys, or non-canonical project keys before any database lookup.
 
 ### Non-Functional
@@ -23,7 +23,7 @@
 
 ```mermaid
 flowchart LR
-  Callers["difflab-cli / difflab-api / difflab-daemon / difflab-db"] --> Config["DifflabConfig<br/>(src/config.ts)"]
+  Callers["difflab-cli / difflab-api / difflab-db"] --> Config["DifflabConfig<br/>(src/config.ts)"]
   Config --> EnvSchema["difflabEnvSchema<br/>(Zod bulk validation)"]
   Config --> RepoSchema["repoConfigSchema<br/>(difflab.yaml)"]
   Config --> ZodX["libs/utils/zodx<br/>(tryValidate)"]
@@ -50,7 +50,6 @@ export class DifflabConfig {
   readonly port: number
   readonly databaseUrl?: string
   readonly apiToken?: string
-  readonly apiEntry?: string
   readonly remote: RemoteRpcConfig | null
 
   static load(options?: DifflabConfigLoadOptions): DifflabConfig
@@ -72,5 +71,5 @@ export class DifflabConfig {
 ## References
 
 - Environment variable reference: [../../environment.md](../../environment.md)
-- Daemon lifecycle consumer: [../difflab-daemon/index.md](../difflab-daemon/index.md)
+- API consumer: [../difflab-api/index.md](../difflab-api/index.md)
 - Database consumer: [../difflab-db/index.md](../difflab-db/index.md)

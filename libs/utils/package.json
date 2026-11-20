@@ -16,6 +16,7 @@
       "types": "./src/logx.ts",
       "import": "./src/logx.ts"
     },
+    "./dtox": "./src/dtox.ts",
     "./fsx": "./src/fsx.ts",
     "./osx": "./src/osx.ts",
     "./pathx": "./src/pathx.ts",
@@ -24,6 +25,7 @@
     "./zodx": "./src/zodx.ts"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "2.17.0",
     "@logtape/file": "^2.4.2",
     "@logtape/logtape": "^2.4.2",
     "zod": "4.6.5"

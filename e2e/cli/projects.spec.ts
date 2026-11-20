@@ -73,9 +73,9 @@ describe('when running project commands', () => {
     expect(listResult.stdout.trim()).toBe('No projects yet.')
   })
 
-  it('project add and project list should auto-start the local daemon and persist canonical URLs in local mode', async () => {
+  it('project add and project list should persist canonical URLs directly to local.sqlite in local mode', async () => {
     // Arrange
-    const ctx = await openContext('project-add-and-list--auto-start-daemon-and-canonical-urls')
+    const ctx = await openContext('project-add-and-list--local-sqlite-and-canonical-urls')
 
     // Act
     const addResult = await ctx.runCli([
@@ -87,16 +87,14 @@ describe('when running project commands', () => {
       '--repo',
       'git@github.com:difflab-io/difflab.git',
     ])
-    const statusResult = await ctx.runCli(['status', '--json'])
     const listResult = await ctx.runCli(['project', 'list'])
 
     // Assert
     expect(addResult.exitCode).toBe(0)
     expect(addResult.stdout).toContain('Created project CLI Workspace (CLI)')
-    expect(JSON.parse(statusResult.stdout)).toMatchObject({ running: true })
     expect(listResult.stdout).toContain('CLI\tCLI Workspace')
     expect(listResult.stdout).toContain('  https://github.com/difflab-io/difflab')
-    expect(await ctx.readApiLog()).toContain('CreateProject')
+    expect(await lstatOrNull(join(ctx.difflabHome, 'local.sqlite'))).not.toBeNull()
   })
 
   it('project add should exit 1 and keep only the original project given a conflicting SSH/HTTPS URL', async () => {
@@ -171,7 +169,6 @@ describe('when running project commands', () => {
     expect(listResult.stdout).toContain('CLOUD1\tCloud Remote Project')
     expect(otherWsList.stdout.trim()).toBe('No projects yet.')
     expect(await lstatOrNull(join(ctx.difflabHome, 'local.sqlite'))).toBeNull()
-    expect(await lstatOrNull(join(ctx.difflabHome, 'daemon.json'))).toBeNull()
   })
 })
 

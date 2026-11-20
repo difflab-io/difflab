@@ -52,8 +52,6 @@ export const difflabEnvSchema = z.object({
   DIFFLAB_RPC_URL: optionalTrimmedString,
   DIFFLAB_API_TOKEN: optionalTrimmedString,
   DIFFLAB_WORKSPACE: optionalTrimmedString,
-  DIFFLAB_DAEMON_LOG_PATH: optionalTrimmedString,
-  DIFFLAB_API_ENTRY: optionalTrimmedString,
   HOST: optionalTrimmedString,
   PORT: optionalTrimmedString
     .transform((value) => (value === undefined ? undefined : Number(value)))
@@ -86,8 +84,6 @@ export type DifflabPaths = {
   templates: string
   database: string
   legacyDatabase: string
-  daemonMetadata: string
-  daemonLog: string
 }
 
 /** Remote Connect RPC target derived from environment variables. */
@@ -116,7 +112,6 @@ export class DifflabConfig {
   readonly port: number
   readonly databaseUrl?: string
   readonly apiToken?: string
-  readonly apiEntry?: string
   readonly remote: RemoteRpcConfig | null
 
   private constructor(fields: {
@@ -126,7 +121,6 @@ export class DifflabConfig {
     port: number
     databaseUrl?: string
     apiToken?: string
-    apiEntry?: string
     remote: RemoteRpcConfig | null
   }) {
     this.mode = fields.mode
@@ -135,7 +129,6 @@ export class DifflabConfig {
     this.port = fields.port
     this.databaseUrl = fields.databaseUrl
     this.apiToken = fields.apiToken
-    this.apiEntry = fields.apiEntry
     this.remote = fields.remote
   }
 
@@ -150,7 +143,7 @@ export class DifflabConfig {
     )
     const root = resolveRoot(options.root, options.home, parsed.DIFFLAB_HOME)
     const mode: ApiMode = parsed.DIFFLAB_MODE ?? (parsed.DATABASE_URL ? 'cloud' : 'local')
-    const paths = pathsFromRoot(root, parsed.DIFFLAB_DAEMON_LOG_PATH)
+    const paths = pathsFromRoot(root)
     const remote: RemoteRpcConfig | null = parsed.DIFFLAB_RPC_URL
       ? {
           rpcUrl: parsed.DIFFLAB_RPC_URL,
@@ -166,7 +159,6 @@ export class DifflabConfig {
       port: parsed.PORT ?? (mode === 'local' ? 0 : 8787),
       databaseUrl: parsed.DATABASE_URL,
       apiToken: parsed.DIFFLAB_API_TOKEN,
-      apiEntry: parsed.DIFFLAB_API_ENTRY,
       remote,
     })
   }
@@ -264,14 +256,12 @@ function resolveRoot(explicitRoot?: string, home?: string, envDifflabHome?: stri
   return join(homedir(), '.difflab')
 }
 
-function pathsFromRoot(root: string, daemonLogOverride?: string): DifflabPaths {
+function pathsFromRoot(root: string): DifflabPaths {
   return {
     root,
     projects: join(root, 'projects'),
     templates: join(root, 'templates'),
     database: join(root, 'local.sqlite'),
     legacyDatabase: join(root, 'difflab.sqlite'),
-    daemonMetadata: join(root, 'daemon.json'),
-    daemonLog: daemonLogOverride ? resolve(daemonLogOverride) : join(root, 'api.log'),
   }
 }

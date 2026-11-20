@@ -2,7 +2,7 @@
 
 ## Overview
 
-`difflab.v1.ProjectService` exposes project creation, listing, lookup, and Git remote linking over Connect JSON-RPC. It serves `difflab project`, `difflab init`, and the `project_context` MCP tool across local daemons and remote cloud workspaces. Local `.difflab` directory creation and `difflab.yaml` files remain client-side responsibilities in `apps/difflab-cli` and `libs/difflab-config`.
+`difflab.v1.ProjectService` exposes project creation, listing, lookup, and Git remote linking over Connect JSON-RPC. It serves remote `difflab project`, `difflab init`, and `project_context` operations (when `DIFFLAB_RPC_URL` is set) as well as cloud web clients. Local CLI and `stdio` MCP sessions read and write `local.sqlite` directly via `libs/difflab-db`; local `.difflab` directory creation and `difflab.yaml` files remain client-side responsibilities in `apps/difflab-cli` and `libs/difflab-config`.
 
 ## Requirement
 
@@ -33,7 +33,7 @@ flowchart LR
 ```
 
 - `apps/difflab-api/proto/difflab/v1/project.proto` defines `ProjectService`, message schemas, and `buf.validate` constraints.
-- `apps/difflab-api/src/dtos/project.ts` defines `ProjectDTO` and `GitRemoteDTO` (`DTO` mappers with `schema`, `toProto`, and `fromProto`).
+- `apps/difflab-api/src/dtos/project.ts` and `apps/difflab-api/src/dtos/git-remote.ts` define `ProjectDTO` and `GitRemoteDTO` (`DTO` mappers from `utils/dtox` with `schema`, `toProto`, and `fromProto`).
 - `apps/difflab-api/src/services/project-service.ts` (`ProjectRpcService`) resolves the caller's `ActorContext` via injected `AuthService`, invokes `libs/difflab-db` queries (`db.projects` and `db.gitRemotes`), maps domain entities through `ProjectDTO` and `GitRemoteDTO`, and translates domain exceptions to Connect status codes.
 
 ### Data and Control Flow

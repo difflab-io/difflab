@@ -1,6 +1,5 @@
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
-import { DifflabDaemon } from 'difflab-daemon'
 import { lstatOrNull } from 'utils/fsx'
 import { createE2EContext, type E2ETestContext } from '../common/test-harness.js'
 
@@ -15,7 +14,7 @@ async function openContext(label: string): Promise<E2ETestContext> {
 
 // Tests -----------------------------------------------------------------------
 describe('when running help and version commands', () => {
-  it('bare difflab and --help should exit 0 without starting a daemon and list up, status, down, project, init, mcp, and templates', async () => {
+  it('bare difflab and --help should exit 0 without creating local.sqlite and list setup, project, init, mcp, and templates', async () => {
     // Arrange
     const ctx = await openContext('bare-difflab-and-help')
 
@@ -26,11 +25,10 @@ describe('when running help and version commands', () => {
     // Assert
     expect(bare.exitCode).toBe(0)
     expect(help.exitCode).toBe(0)
-    for (const subcommand of ['up', 'status', 'down', 'project', 'init', 'mcp', 'templates']) {
+    for (const subcommand of ['setup', 'project', 'init', 'mcp', 'templates']) {
       expect(bare.stdout).toContain(subcommand)
       expect(help.stdout).toContain(subcommand)
     }
-    expect(await DifflabDaemon.status(ctx.difflabHome)).toEqual({ running: false })
     expect(await lstatOrNull(join(ctx.difflabHome, 'local.sqlite'))).toBeNull()
   })
 

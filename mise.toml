@@ -36,7 +36,7 @@ run = 'echo "Completed e2e/cli suite."'
 [tasks."e2e:smoke"]
 description = "Run fast API and CLI smoke specs"
 depends = ["install"]
-run = "bun test --timeout 30000 e2e/api/project-service.spec.ts e2e/cli/help.spec.ts e2e/cli/daemon.spec.ts"
+run = "bun test --timeout 30000 e2e/api/project-service.spec.ts e2e/cli/help.spec.ts e2e/cli/projects.spec.ts"
 
 [tasks."e2e:list"]
 description = "List all end-to-end spec files"

@@ -15,7 +15,7 @@
 
 ### Non-Functional
 
-- Single-owner local SQLite access serves concurrent CLI and MCP requests through the local daemon without lock-contention failures or retry delays.
+- Local SQLite access enables WAL mode and a 5-second busy timeout so concurrent CLI commands and `stdio` MCP sessions share `local.sqlite` directly in-process without a background daemon.
 - Concurrent PostgreSQL migration runs serialize safely without corrupting schema history, and cloud queries isolate tenant records even when non-superuser roles connect.
 - Production database configuration accepts a SQLite file path, a PostgreSQL connection string, or `DATABASE_URL` / `DIFFLAB_HOME` environment defaults without shipping embedded test engines in production runtime dependencies.
 
@@ -25,7 +25,7 @@
 
 ```mermaid
 flowchart LR
-  Caller["apps/difflab-api"] -->|"openLocalDifflabDb / createDifflabDb"| DB["src/db.ts<br/>(connect, connectSqlite, connectPg)"]
+  Caller["apps/difflab-cli / apps/difflab-api"] -->|"DifflabDb.openLocal / DifflabDb.open"| DB["src/db.ts<br/>(DifflabDb)"]
   DB --> Mig["src/migrations.ts<br/>(migrateDatabase + assertSchemaReady)"]
   DB --> Seed["src/legacy-seed.ts<br/>(readonly difflab-db-legacy)"]
   DB --> Schema["src/schema/<br/>(Zod entities + table row types)"]
@@ -55,7 +55,7 @@ flowchart LR
   All --> KyselyMig
 ```
 
-When `createDifflabDb(config)` runs, `connect` opens the dialect without creating missing SQLite files and calls `assertSchemaReady`, which inspects `kysely_migration` read-only without constructing a `Migrator` (preventing accidental table creation on unmigrated files). For local daemon startup, `openLocalDifflabDb` creates `$DIFFLAB_HOME/local.sqlite` only when missing, runs shared migrations, and imports sibling `difflab.sqlite` once via internal `src/legacy-seed.ts`.
+When `DifflabDb.fromConfig(config)` runs, `DifflabDb.connect` opens the dialect without creating missing SQLite files and calls `assertSchemaReady`, which inspects `kysely_migration` read-only without constructing a `Migrator` (preventing accidental table creation on unmigrated files). For local CLI commands, `stdio` MCP sessions, and local `difflab-api` startup, `DifflabDb.openLocal` creates `$DIFFLAB_HOME/local.sqlite` only when missing, runs shared migrations, and imports sibling `difflab.sqlite` once via internal `src/legacy-seed.ts`.
 
 ### Interfaces and Contracts
 

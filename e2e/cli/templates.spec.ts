@@ -1,7 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
-import { DifflabDaemon } from 'difflab-daemon'
 import { lstatOrNull } from 'utils/fsx'
 import { createE2EContext, type E2ETestContext } from '../common/test-harness.js'
 
@@ -16,9 +15,9 @@ async function openContext(label: string): Promise<E2ETestContext> {
 
 // Tests -----------------------------------------------------------------------
 describe('when running template commands', () => {
-  it('templates list should exit 0 without starting a daemon and install all built-in templates', async () => {
+  it('templates list should exit 0 without creating local.sqlite and install all built-in templates', async () => {
     // Arrange
-    const ctx = await openContext('templates-list--exit-0-without-daemon-and-install-templates')
+    const ctx = await openContext('templates-list--exit-0-without-db-and-install-templates')
 
     // Act
     const result = await ctx.runCli(['templates', 'list'])
@@ -28,7 +27,6 @@ describe('when running template commands', () => {
     expect(result.stdout).toContain('spec-driven-plan —')
     expect(result.stdout).toContain('software-architecture-design —')
     expect(result.stdout).toContain('flow-instance —')
-    expect(await DifflabDaemon.status(ctx.difflabHome)).toEqual({ running: false })
     expect(await lstatOrNull(join(ctx.difflabHome, 'local.sqlite'))).toBeNull()
     expect(
       await lstatOrNull(join(ctx.difflabHome, 'templates', 'spec-driven-plan.md')),

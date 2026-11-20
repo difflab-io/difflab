@@ -1,7 +1,4 @@
-import { rm } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import { DifflabConfig, type ApiMode } from 'difflab-config'
-import { DifflabDaemon } from 'difflab-daemon'
 import { DifflabDb } from 'difflab-db'
 import { configureLogging, getLogger, resolveLogLevel, type Sink } from 'utils/logx'
 import { createApp } from './app.js'
@@ -12,12 +9,6 @@ import { ProjectRpcService } from './services/project-service.js'
 const serverLogger = getLogger('api')
 
 // Types -----------------------------------------------------------------------
-type CliFlags = {
-  port?: number
-  stateDir?: string
-  host?: string
-}
-
 /** Optional injected services and log sinks for `startServer`. */
 export type ServerDeps = {
   db?: DifflabDb
@@ -28,22 +19,15 @@ export type ServerDeps = {
 
 // API -------------------------------------------------------------------------
 /** Configure logging, compose API services, bind `Bun.serve`, and register graceful shutdown. */
-export async function startServer(
-  argv: string[] = process.argv.slice(2),
-  deps: ServerDeps = {},
-): Promise<void> {
+export async function startServer(deps: ServerDeps = {}): Promise<void> {
   configureLogging({
     level: resolveLogLevel(process.env, 'info'),
     format: 'jsonl',
     sinks: deps.sinks,
   })
-  const flags = parseFlags(argv)
   const config = DifflabConfig.load()
   const mode = deps.authService?.mode ?? config.mode
-  const port = flags.port ?? config.port
-  const host = flags.host ?? config.host
-  const stateDir =
-    mode === 'local' ? (flags.stateDir ? resolve(flags.stateDir) : config.paths.root) : undefined
+  const stateDir = mode === 'local' ? config.paths.root : undefined
 
   const authService =
     deps.authService ??
@@ -59,9 +43,8 @@ export async function startServer(
     mode,
     authService,
     projectService,
-    host,
-    port,
-    stateDir,
+    host: config.host,
+    port: config.port,
   })
 }
 
@@ -73,7 +56,6 @@ async function serveWithGracefulShutdown(options: {
   projectService: ProjectRpcService
   host: string
   port: number
-  stateDir?: string
 }): Promise<void> {
   let server: ReturnType<typeof Bun.serve> | undefined
   try {
@@ -89,14 +71,6 @@ async function serveWithGracefulShutdown(options: {
     })
     const serverUrl = `http://${formatUrlHost(options.host)}:${server.port}`
     const rpcUrl = `${serverUrl}/rpc`
-    if (options.mode === 'local' && options.stateDir) {
-      await DifflabDaemon.writeMetadata(options.stateDir, {
-        pid: process.pid,
-        server_url: serverUrl,
-        rpc_url: rpcUrl,
-        started_at: new Date().toISOString(),
-      })
-    }
     serverLogger.info('difflab-api.ready', {
       mode: options.mode,
       pid: process.pid,
@@ -110,9 +84,6 @@ async function serveWithGracefulShutdown(options: {
       shuttingDown = true
       try {
         await server?.stop(true)
-        if (options.mode === 'local' && options.stateDir) {
-          await rm(DifflabDaemon.metadataPath(options.stateDir), { force: true })
-        }
         await options.db.close()
       } finally {
         process.exit(0)
@@ -126,30 +97,6 @@ async function serveWithGracefulShutdown(options: {
     await options.db.close()
     throw error
   }
-}
-
-function parseFlags(argv: string[]): CliFlags {
-  const flags: CliFlags = {}
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index]
-    if (arg === '--port' && argv[index + 1]) {
-      flags.port = DifflabConfig.parsePort(argv[index + 1]!)
-      index += 1
-    } else if (arg?.startsWith('--port=')) {
-      flags.port = DifflabConfig.parsePort(arg.slice('--port='.length))
-    } else if (arg === '--state-dir' && argv[index + 1]) {
-      flags.stateDir = argv[index + 1]!
-      index += 1
-    } else if (arg?.startsWith('--state-dir=')) {
-      flags.stateDir = arg.slice('--state-dir='.length)
-    } else if (arg === '--host' && argv[index + 1]) {
-      flags.host = argv[index + 1]!
-      index += 1
-    } else if (arg?.startsWith('--host=')) {
-      flags.host = arg.slice('--host='.length)
-    }
-  }
-  return flags
 }
 
 function formatUrlHost(host: string): string {

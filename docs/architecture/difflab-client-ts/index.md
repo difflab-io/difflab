@@ -2,7 +2,7 @@
 
 ## Overview
 
-`libs/difflab-client-ts` is Difflab's private Connect JSON-RPC TypeScript client library. It wraps generated Protocol Buffer service descriptors with target validation and optional remote authentication headers so `difflab-cli`, tests, and future TypeScript consumers call `difflab-api` with end-to-end static typing. Process spawning, daemon management, and environment variable discovery remain outside this library.
+`libs/difflab-client-ts` is Difflab's private Connect JSON-RPC TypeScript client library. It wraps generated Protocol Buffer service descriptors with target validation and optional remote authentication headers so `difflab-cli`, tests, and future TypeScript consumers call `difflab-api` with end-to-end static typing. Process lifecycle and environment variable discovery remain outside this library.
 
 ## Requirement
 
@@ -15,7 +15,7 @@
 ### Non-Functional
 
 - Generated client descriptors stay synchronized with `apps/difflab-api` Protocol Buffer definitions through automated CI checks.
-- The client library carries zero runtime dependency on daemon process management or database packages so it can be reused in both CLI and web contexts.
+- The client library carries zero runtime dependency on server or database packages so it can be reused in both CLI and web contexts.
 
 ## Design
 

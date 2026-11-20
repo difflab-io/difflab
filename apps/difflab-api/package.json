@@ -2,7 +2,7 @@
   "name": "difflab-api",
   "version": "0.1.0",
   "private": true,
-  "description": "Difflab Connect JSON-RPC server over Hono for local daemon and cloud deployments",
+  "description": "Difflab Connect JSON-RPC server over Hono for hosted and self-hosted deployments",
   "type": "module",
   "packageManager": "bun@1.4.2",
   "scripts": {
@@ -22,7 +22,6 @@
     "@connectrpc/connect": "2.3.0",
     "@connectrpc/validate": "0.2.0",
     "difflab-config": "workspace:*",
-    "difflab-daemon": "workspace:*",
     "difflab-db": "workspace:*",
     "hono": "4.13.8",
     "utils": "workspace:*"

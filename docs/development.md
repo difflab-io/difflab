@@ -4,7 +4,7 @@ This monorepo uses `mise` for tool pinning and task execution and Premise (`prem
 
 ## Worktree Isolation
 
-Root `mise.toml` sets `DIFFLAB_HOME = "{{config_root}}/.tmp/difflab-home"`. Any command run under `mise` inside a checkout or linked Git worktree stores its SQLite database, daemon metadata, and templates inside `.tmp/difflab-home/` (git-ignored) and never reads or modifies `~/.difflab`. Automated test helpers also call `assertIsolatedTestHome()` from `libs/utils/src/testx.ts` to block accidental writes to `~/.difflab`.
+Root `mise.toml` sets `DIFFLAB_HOME = "{{config_root}}/.tmp/difflab-home"`. Any command run under `mise` inside a checkout or linked Git worktree stores its SQLite database and templates inside `.tmp/difflab-home/` (git-ignored) and never reads or modifies `~/.difflab`. Automated test helpers also call `assertIsolatedTestHome()` from `libs/utils/src/testx.ts` to block accidental writes to `~/.difflab`.
 
 ## Common Tasks
 
@@ -29,7 +29,7 @@ mise run //apps/difflab-api:codegen
 
 ## Database Migrations
 
-- **Local SQLite (`local` mode):** Starting `difflab up` (or running any RPC-backed CLI command) invokes `DifflabDb.openLocal`, which creates `$DIFFLAB_HOME/local.sqlite` when absent, applies `shared` migrations automatically, and imports projects once from sibling `difflab.sqlite` if present.
+- **Local SQLite (`local` mode):** Running any local project CLI command (or starting `difflab-api` in `local` mode) invokes `DifflabDb.openLocal`, which creates `$DIFFLAB_HOME/local.sqlite` when absent, applies `shared` migrations automatically, and imports projects once from sibling `difflab.sqlite` if present.
 - **Cloud PostgreSQL (`cloud` mode and Premise CI):** `difflab-api` never auto-migrates PostgreSQL at server startup. Premise's deployment lifecycle invokes `mise run //apps/difflab-api:migrate -- <environment>` (which resolves `DATABASE_URL` via `pm infra query` when unset and delegates to `mise run //libs/difflab-db:migrate`):
 
 ```sh

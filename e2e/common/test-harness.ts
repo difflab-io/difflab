@@ -5,7 +5,6 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket'
-import { DifflabDaemon } from 'difflab-daemon'
 import { assertIsolatedTestHome } from 'utils/testx'
 
 // Constants -------------------------------------------------------------------
@@ -170,17 +169,14 @@ export async function createE2EContext(
     const port = options.port ?? 0
     const stateDir = options.stateDir ?? difflabHome
     const mode = options.mode ?? 'local'
-    const args = [API_ENTRYPOINT, '--port', String(port)]
-    if (mode === 'local') {
-      args.push('--state-dir', stateDir)
-    }
     const env = buildCleanEnv({
+      PORT: String(port),
       DIFFLAB_HOME: stateDir,
       DIFFLAB_MODE: mode,
       ...options.env,
     })
 
-    const child = spawn(process.execPath, args, {
+    const child = spawn(process.execPath, [API_ENTRYPOINT], {
       cwd: REPO_ROOT,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -273,17 +269,14 @@ export async function createE2EContext(
     const port = options.port ?? (await reserveFreePort())
     const stateDir = options.stateDir ?? difflabHome
     const mode = options.mode ?? 'local'
-    const args = [API_ENTRYPOINT, '--port', String(port)]
-    if (mode === 'local') {
-      args.push('--state-dir', stateDir)
-    }
     const env = buildCleanEnv({
+      PORT: String(port),
       DIFFLAB_HOME: stateDir,
       DIFFLAB_MODE: mode,
       ...options.env,
     })
 
-    const child = spawn(process.execPath, args, {
+    const child = spawn(process.execPath, [API_ENTRYPOINT], {
       cwd: REPO_ROOT,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -330,7 +323,6 @@ export async function createE2EContext(
     const cwd = options.cwd ?? workspaceDir
     const env = buildCleanEnv({
       DIFFLAB_HOME: difflabHome,
-      DIFFLAB_DAEMON_LOG_PATH: apiLogPath,
       ...options.env,
     })
     const result = await runSubprocess(process.execPath, [CLI_ENTRYPOINT, ...args], {
@@ -343,11 +335,6 @@ export async function createE2EContext(
   }
 
   const cleanup = async (): Promise<void> => {
-    try {
-      await DifflabDaemon.stop(difflabHome)
-    } catch {
-      // Ignore if stateDir was untouched or deleted by test.
-    }
     for (const callback of cleanupCallbacks.reverse()) {
       try {
         await callback()
@@ -412,7 +399,6 @@ export function buildCleanEnv(overrides: Record<string, string | undefined>): No
   delete base.DIFFLAB_API_TOKEN
   delete base.DIFFLAB_RPC_URL
   delete base.DIFFLAB_WORKSPACE
-  delete base.DIFFLAB_DAEMON_LOG_PATH
   delete base.DATABASE_URL
   delete base.PORT
   base.GIT_CEILING_DIRECTORIES = OUTPUTS_ROOT

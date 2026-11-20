@@ -2,7 +2,7 @@
 
 ## Overview
 
-`difflab-api` is Difflab's HTTP RPC server for project and Git remote metadata. It serves the same Connect JSON-RPC (an HTTP JSON RPC protocol generated from Protocol Buffers) API in two deployment modes: a single-owner local background daemon over SQLite for `difflab-cli` and `stdio` MCP sessions, and a multi-tenant cloud service over PostgreSQL for remote CLI and web clients. Local filesystem workflows (templates, todo lists, progress logs, and `.difflab` symlinks), OAuth token issuance, and background local-to-cloud sync are out of scope.
+`difflab-api` is Difflab's HTTP RPC server for project and Git remote metadata. It serves a Connect JSON-RPC (an HTTP JSON RPC protocol generated from Protocol Buffers) API in two deployment modes: a multi-tenant cloud service over PostgreSQL for remote CLI, sync, and web clients, and a lightweight loopback SQLite mode for local server development and testing. Local CLI and `stdio` MCP sessions open `local.sqlite` directly in-process via `libs/difflab-db` without running a background daemon. Local filesystem workflows (templates, todo lists, progress logs, and `.difflab` symlinks), OAuth token issuance, and background local-to-cloud sync are out of scope.
 
 ## Requirement
 
@@ -27,8 +27,7 @@
 
 ```mermaid
 flowchart LR
-  Caller["difflab-cli / Remote Client"] -->|"createDifflabClient"| SDK["libs/difflab-client-ts"]
-  SDK -.->|"local mode"| Daemon["libs/difflab-daemon"]
+  Caller["difflab-cli (remote) / Web / E2E"] -->|"createDifflabClient"| SDK["libs/difflab-client-ts"]
   SDK -->|"POST /rpc/difflab.v1.*"| Hono["Hono HTTP App<br/>(GET /health + /rpc/*)"]
   Hono --> Auth["AuthService<br/>(Bearer + ActorContext)"]
   Auth --> Validate["Protovalidate Interceptor<br/>(buf.validate rules)"]
@@ -38,10 +37,10 @@ flowchart LR
 ```
 
 - `apps/difflab-api/proto/` owns the `.proto` schemas and `buf.validate` field rules, generating server descriptors into `apps/difflab-api/src/gen/` and client descriptors into private `libs/difflab-client-ts/src/gen/`.
-- `apps/difflab-api/src/dtos/` defines Protobuf contract DTOs (`ProjectDTO`, `GitRemoteDTO`) grouping `schema`, `toProto`, and `fromProto` conversions.
+- `apps/difflab-api/src/dtos/` defines one Protobuf contract DTO per file (`src/dtos/project.ts`, `src/dtos/git-remote.ts`) using the shared `DTO` interface from `libs/utils/src/dtox.ts`.
 - `apps/difflab-api/src/services/auth-service.ts` (`AuthService`) validates cloud startup credentials, enforces constant-time Bearer token checks and `x-difflab-workspace` headers in `requestGate`, and tracks per-request authenticated `ActorContext` (`currentActor`) via `AsyncLocalStorage`.
 - `apps/difflab-api/src/app.ts` binds Hono typed context variables (`c.var`), wraps Connect handlers at `/rpc/*`, and emits one canonical wide-event JSONL record per RPC call via `runWithWideEvent` (`libs/utils/logx`, supporting multiple LogTape sinks).
-- `apps/difflab-api/src/server.ts` composes `AuthService`, `DifflabDb.open`, and `ProjectRpcService`, binds `Bun.serve`, and manages local `daemon.json` lifecycle via `DifflabDaemon`.
+- `apps/difflab-api/src/server.ts` loads environment configuration via `DifflabConfig.load()`, composes `AuthService`, `DifflabDb.open`, and `ProjectRpcService`, binds `Bun.serve`, and closes the server and database on `SIGINT`/`SIGTERM`.
 
 ### Data and Control Flow
 
@@ -100,11 +99,11 @@ export function createApp(deps: AppDeps): Hono
 
 ### Code Generation and Private SDK Boundary
 
-`apps/difflab-api/buf.gen.yaml` runs `@bufbuild/protoc-gen-es` twice so server handlers and `libs/difflab-client-ts` stay in lockstep from one `.proto` source. `mise run //apps/difflab-api:lint` runs `codegen:check` to reject stale generated files in CI. `libs/difflab-client-ts` owns `createDifflabClient` with zero daemon dependencies, keeps `"private": true` without `publishConfig`, and is bundled directly into `@difflab/difflab-cli`.
+`apps/difflab-api/buf.gen.yaml` runs `@bufbuild/protoc-gen-es` twice so server handlers and `libs/difflab-client-ts` stay in lockstep from one `.proto` source. `mise run //apps/difflab-api:lint` runs `codegen:check` to reject stale generated files in CI. `libs/difflab-client-ts` owns `createDifflabClient` with zero server or database dependencies, keeps `"private": true` without `publishConfig`, and is bundled directly into `@difflab/difflab-cli`.
 
-### Startup Modes, Migrations, and Daemon Metadata
+### Startup Modes and Migrations
 
-`apps/difflab-api/src/server.ts` loads configuration via `DifflabConfig.load()` (`cloud` mode when `DIFFLAB_MODE=cloud` or `DATABASE_URL` is set, and `local` mode otherwise). In `local` mode, `DifflabDb.openLocal` auto-creates and migrates `$DIFFLAB_HOME/local.sqlite` on first boot, `Bun.serve` binds `127.0.0.1:<port>`, and `DifflabDaemon.writeMetadata` writes `$DIFFLAB_HOME/daemon.json` atomically. In `cloud` mode, PostgreSQL migrations run ahead of deployment through Premise's `[tasks.migrate]` task in `apps/difflab-api/mise.toml`, and server startup asserts schema readiness without auto-migrating.
+`apps/difflab-api/src/server.ts` loads configuration purely from environment variables via `DifflabConfig.load()` (`cloud` mode when `DIFFLAB_MODE=cloud` or `DATABASE_URL` is set, and `local` mode otherwise). In `local` mode, `DifflabDb.openLocal` auto-creates and migrates `$DIFFLAB_HOME/local.sqlite` on first boot and `Bun.serve` binds `HOST:PORT` (defaulting to `127.0.0.1:0`). In `cloud` mode, PostgreSQL migrations run ahead of deployment through Premise's `[tasks.migrate]` task in `apps/difflab-api/mise.toml`, and server startup asserts schema readiness without auto-migrating.
 
 ## References
 

@@ -13,7 +13,8 @@
 - Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
 - Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module.
 - Put general package-wide types in `src/types.ts` rather than mixing non-database types into database schema modules.
-- Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto`.
+- Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto` (from `utils/dtox`).
+- Keep one major model, entity, or DTO per file.
 - Add an architecture document under `docs/architecture/<package>/index.md` for every new library or application following the `software-architecture-design` template and Difflab writing style.
 - Use `@logtape/logtape` via shared `libs/utils` logging helpers with multi-sink support and `AsyncLocalStorage` request context so services emit structured wide-event request logs instead of bespoke log lines; libraries acquire category loggers without configuring sinks, and applications configure sinks at startup.
 - [Proposed] Keep package `src/index.ts` entry points limited to re-exports and put implementation in dedicated modules.
@@ -46,7 +47,7 @@
 - Document every public class, function, type, and exported object with a concise JSDoc docstring.
 - Make section divider comments 80 columns wide, using `//`, the section name, and trailing hyphens. Use the same format in test files.
 - Use semantic exceptions for failures that callers need to catch and handle.
-- [Proposed] Name each package's base error class after the package (for example `DifflabConfigError`, `DifflabDaemonError`, `DifflabDbError`) and derive package-specific errors from it.
+- [Proposed] Name each package's base error class after the package (for example `DifflabConfigError`, `DifflabClientError`, `DifflabDbError`) and derive package-specific errors from it.
 - [Proposed] Prefer class-based APIs with static factories such as `withOptions(...)` or `open(...)` over large sets of standalone module functions, and keep transport clients decoupled from daemon or process lifecycle.
 - [Proposed] Define persisted domain entities with Zod schemas and `defineEntity(...)` helpers, and prefer domain names such as `git-remotes` over `repositories` to avoid confusion with data-access repositories.
 

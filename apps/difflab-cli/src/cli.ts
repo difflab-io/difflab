@@ -2,9 +2,9 @@ import { join } from 'node:path'
 import { Command } from 'commander'
 import { ConnectError, type DifflabClient } from 'difflab-client-ts'
 import { DifflabConfig } from 'difflab-config'
-import { DifflabDaemon } from 'difflab-daemon'
+import { DifflabDbError } from 'difflab-db'
 import { canonicalGitUrl, discoverGitRepository, repositorySlug } from 'utils/gitx'
-import { connectCliClient, getProjectContext } from './context.js'
+import { getProjectContext, withProjectBackend } from './context.js'
 import { ProjectSetupError, RepoStoreError } from './errors.js'
 import { ensureRepoStore, preflightRepoStore } from './projects/repo-store.js'
 import type { TemplateService } from './templates/service.js'
@@ -29,6 +29,9 @@ class DifflabCommand extends Command {
       } catch (error) {
         if (error instanceof ConnectError) {
           throw new ProjectSetupError(error.rawMessage || error.message, { cause: error })
+        }
+        if (error instanceof DifflabDbError) {
+          throw new ProjectSetupError(error.message, { cause: error })
         }
         throw error
       }
@@ -61,59 +64,6 @@ export function createProgram(
       })
     })
 
-  program
-    .command('up')
-    .description('Start the local Difflab background RPC server')
-    .option('--port <port>', 'TCP port to bind (0 selects an available port)', '0')
-    .option('--foreground', 'Run the RPC server in the foreground')
-    .option('--json', 'Format status output as JSON')
-    .action(async (flags: { port: string; foreground?: boolean; json?: boolean }) => {
-      const port = DifflabConfig.parsePort(flags.port)
-      const paths = DifflabConfig.resolvePaths(options.home)
-      const status = await DifflabDaemon.withOptions({
-        stateDir: paths.root,
-        port,
-        foreground: Boolean(flags.foreground),
-      }).run()
-      if (!status) return
-      if (flags.json) {
-        write(JSON.stringify(status, null, 2))
-        return
-      }
-      write(`Difflab daemon running (pid ${status.pid}) at ${status.server_url}`)
-    })
-
-  program
-    .command('status')
-    .description('Show local Difflab background server status')
-    .option('--json', 'Format status output as JSON')
-    .action(async (flags: { json?: boolean }) => {
-      const paths = DifflabConfig.resolvePaths(options.home)
-      const status = await DifflabDaemon.status(paths.root)
-      if (flags.json) {
-        write(JSON.stringify(status, null, 2))
-        return
-      }
-      if (!status.running) {
-        write('Difflab daemon is stopped.')
-        return
-      }
-      write(`Difflab daemon running (pid ${status.pid}) at ${status.server_url}`)
-    })
-
-  program
-    .command('down')
-    .description('Stop the local Difflab background server')
-    .action(async () => {
-      const paths = DifflabConfig.resolvePaths(options.home)
-      const result = await DifflabDaemon.stop(paths.root)
-      write(
-        result.stopped
-          ? `Stopped Difflab daemon (pid ${result.pid}).`
-          : 'Difflab daemon is not running.',
-      )
-    })
-
   const project = program.command('project').description('Manage projects')
   project
     .command('add [project-key]')
@@ -134,13 +84,15 @@ export function createProgram(
       }
       const key = DifflabConfig.validateProjectKey(projectKey)
       repositories.forEach(canonicalGitUrl)
-      const client = await connectCliClient({ home: options.home, client: options.client })
-      const response = await client.projects.createProject({
-        key,
-        name: name.trim(),
-        repositoryUrls: repositories,
-      })
-      const created = response.project!
+      const created = await withProjectBackend(
+        { home: options.home, client: options.client },
+        (backend) =>
+          backend.createProject({
+            key,
+            name: name.trim(),
+            repositoryUrls: repositories,
+          }),
+      )
       write(`Created project ${created.name} (${created.key})`)
     })
 
@@ -148,8 +100,10 @@ export function createProgram(
     .command('list')
     .description('List projects and associated Git repositories')
     .action(async () => {
-      const client = await connectCliClient({ home: options.home, client: options.client })
-      const { projects } = await client.projects.listProjects({})
+      const projects = await withProjectBackend(
+        { home: options.home, client: options.client },
+        (backend) => backend.listProjects(),
+      )
       if (!projects.length) {
         write('No projects yet.')
         return
@@ -181,29 +135,35 @@ export function createProgram(
       )
       await preflightRepoStore(git.root, target)
 
-      const client = await connectCliClient({ home: options.home, client: options.client })
-      const { project: foundProject } = await client.projects.getProject({ key })
-      await client.projects.linkRepository({
-        projectKey: foundProject!.key,
-        remoteUrl: origin,
-      })
+      const foundProject = await withProjectBackend(
+        { home: options.home, client: options.client },
+        async (backend) => {
+          const existing = await backend.getProject(key)
+          if (!existing) throw new ProjectSetupError(`Project not found: ${key}`)
+          await backend.linkRepository({
+            projectKey: existing.key,
+            remoteUrl: origin,
+          })
+          return existing
+        },
+      )
 
       await ensureRepoStore(git.root, target, git.excludePath)
       if (!config) {
         try {
           await DifflabConfig.writeRepo(
-            { schemaVersion: 1, project: { id: foundProject!.key } },
+            { schemaVersion: 1, project: { id: foundProject.key } },
             git.root,
           )
         } catch (error) {
           if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
           const existing = await DifflabConfig.readRepo(git.root)
-          if (!existing || existing.project.id !== foundProject!.key) {
+          if (!existing || existing.project.id !== foundProject.key) {
             throw new RepoStoreError(`Repository config conflicts at ${git.root}`)
           }
         }
       }
-      const context = await getProjectContext(git, key, options.home, client)
+      const context = await getProjectContext(git, key, options.home, options.client)
       write(
         `Initialized ${context.repository.origin} in project ${context.project.name} (${context.project.id})`,
       )

@@ -14,9 +14,8 @@ e2e/
 │   ├── auth.spec.ts             cloud Bearer token + x-difflab-workspace gates vs local loopback mode
 │   └── project-service.spec.ts  CreateProject, ListProjects, GetProject, and LinkRepository RPCs
 ├── cli/
-│   ├── help.spec.ts             bare difflab, --help, and --version without starting a daemon
-│   ├── daemon.spec.ts           difflab up, status, /health, and down lifecycle
-│   ├── projects.spec.ts         local auto-daemon and remote DIFFLAB_RPC_URL project commands
+│   ├── help.spec.ts             bare difflab, --help, and --version without creating local.sqlite
+│   ├── projects.spec.ts         local in-process SQLite and remote DIFFLAB_RPC_URL project commands
 │   ├── init.spec.ts             repository linking, .difflab symlinks, Git excludes, and worktrees
 │   ├── templates.spec.ts        template installation, scaffolding, and path/overwrite guards
 │   └── mcp.spec.ts              mcp setup and all nine stdio MCP tools
@@ -29,13 +28,13 @@ e2e/
 
 ## Running Tests
 
-| Task           | Command              | Purpose                                                 |
-| -------------- | -------------------- | ------------------------------------------------------- |
-| Full E2E suite | `mise run e2e`       | Run all `e2e/api` and `e2e/cli` specs.                  |
-| API suite      | `mise run e2e:api`   | Run Connect RPC, auth, and migration specs.             |
-| CLI suite      | `mise run e2e:cli`   | Run CLI subcommand and `stdio` MCP specs.               |
-| Smoke check    | `mise run e2e:smoke` | Run fast help, daemon, and project-service smoke specs. |
-| List specs     | `mise run e2e:list`  | Print all E2E `.spec.ts` files.                         |
+| Task | Command | Purpose |
+| --- | --- | --- |
+| Full E2E suite | `mise run e2e` | Run all `e2e/api` and `e2e/cli` specs. |
+| API suite | `mise run e2e:api` | Run Connect RPC, auth, and migration specs. |
+| CLI suite | `mise run e2e:cli` | Run CLI subcommand and `stdio` MCP specs. |
+| Smoke check | `mise run e2e:smoke` | Run fast help, projects, and project-service smoke specs. |
+| List specs | `mise run e2e:list` | Print all E2E `.spec.ts` files. |
 
 ## Inspecting Retained Test Directories
 

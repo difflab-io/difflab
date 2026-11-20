@@ -3,7 +3,6 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { DifflabDaemon } from 'difflab-daemon'
 import { createGitRepository } from '../common/fixtures.js'
 import {
   buildCleanEnv,
@@ -25,7 +24,6 @@ async function openContext(label: string): Promise<E2ETestContext> {
 async function connectMcp(ctx: E2ETestContext) {
   const env = buildCleanEnv({
     DIFFLAB_HOME: ctx.difflabHome,
-    DIFFLAB_DAEMON_LOG_PATH: ctx.apiLogPath,
   }) as Record<string, string>
 
   const transport = new StdioClientTransport({
@@ -238,10 +236,10 @@ describe('given a difflab mcp serve session on an uninitialized workspace', () =
   })
 })
 
-describe('given a difflab mcp serve session on an initialized repository with a stopped daemon', () => {
-  it('project_context should auto-start the local daemon and return the project and canonical origin', async () => {
+describe('given a difflab mcp serve session on an initialized repository', () => {
+  it('project_context should read local.sqlite directly and return the project and canonical origin', async () => {
     // Arrange
-    const ctx = await openContext('mcp-initialized-stopped-daemon--auto-start-on-project-context')
+    const ctx = await openContext('mcp-initialized--read-local-sqlite-on-project-context')
     const repoDir = await createGitRepository(ctx.workspaceDir, {
       subpath: 'repo',
       originUrl: 'git@github.com:difflab-io/mcp-demo.git',
@@ -256,17 +254,13 @@ describe('given a difflab mcp serve session on an initialized repository with a 
       'git@github.com:difflab-io/mcp-demo.git',
     ])
     await ctx.runCli(['init', 'MCPD'], { cwd: repoDir })
-    await ctx.runCli(['down'])
-    expect(await DifflabDaemon.status(ctx.difflabHome)).toEqual({ running: false })
     const mcp = await connectMcp(ctx)
 
     // Act
     const response = await mcp.callTool('project_context', { cwd: await realpath(repoDir) })
-    const daemonStatus = await DifflabDaemon.status(ctx.difflabHome)
 
     // Assert
     expect(response.isError).toBeUndefined()
-    expect(daemonStatus.running).toBe(true)
     expect(parseMcpJson(response)).toMatchObject({
       project: { id: 'MCPD', name: 'MCP Demo Project' },
       repository: {

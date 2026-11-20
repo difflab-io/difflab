@@ -1,3 +1,4 @@
 // API -------------------------------------------------------------------------
-export { GitRemoteDTO, ProjectDTO } from './project.js'
-export type { DTO } from './types.js'
+export { GitRemoteDTO } from './git-remote.js'
+export { ProjectDTO } from './project.js'
+export type { DTO } from 'utils/dtox'

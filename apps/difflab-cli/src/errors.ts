@@ -30,7 +30,7 @@ export class RepoStoreError extends ProjectSetupError {
   }
 }
 
-/** Error thrown when global Difflab state or daemon setup is missing. */
+/** Error thrown when global Difflab state or remote configuration is missing. */
 export class MissingGlobalConfig extends ProjectSetupError {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
