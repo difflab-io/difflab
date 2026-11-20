@@ -3,8 +3,8 @@ import type { Kysely } from 'kysely'
 import { isUniqueConstraintError, type DatabaseConfig } from '../db.js'
 import { DifflabDbError, ProjectConflictError, ProjectValidationError } from '../errors.js'
 import {
-  WorkspaceEntity,
-  WorkspaceMemberEntity,
+  WorkspaceMemberModel,
+  WorkspaceModel,
   type DifflabDatabase,
   type Workspace,
   type WorkspaceMember,
@@ -26,7 +26,7 @@ export function createWorkspaceQueries(
   return {
     async createWorkspace(input: { id?: string; slug: string; name: string }): Promise<Workspace> {
       assertCloudDialect()
-      const workspace = WorkspaceEntity.validate(
+      const workspace = WorkspaceModel.validate(
         {
           id: input.id ?? randomUUID(),
           slug: input.slug,
@@ -55,7 +55,7 @@ export function createWorkspaceQueries(
         .selectAll()
         .where('slug', '=', slug.trim().toLowerCase())
         .executeTakeFirst()
-      return row ? WorkspaceEntity.parse(row) : null
+      return row ?? null
     },
 
     async upsertMember(input: {
@@ -64,7 +64,7 @@ export function createWorkspaceQueries(
       role: WorkspaceRole
     }): Promise<WorkspaceMember> {
       assertCloudDialect()
-      const candidate = WorkspaceMemberEntity.validate(
+      const candidate = WorkspaceMemberModel.validate(
         {
           workspaceId: input.workspaceId,
           userId: input.userId,
@@ -73,24 +73,22 @@ export function createWorkspaceQueries(
         },
         (message, cause) => new ProjectValidationError(message, { cause }),
       )
-      const saved = await db
+      return await db
         .insertInto('workspace_members')
         .values(candidate)
         .onConflict((oc) => oc.columns(['workspaceId', 'userId']).doUpdateSet({ role: input.role }))
         .returningAll()
         .executeTakeFirstOrThrow()
-      return WorkspaceMemberEntity.parse(saved)
     },
 
     async listMembers(workspaceId: string): Promise<WorkspaceMember[]> {
       assertCloudDialect()
-      const rows = await db
+      return await db
         .selectFrom('workspace_members')
         .selectAll()
         .where('workspaceId', '=', workspaceId)
         .orderBy('createdAt', 'asc')
         .execute()
-      return rows.map((row) => WorkspaceMemberEntity.parse(row))
     },
   }
 }

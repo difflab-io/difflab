@@ -98,7 +98,7 @@ describe('DifflabDb workspace isolation', () => {
         )
 
         // Assert
-        expect(projB.id).toBe('ALPHA')
+        expect(projB.key).toBe('ALPHA')
         expect(projB.workspaceId).toBe('ws-b')
       })
 

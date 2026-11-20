@@ -4,13 +4,12 @@ import { isUniqueConstraintError } from '../db.js'
 import { ProjectConflictError, ProjectNotFoundError } from '../errors.js'
 import {
   DEFAULT_ACTOR,
-  GitRemoteEntity,
-  ProjectEntity,
+  GitRemoteModel,
+  ProjectModel,
   validateWorkspaceId,
   type ActorContext,
   type DifflabDatabase,
   type GitRemote,
-  type GitRemoteRow,
 } from '../schema/index.js'
 
 // API -------------------------------------------------------------------------
@@ -23,8 +22,8 @@ export function createGitRemoteQueries(db: Kysely<DifflabDatabase>) {
       actor: ActorContext = DEFAULT_ACTOR,
     ): Promise<GitRemote> {
       const workspaceId = validateWorkspaceId(actor.workspaceId)
-      const key = ProjectEntity.validateKey(projectKey)
-      const { url, slug } = GitRemoteEntity.normalizeUrl(origin)
+      const key = ProjectModel.validateKey(projectKey)
+      const { url, slug } = GitRemoteModel.normalizeUrl(origin)
 
       try {
         return await db.transaction().execute(async (tx) => {
@@ -36,7 +35,7 @@ export function createGitRemoteQueries(db: Kysely<DifflabDatabase>) {
             .executeTakeFirst()
           if (!project) throw new ProjectNotFoundError(key)
 
-          const candidate: GitRemoteRow = {
+          const candidate: GitRemote = {
             id: randomUUID(),
             workspaceId,
             projectId: project.id,
@@ -64,7 +63,7 @@ export function createGitRemoteQueries(db: Kysely<DifflabDatabase>) {
             throw new ProjectConflictError(`Git remote already belongs to another project: ${url}`)
           }
 
-          return GitRemoteEntity.fromRow(existing)
+          return existing
         })
       } catch (error) {
         if (isUniqueConstraintError(error)) {

@@ -1,28 +1,27 @@
 import { create } from '@bufbuild/protobuf'
-import type { Project as DomainProject } from 'difflab-db'
+import type { ProjectWithRemotes } from 'difflab-db'
 import type { DTO } from 'utils/dto'
 import { ProjectSchema, type Project as ProtoProject } from '../gen/difflab/v1/project_pb.js'
 import { GitRemoteDTO } from './git-remote.js'
 
 // API -------------------------------------------------------------------------
-/** Protobuf contract mapper for `Project` entities. */
-export const ProjectDTO: DTO<DomainProject, typeof ProjectSchema> = {
+/** Protobuf contract mapper for `ProjectWithRemotes` models. */
+export const ProjectDTO: DTO<ProjectWithRemotes, typeof ProjectSchema> = {
   schema: ProjectSchema,
-  toProto(project: DomainProject): ProtoProject {
+  toProto(project: ProjectWithRemotes): ProtoProject {
     return create(ProjectSchema, {
       workspaceId: project.workspaceId,
-      key: project.id,
+      key: project.key,
       name: project.name,
-      repositories: project.gitRemotes.map((remote) =>
-        GitRemoteDTO.toProto(remote, { workspaceId: project.workspaceId }),
-      ),
+      repositories: project.gitRemotes.map((remote) => GitRemoteDTO.toProto(remote)),
       createdAt: project.createdAt,
       updatedAt: project.createdAt,
     })
   },
-  fromProto(proto): DomainProject {
+  fromProto(proto): ProjectWithRemotes {
     return {
-      id: proto.key ?? '',
+      id: '',
+      key: proto.key ?? '',
       name: proto.name ?? '',
       workspaceId: proto.workspaceId ?? '',
       createdByUserId: null,

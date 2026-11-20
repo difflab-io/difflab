@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely'
 import { tryValidate } from 'utils/zodx'
 import { isUniqueConstraintError, type DatabaseConfig } from '../db.js'
 import { DifflabDbError, ProjectConflictError, ProjectValidationError } from '../errors.js'
-import { UserEntity, type DifflabDatabase, type User } from '../schema/index.js'
+import { UserModel, type DifflabDatabase, type User } from '../schema/index.js'
 
 // API -------------------------------------------------------------------------
 /** Create cloud user queries bound to a PostgreSQL Kysely instance. */
@@ -17,7 +17,7 @@ export function createUserQueries(db: Kysely<DifflabDatabase>, dialect: Database
   return {
     async createUser(input: { id?: string; email: string; displayName: string }): Promise<User> {
       assertCloudDialect()
-      const user = UserEntity.validate(
+      const user = UserModel.validate(
         {
           id: input.id ?? randomUUID(),
           email: input.email,
@@ -40,7 +40,7 @@ export function createUserQueries(db: Kysely<DifflabDatabase>, dialect: Database
     async getUserByEmail(email: string): Promise<User | null> {
       assertCloudDialect()
       const normalized = tryValidate(
-        UserEntity.schema.shape.email,
+        UserModel.schema.shape.email,
         email,
         (message, cause) => new ProjectValidationError(message, { cause }),
       )
@@ -49,7 +49,7 @@ export function createUserQueries(db: Kysely<DifflabDatabase>, dialect: Database
         .selectAll()
         .where('email', '=', normalized)
         .executeTakeFirst()
-      return row ? UserEntity.parse(row) : null
+      return row ?? null
     },
   }
 }

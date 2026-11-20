@@ -1,4 +1,4 @@
-import { defineEntity } from 'utils/entity'
+import { defineModel } from 'utils/model'
 import { z } from 'zod'
 import { isoTimestampSchema } from './common.js'
 
@@ -12,9 +12,9 @@ export const userSchema = z.strictObject({
 })
 
 // Types -----------------------------------------------------------------------
-/** Cloud `User` record shared between Kysely (`CamelCasePlugin`) and application callers. */
+/** Cloud `User` model shared directly between Kysely (`CamelCasePlugin`) and application callers. */
 export type User = z.infer<typeof userSchema>
 
 // API -------------------------------------------------------------------------
-/** Entity definition for `User` records with generic `parse` and `validate`. */
-export const UserEntity = defineEntity({ schema: userSchema })
+/** Model definition for `User` records with generic `parse` and `validate`. */
+export const UserModel = defineModel({ schema: userSchema })

@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { ConnectError, createDifflabClient, type DifflabClient } from 'difflab-client-ts'
 import { DifflabConfig } from 'difflab-config'
-import { DifflabDb, DifflabDbError, type Project as DomainProject } from 'difflab-db'
+import { DifflabDb, DifflabDbError, type ProjectWithRemotes } from 'difflab-db'
 import { lstatOrNull } from 'utils/fsx'
 import { canonicalGitUrl, discoverGitRepository, type GitRepository } from 'utils/gitx'
 import { MissingGlobalConfig, MissingRepoConfig, RepoStoreError } from './errors.js'
@@ -134,13 +134,13 @@ export async function getProjectContext(
 }
 
 // Helpers ---------------------------------------------------------------------
-function fromDomainProject(project: DomainProject): ProjectRecord {
+function fromDomainProject(project: ProjectWithRemotes): ProjectRecord {
   return {
-    key: project.id,
+    key: project.key,
     name: project.name,
     repositories: project.gitRemotes.map((remote) => ({
       id: remote.id,
-      remoteUrl: remote.url,
+      remoteUrl: remote.remoteUrl,
       slug: remote.slug,
     })),
   }

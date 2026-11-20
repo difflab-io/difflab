@@ -17,7 +17,7 @@
       "import": "./src/logx.ts"
     },
     "./dto": "./src/dto.ts",
-    "./entity": "./src/entity.ts",
+    "./model": "./src/model.ts",
     "./fsx": "./src/fsx.ts",
     "./osx": "./src/osx.ts",
     "./pathx": "./src/pathx.ts",

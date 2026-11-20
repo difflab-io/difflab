@@ -81,7 +81,7 @@ const { project } = await client.projects.createProject({
 
 ### Protobuf Field Mapping
 
-Domain `Project.id` maps to Protobuf `Project.key`, and domain `GitRemote.url` (`Project.gitRemotes`) maps to Protobuf `Repository.remote_url` (`remoteUrl` in TypeScript) so wire contracts support any Git forge while internal database modules avoid repository-pattern naming collisions.
+`ProjectDTO` and `GitRemoteDTO` own all Protobuf-to-model mapping at the API boundary so `libs/difflab-db` stays focused on Kysely models (`Project`, `GitRemote`) without wire-format concerns.
 
 ## References
 

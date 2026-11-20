@@ -2,8 +2,8 @@ import type { z } from 'zod'
 import { tryValidate } from './zodx.js'
 
 // Types -----------------------------------------------------------------------
-/** Base contract shared by Zod-backed domain entities with generic `parse` and `validate` helpers. */
-export type Entity<
+/** Base contract shared by Zod-backed domain models with generic `parse` and `validate` helpers. */
+export type Model<
   TSchema extends z.ZodType,
   TExtra extends Record<string, unknown> = Record<string, never>,
 > = {
@@ -16,11 +16,11 @@ export type Entity<
 } & TExtra
 
 // API -------------------------------------------------------------------------
-/** Define a typed domain entity pairing a Zod schema with generic `parse`, `validate`, and optional helpers. */
-export function defineEntity<
+/** Define a typed domain model pairing a Zod schema with generic `parse`, `validate`, and optional helpers. */
+export function defineModel<
   TSchema extends z.ZodType,
   TExtra extends Record<string, unknown> = Record<string, never>,
->(spec: { schema: TSchema; methods?: TExtra }): Entity<TSchema, TExtra> {
+>(spec: { schema: TSchema; methods?: TExtra }): Model<TSchema, TExtra> {
   return {
     schema: spec.schema,
     parse: (value: unknown) => spec.schema.parse(value),

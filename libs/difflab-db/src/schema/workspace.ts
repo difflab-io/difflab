@@ -1,4 +1,4 @@
-import { defineEntity } from 'utils/entity'
+import { defineModel } from 'utils/model'
 import { z } from 'zod'
 import { isoTimestampSchema, workspaceIdSchema, workspaceRoleSchema } from './common.js'
 
@@ -33,15 +33,15 @@ export const workspaceMemberSchema = z.strictObject({
 /** Supported role values for a workspace member. */
 export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>
 
-/** Cloud `Workspace` record shared between Kysely (`CamelCasePlugin`) and application callers. */
+/** Cloud `Workspace` model shared directly between Kysely (`CamelCasePlugin`) and application callers. */
 export type Workspace = z.infer<typeof workspaceSchema>
 
-/** Cloud `WorkspaceMember` record shared between Kysely (`CamelCasePlugin`) and application callers. */
+/** Cloud `WorkspaceMember` model shared directly between Kysely (`CamelCasePlugin`) and application callers. */
 export type WorkspaceMember = z.infer<typeof workspaceMemberSchema>
 
 // API -------------------------------------------------------------------------
-/** Entity definition for `Workspace` records with generic `parse` and `validate`. */
-export const WorkspaceEntity = defineEntity({ schema: workspaceSchema })
+/** Model definition for `Workspace` records with generic `parse` and `validate`. */
+export const WorkspaceModel = defineModel({ schema: workspaceSchema })
 
-/** Entity definition for `WorkspaceMember` records with generic `parse` and `validate`. */
-export const WorkspaceMemberEntity = defineEntity({ schema: workspaceMemberSchema })
+/** Model definition for `WorkspaceMember` records with generic `parse` and `validate`. */
+export const WorkspaceMemberModel = defineModel({ schema: workspaceMemberSchema })

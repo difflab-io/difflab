@@ -7,15 +7,15 @@ import {
 } from '../gen/difflab/v1/project_pb.js'
 
 // API -------------------------------------------------------------------------
-/** Protobuf contract mapper for `GitRemote` entities. */
-export const GitRemoteDTO: DTO<GitRemote, typeof RepositorySchema, { workspaceId: string }> = {
+/** Protobuf contract mapper for `GitRemote` models. */
+export const GitRemoteDTO: DTO<GitRemote, typeof RepositorySchema> = {
   schema: RepositorySchema,
-  toProto(remote: GitRemote, context: { workspaceId: string }): ProtoRepository {
+  toProto(remote: GitRemote): ProtoRepository {
     return create(RepositorySchema, {
       id: remote.id,
-      workspaceId: context.workspaceId,
-      projectKey: remote.projectId,
-      remoteUrl: remote.url,
+      workspaceId: remote.workspaceId,
+      projectKey: remote.projectKey,
+      remoteUrl: remote.remoteUrl,
       slug: remote.slug,
       createdAt: remote.createdAt,
     })
@@ -23,9 +23,12 @@ export const GitRemoteDTO: DTO<GitRemote, typeof RepositorySchema, { workspaceId
   fromProto(proto): GitRemote {
     return {
       id: proto.id ?? '',
-      projectId: proto.projectKey ?? '',
-      url: proto.remoteUrl ?? '',
+      workspaceId: proto.workspaceId ?? '',
+      projectId: '',
+      projectKey: proto.projectKey ?? '',
+      remoteUrl: proto.remoteUrl ?? '',
       slug: proto.slug ?? '',
+      createdByUserId: null,
       createdAt: proto.createdAt ?? '',
     }
   },

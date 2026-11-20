@@ -1,18 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import type { Kysely } from 'kysely'
 import { isUniqueConstraintError } from '../db.js'
-import { ProjectConflictError, ProjectNotFoundError } from '../errors.js'
+import { ProjectConflictError, ProjectNotFoundError, ProjectValidationError } from '../errors.js'
 import {
   DEFAULT_ACTOR,
-  GitRemoteEntity,
-  ProjectEntity,
+  GitRemoteModel,
+  ProjectModel,
   validateWorkspaceId,
   type ActorContext,
   type DifflabDatabase,
   type GitRemote,
-  type GitRemoteRow,
-  type Project,
-  type ProjectRow,
+  type ProjectWithRemotes,
 } from '../schema/index.js'
 
 // API -------------------------------------------------------------------------
@@ -24,50 +22,49 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
       name: string,
       initialOrigins: string[] = [],
       actor: ActorContext = DEFAULT_ACTOR,
-    ): Promise<Project> {
+    ): Promise<ProjectWithRemotes> {
       const workspaceId = validateWorkspaceId(actor.workspaceId)
-      const projectKey = ProjectEntity.validateKey(key)
-      const trimmedName = ProjectEntity.validateName(name)
-      const normalizedRemotes = initialOrigins.map(GitRemoteEntity.normalizeUrl)
+      const project = ProjectModel.validate(
+        {
+          id: randomUUID(),
+          workspaceId,
+          key,
+          name,
+          createdByUserId: actor.userId,
+          createdAt: new Date().toISOString(),
+        },
+        (message, cause) => new ProjectValidationError(message, { cause }),
+      )
+      const normalizedRemotes = initialOrigins.map(GitRemoteModel.normalizeUrl)
       const uniqueUrls = new Set(normalizedRemotes.map((item) => item.url))
       if (uniqueUrls.size !== normalizedRemotes.length) {
         throw new ProjectConflictError('Duplicate Git remote URLs')
       }
 
-      const now = new Date().toISOString()
-      const projectRow: ProjectRow = {
-        id: randomUUID(),
-        workspaceId,
-        key: projectKey,
-        name: trimmedName,
-        createdByUserId: actor.userId,
-        createdAt: now,
-      }
-
       try {
         return await db.transaction().execute(async (tx) => {
-          await tx.insertInto('projects').values(projectRow).execute()
+          await tx.insertInto('projects').values(project).execute()
           const gitRemotes: GitRemote[] = []
           for (const remote of normalizedRemotes) {
-            const remoteRow: GitRemoteRow = {
+            const record: GitRemote = {
               id: randomUUID(),
               workspaceId,
-              projectId: projectRow.id,
-              projectKey,
+              projectId: project.id,
+              projectKey: project.key,
               remoteUrl: remote.url,
               slug: remote.slug,
               createdByUserId: actor.userId,
               createdAt: new Date().toISOString(),
             }
-            await tx.insertInto('git_remotes').values(remoteRow).execute()
-            gitRemotes.push(GitRemoteEntity.fromRow(remoteRow))
+            await tx.insertInto('git_remotes').values(record).execute()
+            gitRemotes.push(record)
           }
-          return ProjectEntity.fromRow(projectRow, gitRemotes)
+          return { ...project, gitRemotes }
         })
       } catch (error) {
         if (isUniqueConstraintError(error)) {
           throw new ProjectConflictError(
-            `Project key or Git remote already exists: ${projectKey}`,
+            `Project key or Git remote already exists: ${project.key}`,
             { cause: error },
           )
         }
@@ -75,17 +72,17 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
       }
     },
 
-    async listProjects(actor: ActorContext = DEFAULT_ACTOR): Promise<Project[]> {
+    async listProjects(actor: ActorContext = DEFAULT_ACTOR): Promise<ProjectWithRemotes[]> {
       const workspaceId = validateWorkspaceId(actor.workspaceId)
       return db.transaction().execute(async (tx) => {
-        const projectRows = await tx
+        const projects = await tx
           .selectFrom('projects')
           .selectAll()
           .where('workspaceId', '=', workspaceId)
           .orderBy('key', 'asc')
           .execute()
 
-        const remoteRows = await tx
+        const remotes = await tx
           .selectFrom('git_remotes')
           .selectAll()
           .where('workspaceId', '=', workspaceId)
@@ -93,37 +90,38 @@ export function createProjectQueries(db: Kysely<DifflabDatabase>) {
           .orderBy('id', 'asc')
           .execute()
 
-        return projectRows.map((row) =>
-          ProjectEntity.fromRow(
-            row,
-            remoteRows.filter((remote) => remote.projectId === row.id).map(GitRemoteEntity.fromRow),
-          ),
-        )
+        return projects.map((project) => ({
+          ...project,
+          gitRemotes: remotes.filter((remote) => remote.projectId === project.id),
+        }))
       })
     },
 
-    async getProjectById(key: string, actor: ActorContext = DEFAULT_ACTOR): Promise<Project> {
+    async getProjectById(
+      key: string,
+      actor: ActorContext = DEFAULT_ACTOR,
+    ): Promise<ProjectWithRemotes> {
       const workspaceId = validateWorkspaceId(actor.workspaceId)
-      const projectKey = ProjectEntity.validateKey(key)
+      const projectKey = ProjectModel.validateKey(key)
       return db.transaction().execute(async (tx) => {
-        const row = await tx
+        const project = await tx
           .selectFrom('projects')
           .selectAll()
           .where('workspaceId', '=', workspaceId)
           .where('key', '=', projectKey)
           .executeTakeFirst()
-        if (!row) throw new ProjectNotFoundError(projectKey)
+        if (!project) throw new ProjectNotFoundError(projectKey)
 
-        const remoteRows = await tx
+        const gitRemotes = await tx
           .selectFrom('git_remotes')
           .selectAll()
           .where('workspaceId', '=', workspaceId)
-          .where('projectId', '=', row.id)
+          .where('projectId', '=', project.id)
           .orderBy('createdAt', 'asc')
           .orderBy('id', 'asc')
           .execute()
 
-        return ProjectEntity.fromRow(row, remoteRows.map(GitRemoteEntity.fromRow))
+        return { ...project, gitRemotes }
       })
     },
   }

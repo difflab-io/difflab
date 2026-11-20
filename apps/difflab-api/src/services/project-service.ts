@@ -69,7 +69,7 @@ export class ProjectRpcService implements ServiceImpl<typeof ProjectService> {
       this.db.gitRemotes.linkGitRemoteToProject(req.projectKey, req.remoteUrl, actor),
     )
     return create(LinkRepositoryResponseSchema, {
-      repository: GitRemoteDTO.toProto(gitRemote, { workspaceId: actor.workspaceId }),
+      repository: GitRemoteDTO.toProto(gitRemote),
     })
   }
 }

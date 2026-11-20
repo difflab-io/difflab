@@ -1,13 +1,13 @@
-import type { GitRemoteRow } from './git-remote.js'
-import type { ProjectRow } from './project.js'
+import type { GitRemote } from './git-remote.js'
+import type { Project } from './project.js'
 import type { User } from './user.js'
 import type { Workspace, WorkspaceMember } from './workspace.js'
 
 // Types -----------------------------------------------------------------------
 /** Kysely table map for shared tables present on both SQLite and PostgreSQL. */
 export type CoreDatabase = {
-  projects: ProjectRow
-  git_remotes: GitRemoteRow
+  projects: Project
+  git_remotes: GitRemote
 }
 
 /** Kysely table map for cloud-only tenancy tables present on PostgreSQL. */
@@ -21,7 +21,7 @@ export type CloudDatabase = {
 export type DifflabDatabase = CoreDatabase & CloudDatabase
 
 // API -------------------------------------------------------------------------
-export { defineEntity, type Entity } from 'utils/entity'
+export { defineModel, type Model } from 'utils/model'
 export {
   DEFAULT_ACTOR,
   isoTimestampSchema,
@@ -33,24 +33,12 @@ export {
   workspaceRoleSchema,
   type ActorContext,
 } from './common.js'
+export { GitRemoteModel, gitRemoteSchema, type GitRemote } from './git-remote.js'
+export { ProjectModel, projectSchema, type Project, type ProjectWithRemotes } from './project.js'
+export { UserModel, userSchema, type User } from './user.js'
 export {
-  GitRemoteEntity,
-  gitRemoteRowSchema,
-  gitRemoteSchema,
-  type GitRemote,
-  type GitRemoteRow,
-} from './git-remote.js'
-export {
-  ProjectEntity,
-  projectRowSchema,
-  projectSchema,
-  type Project,
-  type ProjectRow,
-} from './project.js'
-export { UserEntity, userSchema, type User } from './user.js'
-export {
-  WorkspaceEntity,
-  WorkspaceMemberEntity,
+  WorkspaceMemberModel,
+  WorkspaceModel,
   workspaceMemberSchema,
   workspaceSchema,
   workspaceSlugSchema,
