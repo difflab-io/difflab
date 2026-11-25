@@ -69,6 +69,22 @@ export function createProgram(
       })
     })
 
+  program
+    .command('ui')
+    .description('Launch the local Difflab web UI against local.sqlite')
+    .option('--port <port>', 'Port to bind on 127.0.0.1 (defaults to a free port)')
+    .option('--no-open', 'Do not open the browser automatically')
+    .action(async (flags: { port?: string; open: boolean }) => {
+      const { runDifflabUi } = await import('./commands/ui.js')
+      await runDifflabUi({
+        home: options.home,
+        port: flags.port ? Number.parseInt(flags.port, 10) : undefined,
+        open: flags.open,
+        version,
+        write,
+      })
+    })
+
   const project = program.command('project').description('Manage projects')
   project
     .command('add [project-key]')

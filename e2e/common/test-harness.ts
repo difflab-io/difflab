@@ -17,7 +17,7 @@ export const DB_PACKAGE_DIR = join(REPO_ROOT, 'libs', 'difflab-db')
 export const CLI_ENTRYPOINT = join(REPO_ROOT, 'apps', 'difflab-cli', 'src', 'index.ts')
 
 // Types -----------------------------------------------------------------------
-export type E2ESuite = 'api' | 'cli'
+export type E2ESuite = 'api' | 'cli' | 'web'
 
 export type RunningApiServer = {
   pid: number

@@ -6,6 +6,8 @@ dist/
 **/.output/
 .svelte-kit/
 **/.svelte-kit/
+.vercel/
+**/.vercel/
 build/
 **/build/
 coverage/
@@ -16,11 +18,6 @@ bun.lock
 CHANGELOG.md
 RELEASE_NOTES.md
 **/*.template.md
+.codevoyant/
 .worktrees/
 .tmp/
-**/.tmp/
-**/src/gen/
-e2e/outputs/
-# Reference examples retain source code/tables; prose uses soft wraps per AGENTS.md.
-skills/difflab-plan/references/examples/plan-sources-before.md
-skills/difflab-plan/references/examples/plan-sources-after.md

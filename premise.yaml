@@ -21,6 +21,11 @@ workspace:
       path: apps/difflab-cli
       answers:
         name: difflab-cli
+    - name: difflab-web
+      template: cloudvoyant/premise-bun:premise-sveltekit-app
+      path: apps/difflab-web
+      answers:
+        name: difflab-web
     - name: difflab-client-ts
       template: cloudvoyant/premise-bun:premise-ts-lib
       path: libs/difflab-client-ts
@@ -41,3 +46,8 @@ workspace:
       path: libs/difflab-db-legacy
       answers:
         name: difflab-db-legacy
+    - name: ui
+      template: cloudvoyant/premise-bun:premise-ts-lib
+      path: libs/ui
+      answers:
+        name: ui

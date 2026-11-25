@@ -34,6 +34,49 @@ describe('loadDifflabConfig', () => {
       expect((error as Error).message).toContain('PORT')
     }
   })
+
+  describe('given DIFFLAB_AUTH_PROVIDER=oidc', () => {
+    it('should reject with all missing OIDC variables in one error', () => {
+      // Arrange
+      const env = { DIFFLAB_AUTH_PROVIDER: 'oidc' }
+
+      // Act / Assert
+      try {
+        loadDifflabConfig({ env })
+        throw new Error('expected DifflabConfigError')
+      } catch (error) {
+        expect(error).toBeInstanceOf(DifflabConfigError)
+        expect((error as Error).message).toContain('OIDC_ISSUER_URL')
+        expect((error as Error).message).toContain('OIDC_CLIENT_ID')
+        expect((error as Error).message).toContain('OIDC_CLIENT_SECRET')
+        expect((error as Error).message).toContain('SESSION_SECRET')
+      }
+    })
+
+    it('should parse typed OIDC configuration when all variables are provided', () => {
+      // Arrange
+      const env = {
+        DIFFLAB_MODE: 'cloud',
+        DIFFLAB_AUTH_PROVIDER: 'oidc',
+        OIDC_ISSUER_URL: 'https://idp.example.com',
+        OIDC_CLIENT_ID: 'difflab-web',
+        OIDC_CLIENT_SECRET: 'super-secret',
+        SESSION_SECRET: 'session-secret-32-bytes-minimum!!',
+      }
+
+      // Act
+      const config = loadDifflabConfig({ env })
+
+      // Assert
+      expect(config.authProvider).toBe('oidc')
+      expect(config.oidc).toEqual({
+        issuerUrl: 'https://idp.example.com',
+        clientId: 'difflab-web',
+        clientSecret: 'super-secret',
+        sessionSecret: 'session-secret-32-bytes-minimum!!',
+      })
+    })
+  })
 })
 
 describe('readRepoConfig', () => {

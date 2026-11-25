@@ -1,4 +1,3 @@
-import { createDifflabDb as createLegacyDifflabDb } from 'difflab-db-legacy'
 import { lstatOrNull } from 'utils/fsx'
 import type { DifflabDb } from './db.js'
 import { DEFAULT_ACTOR } from './schema/index.js'
@@ -13,6 +12,7 @@ export async function seedFromLegacyIfPresent(
     return 0
   }
 
+  const { createDifflabDb: createLegacyDifflabDb } = await import('difflab-db-legacy')
   const legacyDb = await createLegacyDifflabDb(legacySqlitePath, { readonly: true })
   try {
     await legacyDb.assertCurrentSchema()
