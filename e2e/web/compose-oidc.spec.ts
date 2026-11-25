@@ -55,7 +55,7 @@ describe('given docker-compose.yml + docker-compose.test.yml (postgres -> migrat
     const txCookie = extractCookiePair(loginRes.headers.get('set-cookie')!)
     const dexAuthUrl = loginRes.headers
       .get('location')!
-      .replace('host.docker.internal', '127.0.0.1')
+      .replace('http://dex:5556', 'http://127.0.0.1:5556')
 
     const dexLoginPage = await fetch(dexAuthUrl, { redirect: 'follow' })
     const dexHtml = await dexLoginPage.text()
@@ -180,7 +180,9 @@ async function followUntilCallback(startUrl: URL): Promise<string> {
   let current = startUrl
   for (let i = 0; i < 6; i += 1) {
     if (current.pathname === '/api/auth/callback') return current.toString()
-    const normalized = new URL(current.toString().replace('host.docker.internal', '127.0.0.1'))
+    const normalized = new URL(
+      current.toString().replace('http://dex:5556', 'http://127.0.0.1:5556'),
+    )
     const res = await fetch(normalized, { redirect: 'manual' })
     const loc = res.headers.get('location')
     if (loc) {

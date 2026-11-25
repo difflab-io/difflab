@@ -3,7 +3,7 @@
 FROM oven/bun:1.4.2-slim AS builder
 WORKDIR /workspace
 
-COPY package.json bun.lock bunfig.toml ./
+COPY package.json bunfig.toml ./
 COPY apps/difflab-web/package.json apps/difflab-web/package.json
 COPY apps/difflab-api/package.json apps/difflab-api/package.json
 COPY apps/difflab-cli/package.json apps/difflab-cli/package.json
@@ -14,7 +14,7 @@ COPY libs/difflab-db-legacy/package.json libs/difflab-db-legacy/package.json
 COPY libs/ui/package.json libs/ui/package.json
 COPY libs/utils/package.json libs/utils/package.json
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
 COPY libs/difflab-config libs/difflab-config
 COPY libs/difflab-db libs/difflab-db
