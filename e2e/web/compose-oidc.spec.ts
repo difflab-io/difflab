@@ -59,16 +59,28 @@ describe('given docker-compose.yml + docker-compose.test.yml (postgres -> migrat
 
     const dexLoginPage = await fetch(dexAuthUrl, { redirect: 'follow' })
     const dexHtml = await dexLoginPage.text()
+    const dexCookies = dexLoginPage.headers.getSetCookie().map(extractCookiePair).join('; ')
     const formActionMatch = dexHtml.match(/action="([^"]+)"/)
     expect(formActionMatch).not.toBeNull()
-    const formUrl = new URL(formActionMatch![1]!, dexLoginPage.url)
+    const decodedAction = formActionMatch![1]!.replace(/&amp;/g, '&')
+    const formUrl = new URL(decodedAction, dexLoginPage.url)
+
+    const submitHeaders: Record<string, string> = {
+      'content-type': 'application/x-www-form-urlencoded',
+    }
+    if (dexCookies) submitHeaders.cookie = dexCookies
 
     const submitRes = await fetch(formUrl, {
       method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: submitHeaders,
       body: new URLSearchParams({ login: 'admin@example.com', password: 'password' }),
       redirect: 'manual',
     })
+    if (submitRes.status !== 303) {
+      throw new Error(
+        `Dex login submit failed (${submitRes.status}) at ${formUrl}: ${await submitRes.text()}`,
+      )
+    }
     expect(submitRes.status).toBe(303)
     const approvalOrCallback = new URL(submitRes.headers.get('location')!, formUrl)
     const finalRedirect = await followUntilCallback(approvalOrCallback)
