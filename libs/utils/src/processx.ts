@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process'
 
 // Constants -------------------------------------------------------------------
 const TERMINATE_POLL_MS = 50
@@ -75,4 +75,29 @@ export function runCommand(command: string, args: string[], cwd: string): void {
       { cause: error },
     )
   }
+}
+
+/** Open `url` in the platform's default browser without blocking the parent process. */
+export function openUrlInBrowser(url: string): void {
+  const opener =
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open'
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url]
+  spawn(opener, args, { stdio: 'ignore', detached: true }).unref()
+}
+
+/** Forward `SIGINT` and `SIGTERM` to `child` and resolve once the child exits. */
+export function waitForChildProcess(child: ChildProcess): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const shutdown = () => {
+      child.kill('SIGTERM')
+    }
+    process.once('SIGINT', shutdown)
+    process.once('SIGTERM', shutdown)
+    child.once('error', reject)
+    child.once('exit', () => {
+      process.off('SIGINT', shutdown)
+      process.off('SIGTERM', shutdown)
+      resolve()
+    })
+  })
 }

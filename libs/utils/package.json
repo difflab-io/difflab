@@ -19,6 +19,7 @@
     "./dto": "./src/dto.ts",
     "./model": "./src/model.ts",
     "./fsx": "./src/fsx.ts",
+    "./netx": "./src/netx.ts",
     "./osx": "./src/osx.ts",
     "./pathx": "./src/pathx.ts",
     "./processx": "./src/processx.ts",

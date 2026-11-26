@@ -1,7 +1,11 @@
 import { spawn } from 'node:child_process'
-import { createServer } from 'node:net'
 import { loadDifflabConfig } from 'difflab-config'
 import { DifflabDb } from 'difflab-db'
+import { findFreePort, waitForHttpOk } from 'utils/netx'
+import { openUrlInBrowser, waitForChildProcess } from 'utils/processx'
+
+// Constants -------------------------------------------------------------------
+const HEALTH_TIMEOUT_MS = 15_000
 
 // Types -----------------------------------------------------------------------
 /** Options for `runDifflabUi`. */
@@ -46,66 +50,22 @@ export async function runDifflabUi(options: RunUiOptions): Promise<void> {
   child.stdout?.on('data', (chunk: Buffer) => process.stderr.write(chunk))
   child.stderr?.on('data', (chunk: Buffer) => process.stderr.write(chunk))
 
-  await waitForHealth(`${url}/api/health`, 15000, child)
+  try {
+    await waitForHttpOk(`${url}/api/health`, {
+      timeoutMs: HEALTH_TIMEOUT_MS,
+      checkAborted: () =>
+        child.exitCode !== null ? `difflab-web exited early with code ${child.exitCode}` : null,
+    })
+  } catch (error) {
+    child.kill('SIGTERM')
+    throw error
+  }
+
   options.write(`Difflab UI ready at ${url} (${explicitEntrypoint ?? pkgSpec})`)
 
   if (options.open !== false) {
-    openBrowser(url)
+    openUrlInBrowser(url)
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const shutdown = () => {
-      child.kill('SIGTERM')
-    }
-    process.once('SIGINT', shutdown)
-    process.once('SIGTERM', shutdown)
-    child.once('error', reject)
-    child.once('exit', () => {
-      process.off('SIGINT', shutdown)
-      process.off('SIGTERM', shutdown)
-      resolve()
-    })
-  })
-}
-
-// Helpers ---------------------------------------------------------------------
-function findFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address()
-      const port = typeof address === 'object' && address ? address.port : 0
-      server.close(() => resolve(port))
-    })
-  })
-}
-
-async function waitForHealth(
-  healthUrl: string,
-  timeoutMs: number,
-  child: ReturnType<typeof spawn>,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
-      throw new Error(`difflab-web exited early with code ${child.exitCode}`)
-    }
-    try {
-      const res = await fetch(healthUrl)
-      if (res.ok) return
-    } catch {
-      // retry until ready
-    }
-    await new Promise((r) => setTimeout(r, 150))
-  }
-  child.kill('SIGTERM')
-  throw new Error(`Timed out waiting for Difflab UI at ${healthUrl}`)
-}
-
-function openBrowser(url: string): void {
-  const opener =
-    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open'
-  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url]
-  spawn(opener, args, { stdio: 'ignore', detached: true }).unref()
+  await waitForChildProcess(child)
 }

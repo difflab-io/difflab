@@ -62,6 +62,8 @@ export const repoConfigSchema = z.strictObject({
 })
 
 // Types -----------------------------------------------------------------------
+type DifflabEnv = z.infer<typeof difflabEnvSchema>
+
 /** Deployment mode for `difflab-api` and `difflab-web` (`local` SQLite or `cloud` PostgreSQL). */
 export type ApiMode = 'local' | 'cloud'
 
@@ -127,13 +129,13 @@ export function loadDifflabConfig(options: DifflabConfigLoadOptions = {}): Diffl
   const parsed = result.data
   const root = resolveRoot(options.root, options.home, parsed.DIFFLAB_HOME)
   const mode: ApiMode = parsed.DIFFLAB_MODE ?? (parsed.DATABASE_URL ? 'cloud' : 'local')
-  const authProvider: AuthProviderKind =
+  const authProviderKind: AuthProviderKind =
     parsed.DIFFLAB_AUTH_PROVIDER ?? (mode === 'local' ? 'local' : 'token')
-  const oidc = resolveOidcConfig(authProvider, parsed)
+  const oidc = resolveOidcConfig(authProviderKind, parsed)
 
   return {
     mode,
-    authProvider,
+    authProvider: authProviderKind,
     oidc,
     paths: {
       root,
@@ -231,10 +233,10 @@ export async function writeRepoConfig(config: RepoConfig, dir: string): Promise<
 
 // Helpers ---------------------------------------------------------------------
 function resolveOidcConfig(
-  authProvider: AuthProviderKind,
-  parsed: z.infer<typeof difflabEnvSchema>,
+  authProviderKind: AuthProviderKind,
+  parsed: DifflabEnv,
 ): OidcAuthConfig | null {
-  if (authProvider !== 'oidc') return null
+  if (authProviderKind !== 'oidc') return null
   const missing: string[] = []
   if (!parsed.OIDC_ISSUER_URL)
     missing.push('OIDC_ISSUER_URL is required when DIFFLAB_AUTH_PROVIDER=oidc')

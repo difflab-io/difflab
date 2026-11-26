@@ -9,7 +9,7 @@
 
 ### Repository layout
 
-- Put reusable filesystem, process, OS, and other generic utilities in `src/extensions` or `libs/utils`. Reserve `*x` module names (`fsx`, `gitx`, `logx`, `osx`, `pathx`, `processx`, `testx`, `zodx`) strictly for extensions—composite wrapper functions built on top of libraries, runtimes, or CLIs; name plain shared types and contract helpers without the `x` suffix (such as `utils/dto` and `utils/model`).
+- Put reusable filesystem, network, process, OS, and other generic utilities in `src/extensions` or `libs/utils`. Reserve `*x` module names (`fsx`, `gitx`, `logx`, `netx`, `osx`, `pathx`, `processx`, `testx`, `zodx`) strictly for extensions—composite wrapper functions built on top of libraries, runtimes, or CLIs; name plain shared types and contract helpers without the `x` suffix (such as `utils/dto` and `utils/model`).
 - Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
 - Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module. Throw standard JavaScript error types (`Error`, `TypeError`, `RangeError`) from generic `libs/utils` modules rather than defining custom exception subclasses there.
 - Put general package-wide types in `src/types.ts` rather than mixing non-database types into database schema modules.
@@ -25,6 +25,7 @@
 
 - After imports, group code under Constants, Types, API, and Helpers, in that order, when they apply.
 - Put module-scoped error classes in Types.
+- [Proposed] Declare explicit named types (for example `type DifflabEnv = z.infer<typeof difflabEnvSchema>`) in Types rather than using inline `z.infer<...>` in function signatures.
 
 ### Test files
 
