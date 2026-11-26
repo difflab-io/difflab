@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# TODO(CLO-237): Build difflab-web artifacts outside Docker via `mise` and copy `build/` into a slim multi-arch runner stage once Premise supports OCI image publishing natively.
 
 FROM oven/bun:1.4.2-slim AS builder
 WORKDIR /workspace

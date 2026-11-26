@@ -1,4 +1,5 @@
 ---
+# TODO(CLO-237): Remove this standalone workflow once Premise supports matrixed multi-arch Docker/GHCR OCI image builds natively.
 name: Publish OCI Image
 
 'on':

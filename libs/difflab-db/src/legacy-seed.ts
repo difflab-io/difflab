@@ -12,6 +12,7 @@ export async function seedFromLegacyIfPresent(
     return 0
   }
 
+  // TODO(DIFF-325): Split bun:sqlite legacy seed adapter out of difflab-db so this dynamic import can be removed.
   const { createDifflabDb: createLegacyDifflabDb } = await import('difflab-db-legacy')
   const legacyDb = await createLegacyDifflabDb(legacySqlitePath, { readonly: true })
   try {

@@ -8,7 +8,7 @@ const contexts: E2ETestContext[] = []
 const composeProjects: string[] = []
 
 // Tests -----------------------------------------------------------------------
-describe('given docker-compose.yml + docker-compose.test.yml (postgres -> migrate -> Dex OIDC + web)', () => {
+describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -> migrate -> Dex OIDC + web)', () => {
   it('when compose starts and completes Dex OIDC login and logout, then health transitions false -> true -> false and saves artifacts', async () => {
     // Arrange
     const ctx = await createE2EContext('web', 'compose-oidc', 'dex-oidc-roundtrip')
@@ -161,7 +161,7 @@ async function runCompose(project: string, args: string[]) {
       '-f',
       'docker-compose.yml',
       '-f',
-      'docker-compose.test.yml',
+      'e2e/web/docker-compose.test.yml',
       ...args,
     ],
     { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' },

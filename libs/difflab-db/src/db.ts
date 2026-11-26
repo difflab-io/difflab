@@ -157,6 +157,7 @@ async function connectSqlite(
   if (createSqlite) {
     await mkdir(dirname(sqlitePath), { recursive: true })
   }
+  // TODO(DIFF-325): Split bun:sqlite adapter into a dedicated entrypoint/package so this dynamic import can be removed.
   const { BunSqliteDialect } = await import('kysely-bun-worker/normal')
   const db = new Kysely<DifflabDatabase>({
     dialect: new BunSqliteDialect({
