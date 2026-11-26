@@ -45,3 +45,8 @@ export async function waitForHttpOk(url: string, options: WaitForHttpOptions): P
   }
   throw new Error(`Timed out waiting for HTTP endpoint at ${url}`)
 }
+
+/** Extract the leading `name=value` pair from an HTTP `Set-Cookie` header value. */
+export function extractCookiePair(setCookie: string): string {
+  return setCookie.split(';')[0]?.trim() ?? ''
+}

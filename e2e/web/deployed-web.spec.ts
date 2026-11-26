@@ -9,33 +9,20 @@ const EXPECTED_AUTH_PROVIDER = process.env.DIFFLAB_E2E_AUTH_PROVIDER?.trim() || 
 const BYPASS_HEADER_NAME = process.env.DIFFLAB_E2E_BYPASS_HEADER?.trim() || ''
 const BYPASS_HEADER_VALUE = process.env.DIFFLAB_E2E_BYPASS_VALUE?.trim() || ''
 
-function buildHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const headers: Record<string, string> = { ...extra }
-  if (BYPASS_HEADER_NAME && BYPASS_HEADER_VALUE) {
-    headers[BYPASS_HEADER_NAME] = BYPASS_HEADER_VALUE
-  }
-  return headers
-}
+const describeDeployed = BASE_URL ? describe : describe.skip
+const describeOidc = EXPECTED_AUTH_PROVIDER === 'oidc' ? describe : describe.skip
 
 // Tests -----------------------------------------------------------------------
-const describeDeployed = BASE_URL ? describe : describe.skip
-
 describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)', () => {
-  it('when requesting /, /api/health, and /api/auth/login, then health is 200 and OIDC redirects cleanly with PKCE', async () => {
+  it('when requesting GET /api/health, then it returns 200 with the expected auth provider and unauthenticated state', async () => {
     // Arrange
-    const ctx = await createE2EContext('web', 'deployed-web', 'health-and-oidc-redirect')
+    const ctx = await createE2EContext('web', 'deployed-web', 'health')
 
-    // Act 1: GET /api/health
+    // Act
     const healthRes = await fetch(`${BASE_URL}/api/health`, {
       headers: buildHeaders(),
     })
-    const healthJson = (await healthRes.json()) as {
-      ok: boolean
-      mode: string
-      authProvider: string
-      apiVersion: string
-      auth: { authenticated: boolean; user: unknown }
-    }
+    const healthJson = (await healthRes.json()) as HealthPayload
     await writeFile(
       join(ctx.rootDir, 'health.json'),
       JSON.stringify(
@@ -50,26 +37,36 @@ describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)',
       ),
     )
 
-    // Assert 1
+    // Assert
     expect(healthRes.status).toBe(200)
     expect(healthRes.headers.get('x-difflab-api-version')).toBeTruthy()
     expect(healthJson.ok).toBe(true)
     expect(healthJson.authProvider).toBe(EXPECTED_AUTH_PROVIDER)
     expect(healthJson.auth.authenticated).toBe(false)
+  })
 
-    // Act 2: GET /
+  it('when requesting GET /, then it renders HTML with status 200', async () => {
+    // Arrange
+    const ctx = await createE2EContext('web', 'deployed-web', 'home')
+
+    // Act
     const homeRes = await fetch(`${BASE_URL}/`, {
       headers: buildHeaders(),
     })
     const homeHtml = await homeRes.text()
     await writeFile(join(ctx.rootDir, 'home.html'), homeHtml)
 
-    // Assert 2
+    // Assert
     expect(homeRes.status).toBe(200)
     expect(homeRes.headers.get('content-type') ?? '').toContain('text/html')
+  })
 
-    // Act 3: GET /api/auth/login (when OIDC is active)
-    if (EXPECTED_AUTH_PROVIDER === 'oidc') {
+  describeOidc('given OIDC authentication is configured', () => {
+    it('when requesting GET /api/auth/login, then it redirects with PKCE S256 and sets an HttpOnly transaction cookie', async () => {
+      // Arrange
+      const ctx = await createE2EContext('web', 'deployed-web', 'oidc-login-redirect')
+
+      // Act
       const loginRes = await fetch(`${BASE_URL}/api/auth/login`, {
         headers: buildHeaders(),
         redirect: 'manual',
@@ -89,7 +86,7 @@ describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)',
         ),
       )
 
-      // Assert 3: valid PKCE redirect to external OIDC provider
+      // Assert
       expect(loginRes.status).toBe(302)
       const redirectUrl = new URL(location)
       expect(redirectUrl.searchParams.get('response_type')).toBe('code')
@@ -97,6 +94,23 @@ describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)',
       expect(redirectUrl.searchParams.get('redirect_uri')).toBe(`${BASE_URL}/api/auth/callback`)
       expect(setCookie).toContain('difflab_oidc_tx=')
       expect(setCookie.toLowerCase()).toContain('httponly')
-    }
+    })
   })
 })
+
+// Helpers ---------------------------------------------------------------------
+type HealthPayload = {
+  ok: boolean
+  mode: string
+  authProvider: string
+  apiVersion: string
+  auth: { authenticated: boolean; user: unknown }
+}
+
+function buildHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extra }
+  if (BYPASS_HEADER_NAME && BYPASS_HEADER_VALUE) {
+    headers[BYPASS_HEADER_NAME] = BYPASS_HEADER_VALUE
+  }
+  return headers
+}

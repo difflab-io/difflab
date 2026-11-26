@@ -7,6 +7,19 @@ const TERMINATE_POLL_MS = 50
 /** Function signature for executing a command synchronously in a working directory. */
 export type CommandRunner = (command: string, args: string[], cwd: string) => void
 
+/** Captured exit code and stdio output from an asynchronous subprocess execution. */
+export type CommandOutput = {
+  readonly exitCode: number
+  readonly stdout: string
+  readonly stderr: string
+}
+
+/** Options for asynchronous subprocess execution via `execCommand`. */
+export type ExecCommandOptions = {
+  readonly cwd?: string
+  readonly env?: NodeJS.ProcessEnv
+}
+
 /** Error thrown when a subprocess command cannot be executed. */
 export class CommandExecutionError extends Error {
   constructor(command: string, message: string, options?: ErrorOptions) {
@@ -98,6 +111,33 @@ export function waitForChildProcess(child: ChildProcess): Promise<void> {
       process.off('SIGINT', shutdown)
       process.off('SIGTERM', shutdown)
       resolve()
+    })
+  })
+}
+
+/** Execute `command` asynchronously and return its exit code and captured stdout/stderr. */
+export function execCommand(
+  command: string,
+  args: string[],
+  options: ExecCommandOptions = {},
+): Promise<CommandOutput> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const stdoutChunks: Buffer[] = []
+    const stderrChunks: Buffer[] = []
+    child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk))
+    child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk))
+    child.once('error', reject)
+    child.once('close', (code) => {
+      resolve({
+        exitCode: code ?? 1,
+        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+        stderr: Buffer.concat(stderrChunks).toString('utf8'),
+      })
     })
   })
 }

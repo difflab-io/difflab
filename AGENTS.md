@@ -25,7 +25,7 @@
 
 - After imports, group code under Constants, Types, API, and Helpers, in that order, when they apply.
 - Put module-scoped error classes in Types.
-- [Proposed] Declare explicit named types (for example `type DifflabEnv = z.infer<typeof difflabEnvSchema>`) in Types rather than using inline `z.infer<...>` in function signatures.
+- Declare explicit named types (for example `type DifflabEnv = z.infer<typeof difflabEnvSchema>`) in Types rather than using inline `z.infer<...>` in function signatures.
 
 ### Test files
 

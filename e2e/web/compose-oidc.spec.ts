@@ -1,6 +1,8 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'bun:test'
+import { extractCookiePair, waitForHttpOk } from 'utils/netx'
+import { execCommand } from 'utils/processx'
 import { createE2EContext, REPO_ROOT, type E2ETestContext } from '../common/test-harness.js'
 
 // Setup -----------------------------------------------------------------------
@@ -27,7 +29,7 @@ describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -
     )
 
     const baseUrl = 'http://127.0.0.1:3000'
-    await waitForUrl(`${baseUrl}/api/health`, 30000)
+    await waitForHttpOk(`${baseUrl}/api/health`, { timeoutMs: 30000, intervalMs: 300 })
 
     // Assert 1: signed out before login
     const beforeRes = await fetch(`${baseUrl}/api/health`)
@@ -152,9 +154,9 @@ type HealthPayload = {
 }
 
 async function runCompose(project: string, args: string[]) {
-  const proc = Bun.spawn(
+  return await execCommand(
+    'docker',
     [
-      'docker',
       'compose',
       '-p',
       project,
@@ -164,28 +166,8 @@ async function runCompose(project: string, args: string[]) {
       'e2e/web/docker-compose.test.yml',
       ...args,
     ],
-    { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' },
+    { cwd: REPO_ROOT },
   )
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ])
-  return { exitCode, stdout, stderr }
-}
-
-async function waitForUrl(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url)
-      if (res.ok) return
-    } catch {
-      // retry
-    }
-    await new Promise((r) => setTimeout(r, 300))
-  }
-  throw new Error(`Timed out waiting for ${url}`)
 }
 
 async function followUntilCallback(startUrl: URL): Promise<string> {
@@ -218,8 +200,4 @@ async function followUntilCallback(startUrl: URL): Promise<string> {
     throw new Error(`Unexpected Dex response at ${normalized}: ${res.status}`)
   }
   throw new Error(`Exceeded redirect limit ending at ${current.toString()}`)
-}
-
-function extractCookiePair(setCookie: string): string {
-  return setCookie.split(';')[0]!.trim()
 }
