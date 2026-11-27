@@ -13,6 +13,7 @@
 - Put persistence abstractions in `src/stores`. Keep store-specific error classes in the store's module.
 - Define application-level exceptions in `src/errors.ts` and module-specific exceptions in their module. Throw standard JavaScript error types (`Error`, `TypeError`, `RangeError`) from generic `libs/utils` modules rather than defining custom exception subclasses there.
 - Put general package-wide types in `src/types.ts` rather than mixing non-database types into database schema modules.
+- [Proposed] Colocate module-scoped types alongside their functions instead of creating separate `types.ts` files.
 - Put Protobuf contract mappers in `src/dtos/` using `*DTO` objects that group `schema`, `toProto`, and `fromProto` (from `utils/dto`).
 - Keep one major model, entity, or DTO per file.
 - Add an architecture document under `docs/architecture/<package>/index.md` for every new library or application following the `software-architecture-design` template and Difflab writing style.

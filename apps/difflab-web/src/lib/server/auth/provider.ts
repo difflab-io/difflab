@@ -1,10 +1,27 @@
 import { timingSafeEqual } from 'node:crypto'
-import type { DifflabConfig } from 'difflab-config'
-import { createOidcAuthProvider } from './oidc.js'
-import { DifflabWebAuthError, type AuthenticatedSession, type AuthProvider } from './types.js'
+import type { AuthProviderKind, DifflabConfig } from 'difflab-config'
+import { DifflabWebAuthError } from '../../../errors.js'
+import { createOidcAuthProvider, type BetterAuthInstance } from './oidc.js'
 
 // Constants -------------------------------------------------------------------
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
+
+// Types -----------------------------------------------------------------------
+/** Authenticated caller identity attached to SvelteKit `event.locals`. */
+export type AuthenticatedSession = {
+  readonly userId: string | null
+  readonly email?: string | null
+  readonly name?: string | null
+  readonly workspaceId: string
+  readonly via: 'loopback' | 'bearer' | 'session'
+}
+
+/** Pluggable server authentication provider for local, token, and generic OIDC modes. */
+export type AuthProvider = {
+  readonly kind: AuthProviderKind
+  readonly betterAuth?: BetterAuthInstance
+  resolveRequest(request: Request): Promise<AuthenticatedSession | null>
+}
 
 // API -------------------------------------------------------------------------
 /** Create the configured `AuthProvider` (`local`, `token`, or generic `oidc`). */

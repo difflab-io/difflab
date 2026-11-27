@@ -2,7 +2,7 @@ import { building } from '$app/environment'
 import type { Handle } from '@sveltejs/kit'
 import { svelteKitHandler } from 'better-auth/svelte-kit'
 import { annotateWideEvent, runWithWideEvent } from 'utils/logx'
-import { DifflabWebAuthError } from '$lib/server/auth/index.js'
+import { DifflabWebAuthError } from './errors.js'
 import {
   API_VERSION,
   getWebRuntime,

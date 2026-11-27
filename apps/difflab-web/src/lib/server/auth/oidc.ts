@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { genericOAuth } from 'better-auth/plugins'
 import type { OidcAuthConfig } from 'difflab-config'
-import type { AuthenticatedSession, AuthProvider } from './types.js'
+import type { AuthenticatedSession, AuthProvider } from './provider.js'
 
 // Constants -------------------------------------------------------------------
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
