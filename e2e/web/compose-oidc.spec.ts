@@ -54,7 +54,7 @@ describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -
     // Act 2: /api/auth/login -> Dex OIDC -> password submit -> /api/auth/callback
     const loginRes = await fetch(`${baseUrl}/api/auth/login`, { redirect: 'manual' })
     expect(loginRes.status).toBe(302)
-    const txCookie = extractCookiePair(loginRes.headers.get('set-cookie')!)
+    const txCookie = loginRes.headers.getSetCookie().map(extractCookiePair).join('; ')
     const dexAuthUrl = loginRes.headers
       .get('location')!
       .replace('http://dex:5556', 'http://127.0.0.1:5556')
@@ -93,11 +93,12 @@ describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -
       redirect: 'manual',
     })
     expect(callbackRes.status).toBe(302)
-    const sessionSetCookie = callbackRes.headers
-      .getSetCookie()
-      .find((c) => c.startsWith('difflab_session='))!
+    const callbackSetCookies = callbackRes.headers.getSetCookie()
+    const sessionSetCookie = callbackSetCookies.find((c) =>
+      c.includes('better-auth.session_data='),
+    )!
     expect(sessionSetCookie).toContain('HttpOnly')
-    const sessionCookie = extractCookiePair(sessionSetCookie)
+    const sessionCookie = callbackSetCookies.map(extractCookiePair).join('; ')
 
     // Assert 2: signed in with Dex user email
     const afterLoginRes = await fetch(`${baseUrl}/api/health`, {
@@ -118,7 +119,9 @@ describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -
       redirect: 'manual',
     })
     expect(logoutRes.status).toBe(302)
-    const cleared = logoutRes.headers.getSetCookie().find((c) => c.startsWith('difflab_session='))!
+    const cleared = logoutRes.headers
+      .getSetCookie()
+      .find((c) => c.includes('better-auth.session_data='))!
     expect(cleared).toContain('Max-Age=0')
 
     const afterLogoutRes = await fetch(`${baseUrl}/api/health`)

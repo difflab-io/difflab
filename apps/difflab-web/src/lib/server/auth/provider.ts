@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import type { DifflabConfig } from 'difflab-config'
-import { createOidcAuthProvider, type OidcAuthProviderOptions } from './oidc.js'
+import { createOidcAuthProvider } from './oidc.js'
 import { DifflabWebAuthError, type AuthenticatedSession, type AuthProvider } from './types.js'
 
 // Constants -------------------------------------------------------------------
@@ -8,10 +8,7 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 
 // API -------------------------------------------------------------------------
 /** Create the configured `AuthProvider` (`local`, `token`, or generic `oidc`). */
-export function createAuthProvider(
-  config: DifflabConfig,
-  options: OidcAuthProviderOptions = {},
-): AuthProvider {
+export function createAuthProvider(config: DifflabConfig): AuthProvider {
   if (config.authProvider === 'local') {
     return createLocalAuthProvider()
   }
@@ -19,7 +16,7 @@ export function createAuthProvider(
     if (!config.oidc) {
       throw new DifflabWebAuthError('OIDC configuration missing for oidc auth provider', 500)
     }
-    const oidcProvider = createOidcAuthProvider(config.oidc, options)
+    const oidcProvider = createOidcAuthProvider(config.oidc)
     return {
       ...oidcProvider,
       async resolveRequest(request: Request): Promise<AuthenticatedSession | null> {

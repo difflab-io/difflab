@@ -94,29 +94,29 @@ In hosted and self-hosted modes, browser sessions authenticate through SvelteKit
 
 #### Runtime Modes
 
-| Mode                 | Web Runtime                                     | Database                          | Auth                                                                           | Provisioning                                      |
-| :------------------- | :---------------------------------------------- | :-------------------------------- | :----------------------------------------------------------------------------- | :------------------------------------------------ |
-| Local (`difflab ui`) | SvelteKit (`adapter-node` / Bun) on `127.0.0.1` | `$DIFFLAB_HOME/local.sqlite`      | Loopback bypass                                                                | Local CLI (`@difflab/difflab-web@<cliVersion>`)   |
-| Hosted (Vercel)      | SvelteKit (`adapter-vercel`)                    | Neon PostgreSQL (`neon.Database`) | Generic OIDC (wired to Kinde in `cloudvoyant/difflab-io`) + Bearer token (CLI) | OpenBase (`vercel.WebApp` + `neon.Database`)      |
-| Self-hosted          | SvelteKit (`adapter-node`) in container         | PostgreSQL                        | Configured auth or Bearer token                                                | Docker Compose (`ghcr.io/difflab-io/difflab-web`) |
+| Mode | Web Runtime | Database | Auth | Provisioning |
+| :-- | :-- | :-- | :-- | :-- |
+| Local (`difflab ui`) | SvelteKit (`adapter-node` / Bun) on `127.0.0.1` | `$DIFFLAB_HOME/local.sqlite` | Loopback bypass | Local CLI (`@difflab/difflab-web@<cliVersion>`) |
+| Hosted (Vercel) | SvelteKit (`adapter-vercel`) | Neon PostgreSQL (`neon.Database`) | Generic OIDC (wired to Kinde in `cloudvoyant/difflab-io`) + Bearer token (CLI) | OpenBase (`vercel.WebApp` + `neon.Database`) |
+| Self-hosted | SvelteKit (`adapter-node`) in container | PostgreSQL | Configured auth or Bearer token | Docker Compose (`ghcr.io/difflab-io/difflab-web`) |
 
 #### HTTP Endpoints
 
-| Endpoint          | Scope     | Contract                                                                                         |
-| :---------------- | :-------- | :----------------------------------------------------------------------------------------------- |
+| Endpoint | Scope | Contract |
+| :-- | :-- | :-- |
 | `GET /api/health` | All modes | Returns `{ ok, mode, apiVersion, supportedApiVersions, minClientVersion, latestClientVersion }`. |
-| `/api/*`          | All modes | Stable JSON HTTP endpoints parsed with shared Zod schemas from `libs/difflab-client-ts`.         |
+| `/api/*` | All modes | Stable JSON HTTP endpoints parsed with shared Zod schemas from `libs/difflab-client-ts`. |
 
 #### API Version and Auth Headers
 
-| Header                            | Direction / Scope             | Contract                                                                                                          |
-| :-------------------------------- | :---------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-| `x-difflab-api-version`           | Request and response          | Negotiates the API contract version without changing URLs. Missing request header defaults to the latest version. |
-| `x-difflab-client-version`        | Request (remote CLI)          | Semver string sent by `libs/difflab-client-ts`. Server returns `426` when below `minClientVersion`.               |
-| `x-difflab-latest-client-version` | Response (all `/api/*`)       | Latest published CLI version so `difflab-cli` prints a non-blocking update notice on `stderr`.                    |
-| `deprecation` and `sunset`        | Response (retiring version)   | Standard HTTP headers warning `difflab-cli` before an API version is removed.                                     |
-| `Authorization: Bearer <token>`   | Request (hosted, self-hosted) | Required on remote CLI requests. Compared in constant time or parsed as a signed token.                           |
-| `x-difflab-workspace`             | Request (hosted, self-hosted) | Required workspace identifier (`1..64` characters) for tenant scoping.                                            |
+| Header | Direction / Scope | Contract |
+| :-- | :-- | :-- |
+| `x-difflab-api-version` | Request and response | Negotiates the API contract version without changing URLs. Missing request header defaults to the latest version. |
+| `x-difflab-client-version` | Request (remote CLI) | Semver string sent by `libs/difflab-client-ts`. Server returns `426` when below `minClientVersion`. |
+| `x-difflab-latest-client-version` | Response (all `/api/*`) | Latest published CLI version so `difflab-cli` prints a non-blocking update notice on `stderr`. |
+| `deprecation` and `sunset` | Response (retiring version) | Standard HTTP headers warning `difflab-cli` before an API version is removed. |
+| `Authorization: Bearer <token>` | Request (hosted, self-hosted) | Required on remote CLI requests. Compared in constant time or parsed as a signed token. |
+| `x-difflab-workspace` | Request (hosted, self-hosted) | Required workspace identifier (`1..64` characters) for tenant scoping. |
 
 ## Implementation
 
@@ -156,6 +156,7 @@ This repository stays vendor-neutral and ships no cloud infrastructure code. The
 
 ## References
 
+- Authentication architecture (Better Auth stateless OIDC and key restrictions): [./auth/index.md](./auth/index.md)
 - Deployment architecture (Vercel, self-hosted, and local): [./deployment.md](./deployment.md)
 - Dual-dialect database architecture: [./difflab-db/index.md](./difflab-db/index.md)
 - Configuration architecture: [./difflab-config/index.md](./difflab-config/index.md)

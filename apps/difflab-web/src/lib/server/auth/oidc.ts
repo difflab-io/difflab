@@ -1,168 +1,198 @@
+import { betterAuth } from 'better-auth'
+import { genericOAuth } from 'better-auth/plugins'
 import type { OidcAuthConfig } from 'difflab-config'
-import * as client from 'openid-client'
-import {
-  formatCookie,
-  OIDC_TX_COOKIE_NAME,
-  readCookie,
-  sealOidcTransaction,
-  sealSession,
-  SESSION_COOKIE_NAME,
-  unsealOidcTransaction,
-  unsealSession,
-} from './session.js'
 import { DifflabWebAuthError, type AuthenticatedSession, type AuthProvider } from './types.js'
 
 // Constants -------------------------------------------------------------------
 const CALLBACK_PATH = '/api/auth/callback'
-const DEFAULT_SCOPE = 'openid profile email'
+const PROVIDER_ID = 'oidc'
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 
 // Types -----------------------------------------------------------------------
-/** Optional overrides for testing `createOidcAuthProvider`. */
-export type OidcAuthProviderOptions = {
-  readonly fetch?: client.CustomFetch
-}
+type BetterAuthInstance = ReturnType<typeof createBetterAuthForOrigin>
 
 // API -------------------------------------------------------------------------
-/** Create a generic OpenID Connect `AuthProvider` using standard OIDC discovery and PKCE. */
-export function createOidcAuthProvider(
-  config: OidcAuthConfig,
-  options: OidcAuthProviderOptions = {},
-): AuthProvider {
-  let discovered: Promise<client.Configuration> | null = null
+/** Create a generic OpenID Connect `AuthProvider` backed by Better Auth in stateless JWE cookie mode. */
+export function createOidcAuthProvider(config: OidcAuthConfig): AuthProvider {
+  const instances = new Map<string, BetterAuthInstance>()
 
-  const getConfiguration = (): Promise<client.Configuration> => {
-    if (!discovered) {
-      const issuer = new URL(config.issuerUrl)
-      const execute = issuer.protocol === 'http:' ? [client.allowInsecureRequests] : []
-      discovered = client
-        .discovery(issuer, config.clientId, config.clientSecret, undefined, {
-          execute,
-          [client.customFetch]: options.fetch,
-        })
-        .catch((error) => {
-          discovered = null
-          throw error
-        })
+  const getAuth = (origin: string): BetterAuthInstance => {
+    let instance = instances.get(origin)
+    if (!instance) {
+      instance = createBetterAuthForOrigin(origin, config)
+      instances.set(origin, instance)
     }
-    return discovered
+    return instance
   }
 
   return {
     kind: 'oidc',
 
     async resolveRequest(request: Request): Promise<AuthenticatedSession | null> {
-      const cookie = readCookie(request, SESSION_COOKIE_NAME)
-      if (!cookie) return null
-      return await unsealSession(cookie, config.sessionSecret)
+      const origin = resolveExternalUrl(request).origin
+      const auth = getAuth(origin)
+      const session = await auth.api.getSession({ headers: request.headers })
+      if (!session?.user) return null
+      const oidcSub =
+        typeof (session.user as { oidcSub?: unknown }).oidcSub === 'string'
+          ? (session.user as { oidcSub: string }).oidcSub
+          : null
+      return {
+        userId: oidcSub || session.user.id,
+        email: session.user.email ?? null,
+        name: session.user.name ?? null,
+        workspaceId: 'default',
+        via: 'session',
+      }
     },
 
     async beginLogin(request: Request): Promise<Response> {
-      const oidcConfig = await getConfiguration()
       const requestUrl = resolveExternalUrl(request)
-      const redirectUri = new URL(CALLBACK_PATH, requestUrl.origin).toString()
-      const codeVerifier = client.randomPKCECodeVerifier()
-      const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier)
-      const state = client.randomState()
-      const nonce = client.randomNonce()
       const returnTo = sanitizeReturnTo(requestUrl.searchParams.get('returnTo'))
+      const auth = getAuth(requestUrl.origin)
 
-      const authUrl = client.buildAuthorizationUrl(oidcConfig, {
-        redirect_uri: redirectUri,
-        scope: DEFAULT_SCOPE,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
-        state,
-        nonce,
+      const response = await auth.api.signInSocial({
+        body: {
+          provider: PROVIDER_ID,
+          callbackURL: new URL(returnTo, requestUrl.origin).toString(),
+          disableRedirect: true,
+        },
+        headers: request.headers,
+        asResponse: true,
       })
 
-      const sealedTx = await sealOidcTransaction(
-        { state, codeVerifier, nonce, returnTo },
-        config.sessionSecret,
-      )
-      const headers = new Headers({ location: authUrl.toString() })
-      headers.append(
-        'set-cookie',
-        formatCookie(OIDC_TX_COOKIE_NAME, sealedTx, {
-          maxAge: 600,
-          secure: isSecureRequest(requestUrl),
-        }),
-      )
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '')
+        throw new DifflabWebAuthError(
+          `OIDC login initiation failed (${response.status}): ${detail}`,
+          502,
+        )
+      }
+
+      const payload = (await response.json()) as { url?: string }
+      if (!payload.url) {
+        throw new DifflabWebAuthError('OIDC login did not return an authorization URL', 502)
+      }
+
+      const headers = new Headers({ location: payload.url })
+      for (const cookie of response.headers.getSetCookie()) {
+        headers.append('set-cookie', cookie)
+      }
       return new Response(null, { status: 302, headers })
     },
 
     async handleCallback(request: Request): Promise<Response> {
       const requestUrl = resolveExternalUrl(request)
-      const txCookie = readCookie(request, OIDC_TX_COOKIE_NAME)
-      if (!txCookie) {
-        throw new DifflabWebAuthError('Missing OIDC transaction cookie', 400)
-      }
-      const tx = await unsealOidcTransaction(txCookie, config.sessionSecret)
-      if (!tx) {
-        throw new DifflabWebAuthError('Invalid or expired OIDC transaction cookie', 400)
-      }
+      const auth = getAuth(requestUrl.origin)
+      const rewrittenUrl = new URL(requestUrl.toString())
+      rewrittenUrl.pathname = `/api/auth/callback/${PROVIDER_ID}`
 
-      const oidcConfig = await getConfiguration()
-      let tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers
-      try {
-        tokens = await client.authorizationCodeGrant(oidcConfig, requestUrl, {
-          pkceCodeVerifier: tx.codeVerifier,
-          expectedState: tx.state,
-          expectedNonce: tx.nonce,
-          idTokenExpected: true,
-        })
-      } catch (error) {
-        throw new DifflabWebAuthError('OIDC callback verification failed', 401, { cause: error })
-      }
-
-      const claims = tokens.claims()
-      if (!claims || typeof claims.sub !== 'string') {
-        throw new DifflabWebAuthError('OIDC ID token missing subject claim', 401)
-      }
-
-      const session: AuthenticatedSession = {
-        userId: claims.sub,
-        email: typeof claims.email === 'string' ? claims.email : null,
-        name: typeof claims.name === 'string' ? claims.name : null,
-        workspaceId: 'default',
-        via: 'session',
-      }
-      const sealedSession = await sealSession(session, config.sessionSecret)
-      const secure = isSecureRequest(requestUrl)
-      const headers = new Headers({ location: new URL(tx.returnTo, requestUrl.origin).toString() })
-      headers.append(
-        'set-cookie',
-        formatCookie(SESSION_COOKIE_NAME, sealedSession, { maxAge: 60 * 60 * 24 * 7, secure }),
+      const response = await auth.handler(
+        new Request(rewrittenUrl, {
+          method: request.method,
+          headers: request.headers,
+        }),
       )
-      headers.append('set-cookie', formatCookie(OIDC_TX_COOKIE_NAME, '', { maxAge: 0, secure }))
-      return new Response(null, { status: 302, headers })
+
+      const location = response.headers.get('location')
+      if (location) {
+        const target = new URL(location, requestUrl.origin)
+        const errorParam = target.searchParams.get('error')
+        if (errorParam) {
+          throw new DifflabWebAuthError(`OIDC callback verification failed: ${errorParam}`, 401)
+        }
+      }
+
+      if (response.status >= 400) {
+        throw new DifflabWebAuthError('OIDC callback verification failed', 401)
+      }
+
+      return response
     },
 
     async logout(request: Request): Promise<Response> {
       const requestUrl = resolveExternalUrl(request)
       const postLogoutRedirect = new URL('/', requestUrl.origin).toString()
+      const auth = getAuth(requestUrl.origin)
+
+      const response = await auth.api.signOut({
+        headers: request.headers,
+        asResponse: true,
+      })
+
       let target = postLogoutRedirect
       try {
-        const oidcConfig = await getConfiguration()
-        const endSession = oidcConfig.serverMetadata().end_session_endpoint
-        if (endSession) {
-          target = client
-            .buildEndSessionUrl(oidcConfig, { post_logout_redirect_uri: postLogoutRedirect })
-            .toString()
+        const payload = (await response.json()) as { url?: string; redirect?: string }
+        if (typeof payload.url === 'string' && payload.url) {
+          target = payload.url
+        } else if (typeof payload.redirect === 'string' && payload.redirect) {
+          target = payload.redirect
         }
       } catch {
-        target = postLogoutRedirect
+        // Use local post-logout redirect if response body is empty.
       }
 
-      const secure = isSecureRequest(requestUrl)
       const headers = new Headers({ location: target })
-      headers.append('set-cookie', formatCookie(SESSION_COOKIE_NAME, '', { maxAge: 0, secure }))
-      headers.append('set-cookie', formatCookie(OIDC_TX_COOKIE_NAME, '', { maxAge: 0, secure }))
+      for (const cookie of response.headers.getSetCookie()) {
+        headers.append('set-cookie', cookie)
+      }
       return new Response(null, { status: 302, headers })
     },
   }
 }
 
 // Helpers ---------------------------------------------------------------------
+function createBetterAuthForOrigin(origin: string, config: OidcAuthConfig) {
+  const discoveryUrl = `${config.issuerUrl.replace(/\/+$/, '')}/.well-known/openid-configuration`
+  return betterAuth({
+    baseURL: origin,
+    basePath: '/api/auth',
+    secret: config.sessionSecret,
+    trustedOrigins: [origin],
+    user: {
+      additionalFields: {
+        oidcSub: {
+          type: 'string',
+          required: false,
+        },
+      },
+    },
+    session: {
+      expiresIn: SESSION_MAX_AGE_SECONDS,
+      cookieCache: {
+        enabled: true,
+        maxAge: SESSION_MAX_AGE_SECONDS,
+        strategy: 'jwe',
+        refreshCache: true,
+      },
+    },
+    account: {
+      storeStateStrategy: 'cookie',
+      storeAccountCookie: false,
+    },
+    plugins: [
+      genericOAuth({
+        config: [
+          {
+            providerId: PROVIDER_ID,
+            discoveryUrl,
+            clientId: config.clientId,
+            clientSecret: config.clientSecret,
+            scopes: ['openid', 'profile', 'email'],
+            pkce: true,
+            requireIdTokenVerification: true,
+            redirectURI: `${origin}${CALLBACK_PATH}`,
+            postLogoutRedirectURI: `${origin}/`,
+            mapProfileToUser: (profile) => ({
+              oidcSub: typeof profile.sub === 'string' ? profile.sub : String(profile.sub ?? ''),
+            }),
+          },
+        ],
+      }),
+    ],
+  })
+}
+
 function resolveExternalUrl(request: Request): URL {
   const url = new URL(request.url)
   const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
@@ -170,10 +200,6 @@ function resolveExternalUrl(request: Request): URL {
   if (forwardedProto) url.protocol = `${forwardedProto}:`
   if (forwardedHost) url.host = forwardedHost
   return url
-}
-
-function isSecureRequest(url: URL): boolean {
-  return url.protocol === 'https:'
 }
 
 function sanitizeReturnTo(raw: string | null): string {

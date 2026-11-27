@@ -2,12 +2,8 @@ import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, it } from 'bun:test'
 import { loadDifflabConfig } from 'difflab-config'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
-import {
-  createAuthProvider,
-  DifflabWebAuthError,
-  OIDC_TX_COOKIE_NAME,
-  SESSION_COOKIE_NAME,
-} from './index.js'
+import { extractCookiePair } from 'utils/netx'
+import { createAuthProvider, DifflabWebAuthError } from './index.js'
 
 // Setup -----------------------------------------------------------------------
 const cleanups: Array<() => Promise<void> | void> = []
@@ -34,9 +30,9 @@ describe('when authenticating requests in difflab-web', () => {
       const loginResp = await auth.beginLogin!(new Request('http://127.0.0.1:3000/api/auth/login'))
       expect(loginResp.status).toBe(302)
       const authorizeUrl = new URL(loginResp.headers.get('location')!)
-      const txSetCookie = loginResp.headers.get('set-cookie')!
-      expect(txSetCookie).toContain(`${OIDC_TX_COOKIE_NAME}=`)
-      expect(txSetCookie).toContain('HttpOnly')
+      const txSetCookies = loginResp.headers.getSetCookie()
+      expect(txSetCookies.some((c) => c.toLowerCase().includes('httponly'))).toBe(true)
+      const txCookieHeader = txSetCookies.map(extractCookiePair).join('; ')
 
       // Act: simulate IdP redirect back to /api/auth/callback with code & state
       const code = idp.issueCode({
@@ -52,20 +48,21 @@ describe('when authenticating requests in difflab-web', () => {
 
       const callbackResp = await auth.handleCallback!(
         new Request(callbackUrl, {
-          headers: { cookie: extractCookiePair(txSetCookie) },
+          headers: { cookie: txCookieHeader },
         }),
       )
 
-      // Assert: session cookie issued and resolves session
+      // Assert: session cookie issued and resolves session with deterministic OIDC sub
       expect(callbackResp.status).toBe(302)
       expect(callbackResp.headers.get('location')).toBe('http://127.0.0.1:3000/')
       const setCookies = callbackResp.headers.getSetCookie()
-      const sessionSetCookie = setCookies.find((c) => c.startsWith(`${SESSION_COOKIE_NAME}=`))!
-      expect(sessionSetCookie).toContain('HttpOnly')
+      expect(setCookies.some((c) => c.includes('better-auth.session_data='))).toBe(true)
+      expect(setCookies.every((c) => c.toLowerCase().includes('httponly'))).toBe(true)
+      const sessionCookieHeader = setCookies.map(extractCookiePair).join('; ')
 
       const session = await auth.resolveRequest(
         new Request('http://127.0.0.1:3000/api/health', {
-          headers: { cookie: extractCookiePair(sessionSetCookie) },
+          headers: { cookie: sessionCookieHeader },
         }),
       )
       expect(session).toEqual({
@@ -76,14 +73,28 @@ describe('when authenticating requests in difflab-web', () => {
         via: 'session',
       })
 
-      // Act: logout clears cookie and redirects to IdP end_session_endpoint
-      const logoutResp = await auth.logout!(new Request('http://127.0.0.1:3000/api/auth/logout'))
+      // Assert: a fresh provider instance (simulating serverless cold start) resolves the same deterministic OIDC sub
+      const coldStartAuth = createAuthProvider(config)
+      const coldStartSession = await coldStartAuth.resolveRequest(
+        new Request('http://127.0.0.1:3000/api/health', {
+          headers: { cookie: sessionCookieHeader },
+        }),
+      )
+      expect(coldStartSession).toEqual(session)
+
+      // Act: logout clears Better Auth session cookies
+      const logoutResp = await auth.logout!(
+        new Request('http://127.0.0.1:3000/api/auth/logout', {
+          headers: { cookie: sessionCookieHeader },
+        }),
+      )
       expect(logoutResp.status).toBe(302)
-      expect(logoutResp.headers.get('location')).toContain(`${idp.issuerUrl}/logout`)
-      const clearedCookie = logoutResp.headers
-        .getSetCookie()
-        .find((c) => c.startsWith(`${SESSION_COOKIE_NAME}=`))!
-      expect(clearedCookie).toContain('Max-Age=0')
+      const clearedCookies = logoutResp.headers.getSetCookie()
+      expect(
+        clearedCookies.some(
+          (c) => c.includes('better-auth.session_data=') && c.includes('Max-Age=0'),
+        ),
+      ).toBe(true)
     })
 
     it('should reject callback when state mismatches without setting a session cookie', async () => {
@@ -144,10 +155,6 @@ afterEach(async () => {
 })
 
 // Helpers ---------------------------------------------------------------------
-function extractCookiePair(setCookie: string): string {
-  return setCookie.split(';')[0]!.trim()
-}
-
 async function startMockOidcServer() {
   const { publicKey, privateKey } = await generateKeyPair('RS256')
   const jwk = await exportJWK(publicKey)
