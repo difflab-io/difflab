@@ -74,13 +74,14 @@ describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)',
       const location = loginRes.headers.get('location') ?? ''
       const setCookies = loginRes.headers.getSetCookie()
       const combinedSetCookie = setCookies.join('\n')
+      const hasStateCookie = setCookies.some((c) => /better-auth\.(?:oauth_)?state=/.test(c))
       await writeFile(
         join(ctx.rootDir, 'login-redirect.json'),
         JSON.stringify(
           {
             status: loginRes.status,
             location,
-            hasStateCookie: setCookies.some((c) => c.includes('better-auth.state=')),
+            hasStateCookie,
           },
           null,
           2,
@@ -93,7 +94,7 @@ describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)',
       expect(redirectUrl.searchParams.get('response_type')).toBe('code')
       expect(redirectUrl.searchParams.get('code_challenge_method')).toBe('S256')
       expect(redirectUrl.searchParams.get('redirect_uri')).toBe(`${BASE_URL}/api/auth/callback`)
-      expect(combinedSetCookie).toContain('better-auth.state=')
+      expect(hasStateCookie).toBe(true)
       expect(combinedSetCookie.toLowerCase()).toContain('httponly')
     })
   })
