@@ -90,6 +90,11 @@ sequenceDiagram
 4. **No per-session server-side revocation:** Stateless JWE cookies remain valid until their 7-day `Max-Age` expires or the user calls `POST /api/auth/sign-out` (which clears the cookies with `Max-Age=0`). If immediate per-user revocation or server-side session listing is required later, migrate to a database-backed session store.
 5. **Register `/api/auth/callback/oidc` in external OIDC providers:** Because `svelteKitHandler` serves Better Auth's native callback route directly, external IdPs (Dex, Kinde, etc.) must register `<origin>/api/auth/callback/oidc`.
 
+### Local Development and OIDC E2E Testing
+
+- **Local development (`mise run //apps/difflab-web:dev` or `difflab ui`):** Defaults to `DIFFLAB_MODE=local` (SQLite under `$DIFFLAB_HOME/local.sqlite`) and `DIFFLAB_AUTH_PROVIDER=local`. Loopback requests (`127.0.0.1`, `localhost`, `::1`) resolve directly to a synthetic `Local Developer` session (`workspaceId: 'local'`, `via: 'loopback'`) without instantiating Better Auth or requiring OIDC credentials.
+- **Local and CI OIDC E2E (`mise run e2e:web`):** Uses `dexidp/dex` (a lightweight CNCF open-source OIDC identity provider) via `e2e/web/docker-compose.test.yml` and `e2e/web/dex-config.yaml`. Dex runs in memory with a static client (`difflab-web-e2e`) and test user (`admin@example.com`) so CI verifies real OIDC discovery, PKCE, JWKS ID-token validation, JWE cookies, and logout without external cloud accounts. Dex is strictly for E2E testing and is never used in hosted deployments.
+
 ## References
 
 - System architecture overview: [../index.md](../index.md)
