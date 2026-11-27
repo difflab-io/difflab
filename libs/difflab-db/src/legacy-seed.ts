@@ -1,4 +1,3 @@
-import { createDifflabDb as createLegacyDifflabDb } from 'difflab-db-legacy'
 import { lstatOrNull } from 'utils/fsx'
 import type { DifflabDb } from './db.js'
 import { DEFAULT_ACTOR } from './schema/index.js'
@@ -13,6 +12,8 @@ export async function seedFromLegacyIfPresent(
     return 0
   }
 
+  // TODO(DIFF-325): Split bun:sqlite legacy seed adapter out of difflab-db so this dynamic import can be removed.
+  const { createDifflabDb: createLegacyDifflabDb } = await import('difflab-db-legacy')
   const legacyDb = await createLegacyDifflabDb(legacySqlitePath, { readonly: true })
   try {
     await legacyDb.assertCurrentSchema()

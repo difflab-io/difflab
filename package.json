@@ -1,22 +1,4 @@
 {
-  "name": "premise-bun-workspace",
-  "private": true,
-  "license": "Apache-2.0",
-  "type": "module",
-  "packageManager": "bun@1.4.2",
-  "workspaces": [
-    "templates/premise-*",
-    "apps/*",
-    "libs/*"
-  ],
-  "scripts": {
-    "build": "bun run --filter '*' build",
-    "test": "bun run --filter '*' test",
-    "lint": "eslint templates/premise-* apps/* libs/* --no-error-on-unmatched-pattern --no-warn-ignored && bun run --filter '*' lint",
-    "lint:fix": "eslint templates/premise-* apps/* libs/* --no-error-on-unmatched-pattern --fix --no-warn-ignored && bun run --filter '*' lint:fix",
-    "format": "prettier --plugin=prettier-plugin-svelte --ignore-path .prettierignore --write .",
-    "format:check": "prettier --plugin=prettier-plugin-svelte --ignore-path .prettierignore --check ."
-  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "eslint": "10.11.0",
@@ -25,5 +7,23 @@
     "prettier-plugin-svelte": "4.1.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0"
-  }
+  },
+  "license": "Apache-2.0",
+  "name": "premise-bun-workspace",
+  "packageManager": "bun@1.4.2",
+  "private": true,
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "format": "prettier --plugin=prettier-plugin-svelte --ignore-path .prettierignore --write .",
+    "format:check": "prettier --plugin=prettier-plugin-svelte --ignore-path .prettierignore --check .",
+    "lint": "eslint templates/premise-* apps/* libs/* --no-error-on-unmatched-pattern --no-warn-ignored \u0026\u0026 bun run --filter '*' lint",
+    "lint:fix": "eslint templates/premise-* apps/* libs/* --no-error-on-unmatched-pattern --fix --no-warn-ignored \u0026\u0026 bun run --filter '*' lint:fix",
+    "test": "bun run --filter '*' test"
+  },
+  "type": "module",
+  "workspaces": [
+    "templates/premise-*",
+    "apps/*",
+    "libs/*"
+  ]
 }

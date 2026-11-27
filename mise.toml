@@ -12,7 +12,7 @@ bun = "1.4.2"
 buf = "1.75.0"
 
 [monorepo]
-config_roots = ["apps/*", "libs/*", "e2e/api", "e2e/cli"]
+config_roots = ["apps/*", "libs/*", "e2e/api", "e2e/cli", "e2e/web"]
 
 [tasks.install]
 description = "Install workspace Bun dependencies"
@@ -32,6 +32,11 @@ run = 'echo "Completed e2e/api suite."'
 description = "Run difflab-cli and MCP end-to-end specs"
 depends = ["//e2e/cli:test"]
 run = 'echo "Completed e2e/cli suite."'
+
+[tasks."e2e:web"]
+description = "Run difflab-web Docker Compose and OIDC end-to-end specs"
+depends = ["//e2e/web:test"]
+run = 'echo "Completed e2e/web suite."'
 
 [tasks."e2e:smoke"]
 description = "Run fast API and CLI smoke specs"

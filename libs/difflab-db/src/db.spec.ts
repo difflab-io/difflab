@@ -62,6 +62,17 @@ describe('when migrating or opening a database', () => {
         ]),
       )
     })
+
+    it('should not statically import bun:sqlite or kysely-bun-worker when loading db module', async () => {
+      // Arrange
+      const dbSource = await Bun.file(new URL('./db.ts', import.meta.url)).text()
+      const seedSource = await Bun.file(new URL('./legacy-seed.ts', import.meta.url)).text()
+
+      // Act / Assert
+      expect(dbSource).not.toMatch(/^import .*kysely-bun-worker/m)
+      expect(dbSource).not.toMatch(/^import .*bun:sqlite/m)
+      expect(seedSource).not.toMatch(/^import .*difflab-db-legacy/m)
+    })
   })
 
   describe('given an unmigrated SQLite path', () => {

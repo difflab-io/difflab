@@ -12,6 +12,7 @@ name: On Commit
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 jobs:
   verify:
@@ -40,3 +41,52 @@ jobs:
           flow: on-commit
           release: auto
           install-premise: build
+
+  # TODO(CLO-237): Move OCI image RC publishing into Premise's native on-commit flow once matrixed Docker builds ship.
+  image:
+    name: Build difflab-web OCI image (and push RC on [publish-rc])
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Determine RC publish mode
+        id: rc
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.event.head_commit.message }}" == *"[publish-rc]"* ]]; then
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to GitHub Container Registry
+        if: steps.rc.outputs.push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/difflab-web
+          tags: |
+            type=sha,prefix=rc-,format=short
+
+      - name: Build (and push RC) image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/difflab-web/Dockerfile
+          platforms: linux/amd64
+          push: ${{ steps.rc.outputs.push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

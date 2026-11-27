@@ -1,0 +1,5 @@
+[tasks.test]
+description = "Run difflab-web Docker Compose + Dex OIDC end-to-end specs"
+depends = ["//:install"]
+dir = "{{ config_root }}"
+run = "bun test --timeout 180000"

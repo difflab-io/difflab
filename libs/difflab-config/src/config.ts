@@ -42,6 +42,11 @@ export const difflabEnvSchema = z.object({
   DIFFLAB_RPC_URL: optionalText,
   DIFFLAB_API_TOKEN: optionalText,
   DIFFLAB_WORKSPACE: optionalText,
+  DIFFLAB_AUTH_PROVIDER: optionalText.pipe(z.enum(['local', 'token', 'oidc']).optional()),
+  OIDC_ISSUER_URL: optionalText.pipe(z.url('OIDC_ISSUER_URL must be a valid URL').optional()),
+  OIDC_CLIENT_ID: optionalText,
+  OIDC_CLIENT_SECRET: optionalText,
+  SESSION_SECRET: optionalText,
   HOST: optionalText,
   PORT: optionalText
     .transform((value) => (value === undefined ? undefined : Number(value)))
@@ -57,8 +62,21 @@ export const repoConfigSchema = z.strictObject({
 })
 
 // Types -----------------------------------------------------------------------
-/** Deployment mode for `difflab-api` (`local` SQLite or `cloud` PostgreSQL). */
+type DifflabEnv = z.infer<typeof difflabEnvSchema>
+
+/** Deployment mode for `difflab-api` and `difflab-web` (`local` SQLite or `cloud` PostgreSQL). */
 export type ApiMode = 'local' | 'cloud'
+
+/** Authentication provider mode for `difflab-web`. */
+export type AuthProviderKind = 'local' | 'token' | 'oidc'
+
+/** Generic OpenID Connect provider configuration resolved from `OIDC_*` environment variables. */
+export type OidcAuthConfig = {
+  readonly issuerUrl: string
+  readonly clientId: string
+  readonly clientSecret: string
+  readonly sessionSecret: string
+}
 
 /** Resolved filesystem paths under a Difflab state root directory. */
 export type DifflabPaths = {
@@ -79,6 +97,8 @@ export type RemoteRpcConfig = {
 /** Strongly typed Difflab runtime configuration loaded from environment variables. */
 export type DifflabConfig = {
   readonly mode: ApiMode
+  readonly authProvider: AuthProviderKind
+  readonly oidc: OidcAuthConfig | null
   readonly paths: DifflabPaths
   readonly host: string
   readonly port: number
@@ -109,9 +129,14 @@ export function loadDifflabConfig(options: DifflabConfigLoadOptions = {}): Diffl
   const parsed = result.data
   const root = resolveRoot(options.root, options.home, parsed.DIFFLAB_HOME)
   const mode: ApiMode = parsed.DIFFLAB_MODE ?? (parsed.DATABASE_URL ? 'cloud' : 'local')
+  const authProviderKind: AuthProviderKind =
+    parsed.DIFFLAB_AUTH_PROVIDER ?? (mode === 'local' ? 'local' : 'token')
+  const oidc = resolveOidcConfig(authProviderKind, parsed)
 
   return {
     mode,
+    authProvider: authProviderKind,
+    oidc,
     paths: {
       root,
       projects: join(root, 'projects'),
@@ -207,9 +232,36 @@ export async function writeRepoConfig(config: RepoConfig, dir: string): Promise<
 }
 
 // Helpers ---------------------------------------------------------------------
+function resolveOidcConfig(
+  authProviderKind: AuthProviderKind,
+  parsed: DifflabEnv,
+): OidcAuthConfig | null {
+  if (authProviderKind !== 'oidc') return null
+  const missing: string[] = []
+  if (!parsed.OIDC_ISSUER_URL)
+    missing.push('OIDC_ISSUER_URL is required when DIFFLAB_AUTH_PROVIDER=oidc')
+  if (!parsed.OIDC_CLIENT_ID)
+    missing.push('OIDC_CLIENT_ID is required when DIFFLAB_AUTH_PROVIDER=oidc')
+  if (!parsed.OIDC_CLIENT_SECRET) {
+    missing.push('OIDC_CLIENT_SECRET is required when DIFFLAB_AUTH_PROVIDER=oidc')
+  }
+  if (!parsed.SESSION_SECRET)
+    missing.push('SESSION_SECRET is required when DIFFLAB_AUTH_PROVIDER=oidc')
+  if (missing.length > 0) {
+    throw new DifflabConfigError(`Invalid Difflab configuration: ${missing.join('; ')}`)
+  }
+  return {
+    issuerUrl: parsed.OIDC_ISSUER_URL!,
+    clientId: parsed.OIDC_CLIENT_ID!,
+    clientSecret: parsed.OIDC_CLIENT_SECRET!,
+    sessionSecret: parsed.SESSION_SECRET!,
+  }
+}
+
 function resolveRoot(explicitRoot?: string, home?: string, envDifflabHome?: string): string {
   if (explicitRoot) return resolve(explicitRoot)
   if (home) return join(resolveHomeDirectory(home), '.difflab')
   if (envDifflabHome) return resolve(envDifflabHome)
-  return join(homedir(), '.difflab')
+  const runtimeHome = process.env.HOME || process.env.USERPROFILE || homedir()
+  return join(runtimeHome, '.difflab')
 }

@@ -2,12 +2,10 @@ import { mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { loadDifflabConfig, resolveDifflabPaths, type ApiMode } from 'difflab-config'
 import { CamelCasePlugin, Kysely, PostgresDialect, sql } from 'kysely'
-import { BunSqliteDialect } from 'kysely-bun-worker/normal'
 import pg from 'pg'
 import { lstatOrNull } from 'utils/fsx'
 import { createLibLogger } from 'utils/logx'
 import { DifflabDbError } from './errors.js'
-import { seedFromLegacyIfPresent } from './legacy-seed.js'
 import { assertSchemaReady, migrateDatabase, MigrationError } from './migrations.js'
 import { createGitRemoteQueries } from './queries/git-remotes.js'
 import { createProjectQueries } from './queries/projects.js'
@@ -130,6 +128,7 @@ async function openLocalDatabase(stateDir?: string): Promise<DifflabDb> {
     const applied = await DifflabDb.migrate({ dialect: 'sqlite', path: paths.database })
     const db = await DifflabDb.fromConfig({ dialect: 'sqlite', path: paths.database })
     try {
+      const { seedFromLegacyIfPresent } = await import('./legacy-seed.js')
       const seeded = await seedFromLegacyIfPresent(db, paths.legacyDatabase)
       logger.info('difflab-db.local.initialized', {
         path: paths.database,
@@ -158,6 +157,8 @@ async function connectSqlite(
   if (createSqlite) {
     await mkdir(dirname(sqlitePath), { recursive: true })
   }
+  // TODO(DIFF-325): Split bun:sqlite adapter into a dedicated entrypoint/package so this dynamic import can be removed.
+  const { BunSqliteDialect } = await import('kysely-bun-worker/normal')
   const db = new Kysely<DifflabDatabase>({
     dialect: new BunSqliteDialect({
       url: sqlitePath,

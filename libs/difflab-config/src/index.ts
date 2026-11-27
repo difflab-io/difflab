@@ -10,9 +10,11 @@ export {
   validateProjectKey,
   writeRepoConfig,
   type ApiMode,
+  type AuthProviderKind,
   type DifflabConfig,
   type DifflabConfigLoadOptions,
   type DifflabPaths,
+  type OidcAuthConfig,
   type RemoteRpcConfig,
   type RepoConfig,
 } from './config.js'

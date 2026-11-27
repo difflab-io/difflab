@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-difflab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-difflab}
+      POSTGRES_DB: ${POSTGRES_DB:-difflab}
+    volumes:
+      - difflab_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-difflab} -d ${POSTGRES_DB:-difflab}']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  migrate:
+    image: ghcr.io/difflab-io/difflab-web:${DIFFLAB_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/difflab-web/Dockerfile
+    command: ['migrate']
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DIFFLAB_MODE: cloud
+      DATABASE_URL: ${DATABASE_URL:-postgres://difflab:difflab@postgres:5432/difflab}
+
+  web:
+    image: ghcr.io/difflab-io/difflab-web:${DIFFLAB_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/difflab-web/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '${DIFFLAB_WEB_PORT:-3000}:3000'
+    environment:
+      DIFFLAB_MODE: cloud
+      DATABASE_URL: ${DATABASE_URL:-postgres://difflab:difflab@postgres:5432/difflab}
+      DIFFLAB_AUTH_PROVIDER: ${DIFFLAB_AUTH_PROVIDER:-token}
+      DIFFLAB_API_TOKEN: ${DIFFLAB_API_TOKEN:-}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      ORIGIN: ${ORIGIN:-http://127.0.0.1:3000}
+
+volumes:
+  difflab_pgdata:

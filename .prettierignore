@@ -6,6 +6,8 @@ dist/
 **/.output/
 .svelte-kit/
 **/.svelte-kit/
+.vercel/
+**/.vercel/
 build/
 **/build/
 coverage/
