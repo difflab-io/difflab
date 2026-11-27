@@ -50,16 +50,16 @@ sequenceDiagram
 
   Browser->>Web: GET /api/auth/login
   Web->>BA: signInSocial(provider = "oidc", disableRedirect = true)
-  BA-->>Web: authorize URL (PKCE S256 + state + nonce) + Set-Cookie (better-auth.state)
+  BA-->>Web: authorize URL (PKCE S256 + state + nonce) + Set-Cookie (better-auth.oauth_state)
   Web-->>Browser: 302 Location: IdP authorize URL + Set-Cookie
 
   Browser->>IdP: Authenticate user
   IdP-->>Browser: 302 /api/auth/callback?code=...&state=...
 
-  Browser->>Web: GET /api/auth/callback?code=...&state=... (+ state cookie)
+  Browser->>Web: GET /api/auth/callback?code=...&state=... (+ oauth_state cookie)
   Web->>BA: handler(/api/auth/callback/oidc)
-  BA->>IdP: Exchange code + PKCE verifier; verify ID token via JWKS + nonce
-  BA->>BA: mapProfileToUser -> user.oidcSub = claims.sub; seal JWE cookie
+  BA->>IdP: Exchange code + PKCE verifier, verify ID token via JWKS + nonce
+  BA->>BA: mapProfileToUser sets user.oidcSub = claims.sub, seals JWE cookie
   BA-->>Browser: 302 returnTo + Set-Cookie (better-auth.session_data, HttpOnly JWE)
 
   Browser->>Web: Subsequent request (+ better-auth.session_data cookie)
@@ -75,7 +75,7 @@ sequenceDiagram
 `createBetterAuthForOrigin` in `apps/difflab-web/src/lib/server/auth/oidc.ts` configures Better Auth with no `database` adapter:
 
 - `session.cookieCache`: `{ enabled: true, maxAge: 604800, strategy: 'jwe', refreshCache: true }` stores the session payload in an encrypted `HttpOnly` JWE cookie (`better-auth.session_data`).
-- `account.storeStateStrategy: 'cookie'` stores PKCE and CSRF state in an encrypted cookie (`better-auth.state`) instead of a database table.
+- `account.storeStateStrategy: 'cookie'` stores PKCE and CSRF state in an encrypted cookie (`better-auth.oauth_state`) instead of a database table.
 - `account.storeAccountCookie: false` prevents Better Auth from serializing raw provider access and ID tokens into browser cookies.
 - `plugins: [genericOAuth(...)]` discovers endpoints from `${OIDC_ISSUER_URL}/.well-known/openid-configuration`, enforces `pkce: true` and `requireIdTokenVerification: true` (JWKS + `nonce`), and sets `redirectURI` to `${origin}/api/auth/callback`.
 - Instances are cached per external request origin (honoring `X-Forwarded-Proto` and `X-Forwarded-Host`) so ephemeral preview deployments work without hardcoding a single `BETTER_AUTH_URL`.
@@ -84,7 +84,7 @@ sequenceDiagram
 
 1. **Key user identity off OIDC `sub`, never Better Auth's ephemeral `user.id`:** Without a database, Better Auth generates a new random internal `user.id` on every sign-in. Difflab copies the verified OIDC `sub` claim into `user.additionalFields.oidcSub` inside `mapProfileToUser` and resolves `AuthenticatedSession.userId = oidcSub || session.user.id`. All application logic and database records must use `AuthenticatedSession.userId` (the stable OIDC `sub`).
 2. **Do not enable `storeAccountCookie: true` without auditing cookie size:** Raw OIDC access and ID tokens from providers like Kinde or Auth0 can exceed the 4 KB browser cookie limit when encrypted into cookies. Because `storeAccountCookie` is `false`, server code cannot call Better Auth's `getAccessToken()` to invoke external IdP APIs on behalf of the user.
-3. **Share `SESSION_SECRET` across all replicas and serverless functions:** Every instance must use the exact same `SESSION_SECRET` (at least 32 bytes) to decrypt `better-auth.session_data` and `better-auth.state`. Rotating `SESSION_SECRET` immediately invalidates all active browser sessions.
+3. **Share `SESSION_SECRET` across all replicas and serverless functions:** Every instance must use the exact same `SESSION_SECRET` (at least 32 bytes) to decrypt `better-auth.session_data` and `better-auth.oauth_state`. Rotating `SESSION_SECRET` immediately invalidates all active browser sessions.
 4. **No per-session server-side revocation:** Stateless JWE cookies remain valid until their 7-day `Max-Age` expires or the user hits `/api/auth/logout` (which clears the cookies with `Max-Age=0`). If immediate per-user revocation or server-side session listing is required later, migrate to a database-backed session store.
 5. **Do not expose Better Auth's internal callback path externally:** External IdPs (Dex, Kinde, etc.) register `/api/auth/callback`. `handleCallback` rewrites `/api/auth/callback` to Better Auth's internal `/api/auth/callback/oidc` route so deployments stay decoupled from Better Auth's URL layout.
 
