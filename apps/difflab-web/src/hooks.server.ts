@@ -1,4 +1,6 @@
+import { building } from '$app/environment'
 import type { Handle } from '@sveltejs/kit'
+import { svelteKitHandler } from 'better-auth/svelte-kit'
 import { annotateWideEvent, runWithWideEvent } from 'utils/logx'
 import { DifflabWebAuthError } from '$lib/server/auth/index.js'
 import {
@@ -54,7 +56,14 @@ export const handle: Handle = async ({ event, resolve }) => {
         throw error
       }
 
-      const response = await resolve(event)
+      const response = runtime.authProvider.betterAuth
+        ? await svelteKitHandler({
+            event,
+            resolve,
+            auth: runtime.authProvider.betterAuth,
+            building,
+          })
+        : await resolve(event)
       if (isApiPath) {
         response.headers.set('x-difflab-api-version', API_VERSION)
         response.headers.set('x-difflab-latest-client-version', LATEST_CLIENT_VERSION)

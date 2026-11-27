@@ -62,16 +62,21 @@ describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)',
   })
 
   describeOidc('given OIDC authentication is configured', () => {
-    it('when requesting GET /api/auth/login, then it redirects with PKCE S256 and sets an HttpOnly transaction cookie', async () => {
+    it('when requesting POST /api/auth/sign-in/social, then it returns a PKCE S256 authorize URL and sets an HttpOnly state cookie', async () => {
       // Arrange
       const ctx = await createE2EContext('web', 'deployed-web', 'oidc-login-redirect')
 
       // Act
-      const loginRes = await fetch(`${BASE_URL}/api/auth/login`, {
-        headers: buildHeaders(),
-        redirect: 'manual',
+      const loginRes = await fetch(`${BASE_URL}/api/auth/sign-in/social`, {
+        method: 'POST',
+        headers: buildHeaders({
+          'content-type': 'application/json',
+          origin: BASE_URL,
+        }),
+        body: JSON.stringify({ provider: 'oidc', callbackURL: '/', disableRedirect: true }),
       })
-      const location = loginRes.headers.get('location') ?? ''
+      const payload = (await loginRes.json()) as { url?: string }
+      const location = payload.url ?? ''
       const setCookies = loginRes.headers.getSetCookie()
       const combinedSetCookie = setCookies.join('\n')
       const hasStateCookie = setCookies.some((c) => /better-auth\.(?:oauth_)?state=/.test(c))
@@ -89,11 +94,13 @@ describeDeployed('given a deployed difflab-web instance (DIFFLAB_E2E_BASE_URL)',
       )
 
       // Assert
-      expect(loginRes.status).toBe(302)
+      expect(loginRes.status).toBe(200)
       const redirectUrl = new URL(location)
       expect(redirectUrl.searchParams.get('response_type')).toBe('code')
       expect(redirectUrl.searchParams.get('code_challenge_method')).toBe('S256')
-      expect(redirectUrl.searchParams.get('redirect_uri')).toBe(`${BASE_URL}/api/auth/callback`)
+      expect(redirectUrl.searchParams.get('redirect_uri')).toBe(
+        `${BASE_URL}/api/auth/callback/oidc`,
+      )
       expect(hasStateCookie).toBe(true)
       expect(combinedSetCookie.toLowerCase()).toContain('httponly')
     })

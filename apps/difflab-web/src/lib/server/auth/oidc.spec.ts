@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { loadDifflabConfig } from 'difflab-config'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { extractCookiePair } from 'utils/netx'
-import { createAuthProvider, DifflabWebAuthError } from './index.js'
+import { createAuthProvider } from './index.js'
 
 // Setup -----------------------------------------------------------------------
 const cleanups: Array<() => Promise<void> | void> = []
@@ -26,15 +26,25 @@ describe('when authenticating requests in difflab-web', () => {
       })
       const auth = createAuthProvider(config)
 
-      // Act: begin login
-      const loginResp = await auth.beginLogin!(new Request('http://127.0.0.1:3000/api/auth/login'))
-      expect(loginResp.status).toBe(302)
-      const authorizeUrl = new URL(loginResp.headers.get('location')!)
+      // Act: begin login via Better Auth native social sign-in route
+      const loginResp = await auth.betterAuth!.handler(
+        new Request('http://127.0.0.1:3000/api/auth/sign-in/social', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: 'http://127.0.0.1:3000',
+          },
+          body: JSON.stringify({ provider: 'oidc', callbackURL: '/', disableRedirect: true }),
+        }),
+      )
+      expect(loginResp.status).toBe(200)
+      const loginPayload = (await loginResp.json()) as { url: string }
+      const authorizeUrl = new URL(loginPayload.url)
       const txSetCookies = loginResp.headers.getSetCookie()
       expect(txSetCookies.some((c) => c.toLowerCase().includes('httponly'))).toBe(true)
       const txCookieHeader = txSetCookies.map(extractCookiePair).join('; ')
 
-      // Act: simulate IdP redirect back to /api/auth/callback with code & state
+      // Act: simulate IdP redirect back to /api/auth/callback/oidc with code & state
       const code = idp.issueCode({
         nonce: authorizeUrl.searchParams.get('nonce')!,
         codeChallenge: authorizeUrl.searchParams.get('code_challenge')!,
@@ -42,11 +52,11 @@ describe('when authenticating requests in difflab-web', () => {
         name: 'Alice',
         sub: 'user-123',
       })
-      const callbackUrl = new URL('http://127.0.0.1:3000/api/auth/callback')
+      const callbackUrl = new URL('http://127.0.0.1:3000/api/auth/callback/oidc')
       callbackUrl.searchParams.set('code', code)
       callbackUrl.searchParams.set('state', authorizeUrl.searchParams.get('state')!)
 
-      const callbackResp = await auth.handleCallback!(
+      const callbackResp = await auth.betterAuth!.handler(
         new Request(callbackUrl, {
           headers: { cookie: txCookieHeader },
         }),
@@ -54,7 +64,7 @@ describe('when authenticating requests in difflab-web', () => {
 
       // Assert: session cookie issued and resolves session with deterministic OIDC sub
       expect(callbackResp.status).toBe(302)
-      expect(callbackResp.headers.get('location')).toBe('http://127.0.0.1:3000/')
+      expect(callbackResp.headers.get('location')).toBe('/')
       const setCookies = callbackResp.headers.getSetCookie()
       expect(setCookies.some((c) => c.includes('better-auth.session_data='))).toBe(true)
       expect(setCookies.every((c) => c.toLowerCase().includes('httponly'))).toBe(true)
@@ -83,12 +93,16 @@ describe('when authenticating requests in difflab-web', () => {
       expect(coldStartSession).toEqual(session)
 
       // Act: logout clears Better Auth session cookies
-      const logoutResp = await auth.logout!(
-        new Request('http://127.0.0.1:3000/api/auth/logout', {
-          headers: { cookie: sessionCookieHeader },
+      const logoutResp = await auth.betterAuth!.handler(
+        new Request('http://127.0.0.1:3000/api/auth/sign-out', {
+          method: 'POST',
+          headers: {
+            cookie: sessionCookieHeader,
+            origin: 'http://127.0.0.1:3000',
+          },
         }),
       )
-      expect(logoutResp.status).toBe(302)
+      expect(logoutResp.status).toBe(200)
       const clearedCookies = logoutResp.headers.getSetCookie()
       expect(
         clearedCookies.some(
@@ -111,17 +125,31 @@ describe('when authenticating requests in difflab-web', () => {
         },
       })
       const auth = createAuthProvider(config)
-      const loginResp = await auth.beginLogin!(new Request('http://127.0.0.1:3000/api/auth/login'))
-      const txCookie = extractCookiePair(loginResp.headers.get('set-cookie')!)
+      const loginResp = await auth.betterAuth!.handler(
+        new Request('http://127.0.0.1:3000/api/auth/sign-in/social', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: 'http://127.0.0.1:3000',
+          },
+          body: JSON.stringify({ provider: 'oidc', callbackURL: '/', disableRedirect: true }),
+        }),
+      )
+      const txCookie = loginResp.headers.getSetCookie().map(extractCookiePair).join('; ')
 
-      // Act / Assert
-      await expect(
-        auth.handleCallback!(
-          new Request('http://127.0.0.1:3000/api/auth/callback?code=bad&state=wrong-state', {
-            headers: { cookie: txCookie },
-          }),
-        ),
-      ).rejects.toBeInstanceOf(DifflabWebAuthError)
+      // Act
+      const callbackResp = await auth.betterAuth!.handler(
+        new Request('http://127.0.0.1:3000/api/auth/callback/oidc?code=bad&state=wrong-state', {
+          headers: { cookie: txCookie },
+        }),
+      )
+
+      // Assert: redirects to error and sets no session cookie
+      expect(callbackResp.status).toBe(302)
+      expect(callbackResp.headers.get('location') ?? '').toContain('error=')
+      expect(
+        callbackResp.headers.getSetCookie().some((c) => c.includes('better-auth.session_data=')),
+      ).toBe(false)
     })
   })
 

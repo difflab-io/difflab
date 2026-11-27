@@ -9,8 +9,8 @@ staticClients:
     name: Difflab Web E2E
     secret: difflab-web-e2e-secret
     redirectURIs:
-      - http://127.0.0.1:3000/api/auth/callback
-      - http://localhost:3000/api/auth/callback
+      - http://127.0.0.1:3000/api/auth/callback/oidc
+      - http://localhost:3000/api/auth/callback/oidc
 staticPasswords:
   - email: admin@example.com
     # bcrypt hash for "password"

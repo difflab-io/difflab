@@ -1,4 +1,5 @@
 import type { AuthProviderKind } from 'difflab-config'
+import type { BetterAuthInstance } from './oidc.js'
 
 // Types -----------------------------------------------------------------------
 /** Authenticated caller identity attached to SvelteKit `event.locals`. */
@@ -13,10 +14,8 @@ export type AuthenticatedSession = {
 /** Pluggable server authentication provider for local, token, and generic OIDC modes. */
 export type AuthProvider = {
   readonly kind: AuthProviderKind
+  readonly betterAuth?: BetterAuthInstance
   resolveRequest(request: Request): Promise<AuthenticatedSession | null>
-  beginLogin?(request: Request): Promise<Response>
-  handleCallback?(request: Request): Promise<Response>
-  logout?(request: Request): Promise<Response>
 }
 
 /** Semantic authentication error carrying an HTTP status code. */

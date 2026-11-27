@@ -19,6 +19,8 @@ export interface AuthCardProps extends VariantProps<typeof authCardVariants> {
   readonly user?: AuthCardUser | null
   readonly loginHref?: string
   readonly logoutHref?: string
+  readonly onSignIn?: () => void | Promise<void>
+  readonly onSignOut?: () => void | Promise<void>
   readonly errorMessage?: string | null
   readonly class?: string
 }

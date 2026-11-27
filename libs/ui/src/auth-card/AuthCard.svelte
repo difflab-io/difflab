@@ -23,6 +23,8 @@
     user = null,
     loginHref = '/api/auth/login',
     logoutHref = '/api/auth/logout',
+    onSignIn,
+    onSignOut,
     errorMessage = null,
     size = 'md',
     class: className,
@@ -84,9 +86,15 @@
       <HStack class="w-full justify-end gap-2">
         {#if authProvider === 'oidc'}
           {#if authenticated}
-            <form method="post" action={logoutHref}>
-              <Button type="submit" variant="outline">Sign out</Button>
-            </form>
+            {#if onSignOut}
+              <Button type="button" variant="outline" onclick={onSignOut}>Sign out</Button>
+            {:else}
+              <form method="post" action={logoutHref}>
+                <Button type="submit" variant="outline">Sign out</Button>
+              </form>
+            {/if}
+          {:else if onSignIn}
+            <Button type="button" variant="solid" onclick={onSignIn}>Sign in</Button>
           {:else}
             <form method="get" action={loginHref}>
               <Button type="submit" variant="solid">Sign in</Button>

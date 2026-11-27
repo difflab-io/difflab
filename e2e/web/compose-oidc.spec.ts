@@ -51,13 +51,16 @@ describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -
     expect(beforeJson.authProvider).toBe('oidc')
     expect(beforeJson.auth.authenticated).toBe(false)
 
-    // Act 2: /api/auth/login -> Dex OIDC -> password submit -> /api/auth/callback
-    const loginRes = await fetch(`${baseUrl}/api/auth/login`, { redirect: 'manual' })
-    expect(loginRes.status).toBe(302)
+    // Act 2: POST /api/auth/sign-in/social -> Dex OIDC -> password submit -> /api/auth/callback/oidc
+    const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/social`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({ provider: 'oidc', callbackURL: '/', disableRedirect: true }),
+    })
+    expect(loginRes.status).toBe(200)
+    const loginPayload = (await loginRes.json()) as { url: string }
     const txCookie = loginRes.headers.getSetCookie().map(extractCookiePair).join('; ')
-    const dexAuthUrl = loginRes.headers
-      .get('location')!
-      .replace('http://dex:5556', 'http://127.0.0.1:5556')
+    const dexAuthUrl = loginPayload.url.replace('http://dex:5556', 'http://127.0.0.1:5556')
 
     const dexLoginPage = await fetch(dexAuthUrl, { redirect: 'follow' })
     const dexHtml = await dexLoginPage.text()
@@ -86,7 +89,7 @@ describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -
     expect(submitRes.status).toBe(303)
     const approvalOrCallback = new URL(submitRes.headers.get('location')!, formUrl)
     const finalRedirect = await followUntilCallback(approvalOrCallback)
-    expect(finalRedirect.startsWith(`${baseUrl}/api/auth/callback`)).toBe(true)
+    expect(finalRedirect.startsWith(`${baseUrl}/api/auth/callback/oidc`)).toBe(true)
 
     const callbackRes = await fetch(finalRedirect, {
       headers: { cookie: txCookie },
@@ -113,12 +116,11 @@ describe('given docker-compose.yml + e2e/web/docker-compose.test.yml (postgres -
     expect(afterLoginJson.auth.user?.email).toBe('admin@example.com')
 
     // Act 3: logout clears cookie
-    const logoutRes = await fetch(`${baseUrl}/api/auth/logout`, {
+    const logoutRes = await fetch(`${baseUrl}/api/auth/sign-out`, {
       method: 'POST',
-      headers: { cookie: sessionCookie },
-      redirect: 'manual',
+      headers: { cookie: sessionCookie, origin: baseUrl },
     })
-    expect(logoutRes.status).toBe(302)
+    expect(logoutRes.status).toBe(200)
     const cleared = logoutRes.headers
       .getSetCookie()
       .find((c) => c.includes('better-auth.session_data='))!
@@ -176,7 +178,7 @@ async function runCompose(project: string, args: string[]) {
 async function followUntilCallback(startUrl: URL): Promise<string> {
   let current = startUrl
   for (let i = 0; i < 6; i += 1) {
-    if (current.pathname === '/api/auth/callback') return current.toString()
+    if (current.pathname === '/api/auth/callback/oidc') return current.toString()
     const normalized = new URL(
       current.toString().replace('http://dex:5556', 'http://127.0.0.1:5556'),
     )
